@@ -41,33 +41,47 @@ class OpenAIService(
         
         return try {
             val element = json.parseToJsonElement(rawResponse)
-            val jsonArray = if (element is kotlinx.serialization.json.JsonObject) {
-                if (element.containsKey("issues")) {
-                    element["issues"]!!.jsonArray
-                } else if (element.containsKey("type") || element.containsKey("severity")) {
-                    // It returned a single issue object instead of an array
-                    kotlinx.serialization.json.JsonArray(listOf(element))
-                } else {
-                    // Just an empty object
-                    kotlinx.serialization.json.JsonArray(emptyList())
+            val jsonArray = when (element) {
+                is kotlinx.serialization.json.JsonObject -> {
+                    when {
+                        element.containsKey("issues") -> element["issues"]?.jsonArray ?: kotlinx.serialization.json.JsonArray(emptyList())
+                        element.containsKey("type") || element.containsKey("severity") -> {
+                            // Single issue case
+                            kotlinx.serialization.json.JsonArray(listOf(element))
+                        }
+                        else -> kotlinx.serialization.json.JsonArray(emptyList())
+                    }
                 }
-            } else {
-                element.jsonArray
+                is kotlinx.serialization.json.JsonArray -> element
+                else -> kotlinx.serialization.json.JsonArray(emptyList())
             }
             
-            jsonArray.map { item ->
-                val obj = item.jsonObject
-                Issue(
-                    id = UUID.randomUUID().toString(),
-                    type = try { IssueType.valueOf(obj["type"]?.jsonPrimitive?.content ?: "ARCHITECTURE") } catch (e: Exception) { IssueType.ARCHITECTURE },
-                    severity = try { IssueSeverity.valueOf(obj["severity"]?.jsonPrimitive?.content ?: "WARNING") } catch(e:Exception){ IssueSeverity.WARNING },
-                    title = obj["title"]?.jsonPrimitive?.content ?: "Detected Issue",
-                    description = obj["description"]?.jsonPrimitive?.content ?: "No description provided.",
-                    filePath = filePath,
-                    line = obj["line"]?.jsonPrimitive?.int ?: 1,
-                    codeSnippet = getSnippet(fileContent, obj["line"]?.jsonPrimitive?.int ?: 1),
-                    affectedNodes = listOf(filePath)
-                )
+            jsonArray.mapNotNull { item ->
+                try {
+                    val obj = item.jsonObject
+                    Issue(
+                        id = UUID.randomUUID().toString(),
+                        type = try { 
+                            IssueType.valueOf(obj["type"]?.jsonPrimitive?.content ?: "ARCHITECTURE") 
+                        } catch (e: Exception) { 
+                            IssueType.ARCHITECTURE 
+                        },
+                        severity = try { 
+                            IssueSeverity.valueOf(obj["severity"]?.jsonPrimitive?.content ?: "WARNING") 
+                        } catch(e:Exception){ 
+                            IssueSeverity.WARNING 
+                        },
+                        title = obj["title"]?.jsonPrimitive?.content ?: "Detected Issue",
+                        description = obj["description"]?.jsonPrimitive?.content ?: "No description provided.",
+                        filePath = filePath,
+                        line = obj["line"]?.jsonPrimitive?.intOrNull ?: 1,
+                        codeSnippet = getSnippet(fileContent, obj["line"]?.jsonPrimitive?.intOrNull ?: 1),
+                        affectedNodes = listOf(filePath)
+                    )
+                } catch (e: Exception) {
+                    log.warn("Failed to parse individual issue from AI response", e)
+                    null
+                }
             }
         } catch (e: Exception) {
             log.warn("Failed to parse detectIssues output: $rawResponse", e)
@@ -161,15 +175,20 @@ class OpenAIService(
             val response = httpClient.newCall(httpRequest).execute()
 
             if (!response.isSuccessful) {
-                val body = response.body?.string() ?: ""
+                val body = response.body?.string() ?: "Unknown error"
                 log.error("OpenAI API error: ${response.code} - $body")
-                throw RuntimeException("OpenAI API error: ${response.code}")
+                throw RuntimeException("OpenAI API communication failure: ${response.code}")
             }
 
             val responseBody = response.body?.string()
                 ?: throw RuntimeException("Empty response from OpenAI")
 
-            val completionResponse = json.decodeFromString<ChatCompletionResponse>(responseBody)
+            val completionResponse = try {
+                 json.decodeFromString<ChatCompletionResponse>(responseBody)
+            } catch (e: Exception) {
+                log.error("Failed to decode OpenAI response: $responseBody", e)
+                throw RuntimeException("Format error in OpenAI response")
+            }
             completionResponse.choices.firstOrNull()?.message?.content
                 ?: throw RuntimeException("No content in OpenAI response")
         }

@@ -31,18 +31,18 @@ function buildInitialNodes(graphNodes: ProjectGraph['nodes']): Node[] {
       x: (idx % 5) * 230 + 40,
       y: Math.floor(idx / 5) * 190 + 40,
     },
-    data: { node: gn, isSelected: false, isHighlighted: false },
+    data: { node: gn, isSelected: false, isHighlighted: false, isDebugActive: false },
+    zIndex: 0,
   }))
 }
 
 export function NeuroMap({ graph }: NeuroMapProps) {
   const { state, dispatch } = useAppStore()
 
-  // useNodesState stores positions internally — drag never touches external state
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildInitialNodes(graph.nodes))
   const [edges, setEdges] = useEdgesState<Edge>([])
 
-  // Rebuild nodes only when graph data changes (new analysis), preserving drag positions
+  // Rebuild nodes when graph data changes, preserving drag positions
   useEffect(() => {
     setNodes(prev => {
       const posMap = new Map(prev.map(n => [n.id, n.position]))
@@ -53,38 +53,67 @@ export function NeuroMap({ graph }: NeuroMapProps) {
           x: (idx % 5) * 230 + 40,
           y: Math.floor(idx / 5) * 190 + 40,
         },
-        data: { node: gn, isSelected: false, isHighlighted: false },
+        data: { node: gn, isSelected: false, isHighlighted: false, isDebugActive: false },
+        zIndex: 0,
       }))
     })
   }, [graph.nodes, setNodes])
 
-  // Update selection/highlight — only touches data, never position
+  // Update selection/highlight/debug/zIndex — only touches data + zIndex, never position
   useEffect(() => {
     setNodes(prev =>
       prev.map(n => {
-        const nextSelected   = state.selectedNode?.id === n.id
+        const nextSelected    = state.selectedNode?.id === n.id
         const nextHighlighted = state.highlightedNodes.includes(n.id)
-        const d = n.data as { node: GraphNode; isSelected: boolean; isHighlighted: boolean }
-        if (d.isSelected === nextSelected && d.isHighlighted === nextHighlighted) return n
-        return { ...n, data: { ...d, isSelected: nextSelected, isHighlighted: nextHighlighted } }
+        const nextDebugActive = state.debugFrame?.nodeId === n.id
+        const nextFocused     = state.focusedNodeId === n.id
+
+        const d = n.data as { node: GraphNode; isSelected: boolean; isHighlighted: boolean; isDebugActive: boolean }
+
+        // Compute z-index: focused (expanded) nodes go on top
+        const nextZIndex = nextFocused ? 1000 : nextDebugActive ? 500 : nextSelected ? 100 : 0
+
+        if (
+          d.isSelected === nextSelected &&
+          d.isHighlighted === nextHighlighted &&
+          d.isDebugActive === nextDebugActive &&
+          n.zIndex === nextZIndex
+        ) return n
+
+        return {
+          ...n,
+          zIndex: nextZIndex,
+          data: { ...d, isSelected: nextSelected, isHighlighted: nextHighlighted, isDebugActive: nextDebugActive },
+        }
       })
     )
-  }, [state.selectedNode, state.highlightedNodes, setNodes])
+  }, [state.selectedNode, state.highlightedNodes, state.debugFrame, state.focusedNodeId, setNodes])
 
-  // Rebuild edges when graph or highlights change
+  // Rebuild edges — cycle edges in orange
   useEffect(() => {
     setEdges(
       graph.edges.map(e => {
         const hl = state.highlightedNodes.includes(e.source)
+        const isCycle = e.isCycle === true
+
+        let strokeColor = '#30363d'
+        if (hl && !isCycle) strokeColor = '#00f0ff' // Neon Blue
+        else if (isCycle) strokeColor = '#f0883e'
+
         return {
           id: e.id,
           source: e.source,
           target: e.target,
-          animated: e.animated || hl,
-          style: { stroke: hl ? '#388bfd' : '#30363d', strokeWidth: hl ? 1.5 : 1 },
+          animated: e.animated || hl || isCycle,
+          style: {
+            stroke: strokeColor,
+            strokeWidth: hl ? 3 : isCycle ? 1.3 : 1,
+            strokeDasharray: isCycle ? '5 3' : undefined,
+            filter: hl ? 'drop-shadow(0 0 5px #00f0ff)' : undefined,
+          },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: hl ? '#388bfd' : '#30363d',
+            color: strokeColor,
             width: 9,
             height: 9,
           },

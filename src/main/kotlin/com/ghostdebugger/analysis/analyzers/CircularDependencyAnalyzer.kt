@@ -31,7 +31,9 @@ class CircularDependencyAnalyzer : Analyzer {
                             "This can cause initialization issues and make the code harder to test.",
                     filePath = firstNode.filePath,
                     line = 1,
-                    codeSnippet = cycle.joinToString(" → ") { context.graph.getNode(it)?.name ?: it },
+                    codeSnippet = cycle.joinToString(" → ") { id -> 
+                        context.graph.getNode(id)?.name ?: id.substringAfterLast("/") 
+                    },
                     affectedNodes = cycle
                 )
             )

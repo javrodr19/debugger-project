@@ -81,6 +81,7 @@ export interface GraphEdge {
   type: EdgeType
   weight: number
   animated: boolean
+  isCycle?: boolean
 }
 
 export interface GraphMetadata {
@@ -89,6 +90,7 @@ export interface GraphMetadata {
   totalIssues: number
   analysisTimestamp: number
   healthScore: number
+  cycles?: string[][]
 }
 
 export interface ProjectGraph {
@@ -107,3 +109,18 @@ export interface ImpactAnalysis {
   nodeId: string
   affectedNodes: string[]
 }
+
+export interface DebugVariable {
+  name: string
+  value: string
+  type: string
+}
+
+export interface DebugFrame {
+  nodeId: string
+  filePath: string
+  line: number
+  variables: DebugVariable[]
+}
+
+export type ViewMode = 'neuromap' | 'pixelcity'

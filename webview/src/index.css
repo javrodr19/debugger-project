@@ -9,8 +9,8 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #030712;
-  color: #f1f5f9;
+  background-color: #0d1117;
+  color: #e6edf3;
 }
 
 /* React Flow overrides */
@@ -40,11 +40,16 @@ html, body, #root {
 
 /* Font */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Animations */
+/* ═══════════════════════════════════════════════
+   Animations
+   ═══════════════════════════════════════════════ */
+
+/* Error node pulse */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
   50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
@@ -52,4 +57,49 @@ body {
 
 .pulse-error {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Blue auto-refresh pulse */
+@keyframes pulse-glow-blue {
+  0%, 100% { box-shadow: 0 0 4px rgba(56, 139, 253, 0.3); opacity: 0.6; }
+  50% { box-shadow: 0 0 8px rgba(56, 139, 253, 0.6); opacity: 1; }
+}
+
+/* Cyan debug pulse */
+@keyframes pulse-glow-cyan {
+  0%, 100% { box-shadow: 0 0 4px rgba(86, 212, 221, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(86, 212, 221, 0.7); }
+}
+
+/* Debug scan line */
+@keyframes debug-scan {
+  0% { transform: translateX(-100%); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* Spinner */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Truncate utility */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

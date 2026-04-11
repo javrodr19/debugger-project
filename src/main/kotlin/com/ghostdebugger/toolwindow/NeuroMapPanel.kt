@@ -2,8 +2,10 @@ package com.ghostdebugger.toolwindow
 
 import com.ghostdebugger.GhostDebuggerService
 import com.ghostdebugger.bridge.JcefBridge
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import java.awt.BorderLayout
@@ -20,7 +22,10 @@ import javax.swing.SwingConstants
 import org.cef.handler.CefDisplayHandlerAdapter
 import org.cef.browser.CefBrowser
 
-class NeuroMapPanel(private val project: Project) : JPanel(BorderLayout()) {
+class NeuroMapPanel(
+    private val project: Project,
+    private val parentDisposable: Disposable
+) : JPanel(BorderLayout()) {
 
     private val log = logger<NeuroMapPanel>()
     private var browser: JBCefBrowser? = null
@@ -37,14 +42,29 @@ class NeuroMapPanel(private val project: Project) : JPanel(BorderLayout()) {
         try {
             val indexUrl = findWebIndexUrl()
             log.info("NeuroMapPanel: Loading JCEF browser with URL: $indexUrl")
-            val jbBrowser = JBCefBrowser(indexUrl)
+            val jbBrowser = JBCefBrowser.createBuilder()
+                .setUrl(indexUrl)
+                .setOffScreenRendering(false)
+                .build()
+            
+            Disposer.register(parentDisposable, jbBrowser)
             browser = jbBrowser
-
-            val service = GhostDebuggerService.getInstance(project)
-            val bridge = JcefBridge(jbBrowser) { event ->
-                service.handleUIEvent(event)
+            
+            val service = try {
+                GhostDebuggerService.getInstance(project)
+            } catch (e: Exception) {
+                log.warn("Service not yet available during JCEF init", e)
+                null
             }
-            service.setBridge(bridge)
+
+            if (service != null) {
+                val bridge = JcefBridge(jbBrowser) { event ->
+                    service.handleUIEvent(event)
+                }
+                Disposer.register(parentDisposable, bridge)
+                bridge.initialize()
+                service.setBridge(bridge)
+            }
 
             jbBrowser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
                 override fun onConsoleMessage(

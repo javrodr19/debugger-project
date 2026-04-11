@@ -3,6 +3,7 @@ package com.ghostdebugger.parser
 import com.ghostdebugger.model.ParsedFile
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
@@ -31,13 +32,25 @@ class FileScanner(private val project: Project) {
     fun scanFiles(): List<VirtualFile> {
         val files = mutableListOf<VirtualFile>()
         val contentRoots = ProjectRootManager.getInstance(project).contentRoots
+        val fileIndex = ProjectFileIndex.getInstance(project)
 
         for (root in contentRoots) {
             VfsUtilCore.visitChildrenRecursively(root, object : VirtualFileVisitor<Unit>() {
                 override fun visitFile(file: VirtualFile): Boolean {
-                    if (file.isDirectory) {
-                        return file.name !in ignoredDirs
+                    // Optimization: Fast-skip common heavy directories by name
+                    if (file.isDirectory && file.name in ignoredDirs) {
+                        return false
                     }
+
+                    // Respect .gitignore and other IDE ignore settings
+                    if (fileIndex.isExcluded(file)) {
+                        return false
+                    }
+                    
+                    if (file.isDirectory) {
+                        return true
+                    }
+                    
                     if (file.extension in supportedExtensions) {
                         files.add(file)
                     }

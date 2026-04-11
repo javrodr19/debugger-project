@@ -1,7 +1,7 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, useEffect } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { GraphNode, NodeStatus, FunctionInfo, VariableInfo } from '../../types'
+import type { GraphNode, NodeStatus, DebugVariable } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 import { bridge } from '../../bridge/pluginBridge'
 
@@ -20,6 +20,7 @@ const C = {
   okText:   '#3fb950',
   okBdr:    '#1b4d2e',
   blueText: '#79c0ff',
+  cyanText: '#56d4dd',
 }
 
 const statusBorder: Record<NodeStatus, string> = {
@@ -49,10 +50,11 @@ interface CustomNodeData extends Record<string, unknown> {
   node: GraphNode
   isSelected: boolean
   isHighlighted: boolean
+  isDebugActive: boolean
 }
 
 function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
-  const { node, isSelected, isHighlighted } = data
+  const { node, isSelected, isHighlighted, isDebugActive } = data
   const { state, dispatch } = useAppStore()
   const [expanded, setExpanded] = useState(false)
 
@@ -74,15 +76,38 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
     dispatch({ type: 'TOGGLE_BREAKPOINT', payload: key })
   }, [state.breakpoints, node.filePath, dispatch])
 
-  const borderColor = isHighlighted
+  // When expanded, set this node as focused so it gets high z-index
+  useEffect(() => {
+    if (expanded) {
+      dispatch({ type: 'SET_FOCUSED_NODE', payload: node.id })
+    } else {
+      // Only clear if we're the currently focused node
+      if (state.focusedNodeId === node.id) {
+        dispatch({ type: 'SET_FOCUSED_NODE', payload: null })
+      }
+    }
+  }, [expanded, node.id, dispatch])
+
+  const borderColor = isDebugActive
+    ? C.cyanText
+    : isHighlighted
     ? '#388bfd'
     : isSelected
     ? '#388bfd'
     : statusBorder[node.status]
 
-  const outline = isSelected || isHighlighted
-    ? `0 0 0 1px ${isHighlighted ? '#388bfd' : '#388bfd'}`
+  const outline = isDebugActive
+    ? `0 0 0 2px ${C.cyanText}, 0 0 12px rgba(86,212,221,0.4)`
+    : isSelected || isHighlighted
+    ? `0 0 0 1px #388bfd`
     : 'none'
+
+  // Debug variables from frame — cross-reference with node's symbols
+  const debugVars = isDebugActive ? state.debugFrame?.variables ?? [] : []
+
+  // Build a map of variable name → debug value for quick lookup
+  const debugValueMap = new Map<string, DebugVariable>()
+  debugVars.forEach(v => debugValueMap.set(v.name, v))
 
   return (
     <div
@@ -91,12 +116,14 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
         border: `1px solid ${borderColor}`,
         borderRadius: 8,
         minWidth: 160,
-        maxWidth: expanded ? 240 : 200,
+        maxWidth: expanded ? 280 : 200,
         boxShadow: outline,
         userSelect: 'none',
         cursor: 'pointer',
         overflow: 'hidden',
         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        position: 'relative',
+        transition: 'width 0.2s ease, max-width 0.2s ease',
       }}
     >
       <Handle
@@ -105,9 +132,18 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
         style={{ background: C.text3, border: `1px solid ${C.border}`, width: 7, height: 7 }}
       />
 
+      {/* Debug active pulse */}
+      {isDebugActive && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, transparent, ${C.cyanText}, transparent)`,
+          animation: 'debug-scan 1.5s ease-in-out infinite',
+        }} />
+      )}
+
       {/* Header */}
       <div style={{
-        background: C.elevated,
+        background: isDebugActive ? 'rgba(86,212,221,0.08)' : C.elevated,
         borderBottom: `1px solid ${C.border}`,
         padding: '5px 8px',
         display: 'flex',
@@ -119,10 +155,21 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
         </span>
         <div style={{
           width: 5, height: 5, borderRadius: '50%',
-          background: statusDot[node.status],
+          background: isDebugActive ? C.cyanText : statusDot[node.status],
           flexShrink: 0,
+          animation: isDebugActive ? 'pulse-glow-cyan 1s ease-in-out infinite' : undefined,
         }} />
         <div style={{ flex: 1 }} />
+        {isDebugActive && (
+          <span style={{
+            color: C.cyanText, background: 'rgba(86,212,221,0.12)',
+            border: '1px solid rgba(86,212,221,0.3)',
+            fontSize: 7, fontWeight: 700,
+            padding: '1px 4px', borderRadius: 3,
+          }}>
+            DEBUG
+          </span>
+        )}
         {errorCount > 0 && (
           <span style={{
             color: C.errorText, background: 'rgba(248,81,73,0.12)',
@@ -185,22 +232,26 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
             style={{
               marginTop: 6, width: '100%', display: 'flex',
               alignItems: 'center', justifyContent: 'space-between',
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              padding: '2px 0',
+              background: expanded ? 'rgba(56,139,253,0.08)' : 'transparent',
+              border: expanded ? '1px solid rgba(56,139,253,0.2)' : '1px solid transparent',
+              borderRadius: 4,
+              cursor: 'pointer',
+              padding: '3px 4px',
+              transition: 'all 0.1s',
             }}
           >
-            <span style={{ color: C.text3, fontSize: 8, letterSpacing: '0.06em' }}>
+            <span style={{ color: expanded ? C.blueText : C.text3, fontSize: 8, letterSpacing: '0.06em' }}>
               {[
                 node.functions.length > 0 && `${node.functions.length} fn`,
                 node.variables.length > 0 && `${node.variables.length} var`,
               ].filter(Boolean).join('  ')}
             </span>
-            <span style={{ color: C.text3, fontSize: 8 }}>{expanded ? '▴' : '▾'}</span>
+            <span style={{ color: expanded ? C.blueText : C.text3, fontSize: 8 }}>{expanded ? '▴' : '▾'}</span>
           </button>
         )}
       </div>
 
-      {/* Symbols panel */}
+      {/* Symbols panel — shows function/variable names + debug values */}
       <AnimatePresence>
         {expanded && hasSymbols && (
           <motion.div
@@ -210,36 +261,79 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
             transition={{ duration: 0.12 }}
             style={{ overflow: 'hidden', borderTop: `1px solid ${C.border}` }}
           >
-            <div style={{ maxHeight: 160, overflowY: 'auto', padding: '4px 0' }}>
+            <div style={{ maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
               {node.functions.length > 0 && (
                 <SymbolGroup label="Functions" color="#d2a8ff">
-                  {node.functions.map(fn => (
-                    <SymbolRow
-                      key={`f${fn.line}`}
-                      name={fn.name}
-                      line={fn.line}
-                      badge={fn.isAsync ? 'async' : 'fn'}
-                      badgeColor="#d2a8ff"
-                      hasBp={hasBp(fn.line)}
-                      onToggle={e => toggleBp(fn.line, e)}
-                    />
-                  ))}
+                  {node.functions.map(fn => {
+                    const debugVal = debugValueMap.get(fn.name)
+                    return (
+                      <SymbolRow
+                        key={`f${fn.line}`}
+                        name={fn.name}
+                        line={fn.line}
+                        badge={fn.isAsync ? 'async' : 'fn'}
+                        badgeColor="#d2a8ff"
+                        hasBp={hasBp(fn.line)}
+                        onToggle={e => toggleBp(fn.line, e)}
+                        debugValue={debugVal?.value}
+                        debugType={debugVal?.type}
+                      />
+                    )
+                  })}
                 </SymbolGroup>
               )}
               {node.variables.length > 0 && (
                 <SymbolGroup label="Variables" color="#56d364">
-                  {node.variables.map(v => (
-                    <SymbolRow
-                      key={`v${v.line}`}
-                      name={v.name}
-                      line={v.line}
-                      badge={v.kind}
-                      badgeColor="#56d364"
-                      hasBp={hasBp(v.line)}
-                      onToggle={e => toggleBp(v.line, e)}
-                    />
-                  ))}
+                  {node.variables.map(v => {
+                    const debugVal = debugValueMap.get(v.name)
+                    return (
+                      <SymbolRow
+                        key={`v${v.line}`}
+                        name={v.name}
+                        line={v.line}
+                        badge={v.kind}
+                        badgeColor="#56d364"
+                        hasBp={hasBp(v.line)}
+                        onToggle={e => toggleBp(v.line, e)}
+                        debugValue={debugVal?.value}
+                        debugType={debugVal?.type}
+                      />
+                    )
+                  })}
                 </SymbolGroup>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Debug Variables Overlay (when debug-active but NOT expanded) */}
+      <AnimatePresence>
+        {isDebugActive && !expanded && debugVars.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{
+              borderTop: `1px solid ${C.cyanText}`,
+              background: 'rgba(86,212,221,0.05)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '4px 8px 6px' }}>
+              <div style={{ color: C.cyanText, fontSize: 7, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
+                Variables
+              </div>
+              {debugVars.slice(0, 6).map((v, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '1px 0', fontSize: 8 }}>
+                  <span style={{ color: C.cyanText, fontFamily: 'monospace', minWidth: 50 }}>{v.name}</span>
+                  <span style={{ color: C.text3 }}>=</span>
+                  <span style={{ color: C.text1, fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.value}</span>
+                  {v.type && <span style={{ color: C.text3, fontSize: 7 }}>{v.type}</span>}
+                </div>
+              ))}
+              {debugVars.length > 6 && (
+                <div style={{ color: C.text3, fontSize: 7, marginTop: 2 }}>+{debugVars.length - 6} more</div>
               )}
             </div>
           </motion.div>
@@ -270,18 +364,21 @@ function SymbolGroup({ label, color, children }: { label: string; color: string;
 }
 
 function SymbolRow({
-  name, line, badge, badgeColor, hasBp, onToggle,
+  name, line, badge, badgeColor, hasBp, onToggle, debugValue, debugType,
 }: {
   name: string; line: number; badge: string; badgeColor: string
   hasBp: boolean; onToggle: (e: React.MouseEvent) => void
+  debugValue?: string; debugType?: string
 }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 5,
-      padding: '2px 8px',
-    }}
-    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = C.elevated}
-    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '2px 8px',
+        flexWrap: debugValue ? 'wrap' : undefined,
+      }}
+      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = C.elevated}
+      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
     >
       {/* Breakpoint dot */}
       <button
@@ -299,13 +396,47 @@ function SymbolRow({
       <span style={{ color: badgeColor, fontSize: 7, fontWeight: 700, width: 28, flexShrink: 0, opacity: 0.8 }}>
         {badge}
       </span>
-      <span style={{ color: C.text2, fontSize: 9, flex: 1, fontFamily: 'monospace' }}
-        className="truncate" title={name}>
+      <span style={{ color: C.text2, fontSize: 9, flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        title={name}>
         {name}
       </span>
       <span style={{ color: C.text3, fontSize: 7, flexShrink: 0, fontFamily: 'monospace' }}>
         {line}
       </span>
+
+      {/* Debug value — shown inline when available */}
+      {debugValue && (
+        <div style={{
+          width: '100%',
+          paddingLeft: 42,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          marginTop: 1,
+        }}>
+          <span style={{ color: C.cyanText, fontSize: 7 }}>=</span>
+          <span style={{
+            color: '#7ee787',
+            fontSize: 8,
+            fontFamily: 'monospace',
+            background: 'rgba(63,185,80,0.08)',
+            border: '1px solid rgba(63,185,80,0.15)',
+            padding: '0 4px',
+            borderRadius: 3,
+            maxWidth: 140,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+            title={debugValue}
+          >
+            {debugValue}
+          </span>
+          {debugType && (
+            <span style={{ color: C.text3, fontSize: 6 }}>{debugType}</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -99,8 +99,9 @@ class InMemoryGraph {
 
         val totalIssues = allNodes.sumOf { it.issues.size }
         val healthScore = if (allNodes.isEmpty()) 100.0 else {
-            val healthyCount = allNodes.count { it.status == NodeStatus.HEALTHY }
-            (healthyCount.toDouble() / allNodes.size) * 100
+            val totalErrors = allNodes.flatMap { it.issues }.count { it.severity == IssueSeverity.ERROR }
+            val totalWarnings = allNodes.flatMap { it.issues }.count { it.severity == IssueSeverity.WARNING }
+            (100.0 - (totalErrors * 15.0) - (totalWarnings * 5.0)).coerceIn(0.0, 100.0)
         }
 
         return ProjectGraph(
@@ -130,41 +131,41 @@ class InMemoryGraph {
     }
 
     private fun positionNodes(nodes: List<GraphNode>): List<GraphNode> {
-        // Simple force-directed-like layout using topology
-        val positioned = mutableListOf<GraphNode>()
-        val levels = computeLevels()
+        // Group nodes by their folder directory
+        val groups = nodes.groupBy {
+            val path = it.filePath.replace("\\", "/")
+            val idx = path.lastIndexOf('/')
+            if (idx != -1) path.substring(0, idx) else "root"
+        }
 
-        nodes.forEachIndexed { index, node ->
-            val level = levels[node.id] ?: (index / 5)
-            val posInLevel = nodes.filter { (levels[it.id] ?: 0) == level }.indexOf(node)
-            val x = level * 250.0 + 100
-            val y = posInLevel * 150.0 + 100
-            positioned.add(node.copy(position = NodePosition(x, y)))
+        val positioned = mutableListOf<GraphNode>()
+        var groupIndex = 0
+        // Calculate a rough square layout for the groups
+        val groupsPerRow = Math.ceil(Math.sqrt(groups.size.toDouble())).toInt().coerceAtLeast(1)
+
+        for ((_, groupNodes) in groups) {
+            val groupCol = groupIndex % groupsPerRow
+            val groupRow = groupIndex / groupsPerRow
+
+            // Base pixel coordinates for this group's bounding box
+            val groupX = groupCol * 1400.0
+            val groupY = groupRow * 1000.0
+
+            // Layout nodes inside the group in a local grid
+            val nodesPerRow = Math.ceil(Math.sqrt(groupNodes.size.toDouble())).toInt().coerceAtLeast(1)
+            groupNodes.forEachIndexed { i, node ->
+                val col = i % nodesPerRow
+                val row = i / nodesPerRow
+
+                // Local spacing within the group (300px horizontal, 200px vertical)
+                val nx = groupX + col * 300.0
+                val ny = groupY + row * 200.0
+                positioned.add(node.copy(position = NodePosition(nx, ny)))
+            }
+            groupIndex++
         }
 
         return positioned
-    }
-
-    private fun computeLevels(): Map<String, Int> {
-        val levels = mutableMapOf<String, Int>()
-        val roots = nodes.keys.filter { reverseAdjacencyList[it].isNullOrEmpty() }
-
-        fun assignLevel(nodeId: String, level: Int, visitedPath: Set<String>) {
-            // Prevent infinite recursion in case of cycles
-            if (visitedPath.contains(nodeId)) return
-            
-            val currentLevel = levels[nodeId] ?: -1
-            if (level > currentLevel) {
-                levels[nodeId] = level
-                val newPath = visitedPath + nodeId
-                adjacencyList[nodeId]?.forEach { assignLevel(it, level + 1, newPath) }
-            }
-        }
-
-        roots.forEach { assignLevel(it, 0, emptySet()) }
-        nodes.keys.forEach { if (!levels.containsKey(it)) levels[it] = 0 }
-
-        return levels
     }
 
     fun clear() {

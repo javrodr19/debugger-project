@@ -21,13 +21,31 @@ class AnalysisEngine {
         val apiKey = ApiKeyManager.getApiKey()
         
         if (!apiKey.isNullOrBlank()) {
+            val aiAnalyzer = AIAnalyzer(apiKey)
             // Priority: Send context to deep AI Analyzer if enabled
             log.info("AI Analysis mode enabled. Starting deep scan...")
-            allIssues.addAll(AIAnalyzer(apiKey).analyze(context))
+            try {
+                allIssues.addAll(aiAnalyzer.analyze(context))
+            } catch (e: Exception) {
+                log.error("Deep AI Analysis failed, falling back to static analysis", e)
+                // Fallback to all analyzers if AI fails
+                for (analyzer in analyzers) {
+                    try {
+                        allIssues.addAll(analyzer.analyze(context))
+                    } catch (inner: Exception) {
+                        log.warn("Fallback analyzer ${analyzer.name} failed", inner)
+                    }
+                }
+            }
             
             // Still run CircularDependency and Complexity as they are graph level tasks
-            allIssues.addAll(CircularDependencyAnalyzer().analyze(context))
-            allIssues.addAll(ComplexityAnalyzer().analyze(context))
+            // and often missed or handled differently by AI
+            try {
+                allIssues.addAll(CircularDependencyAnalyzer().analyze(context))
+                allIssues.addAll(ComplexityAnalyzer().analyze(context))
+            } catch (e: Exception) {
+                log.warn("Graph-level analyzers failed", e)
+            }
         } else {
             log.info("No API Key detected. Falling back to static pattern matchers.")
             for (analyzer in analyzers) {

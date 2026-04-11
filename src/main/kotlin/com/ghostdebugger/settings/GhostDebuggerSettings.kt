@@ -39,8 +39,10 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         set(value) { state.autoAnalyzeOnOpen = value }
 
     companion object {
-        fun getInstance(): GhostDebuggerSettings =
-            com.intellij.openapi.application.ApplicationManager.getApplication()
-                .getService(GhostDebuggerSettings::class.java)
+        fun getInstance(): GhostDebuggerSettings {
+            return com.intellij.openapi.application.ApplicationManager.getApplication()
+                ?.getService(GhostDebuggerSettings::class.java)
+                ?: GhostDebuggerSettings()
+        }
     }
 }

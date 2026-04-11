@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react'
-import type { ProjectGraph, GraphNode, Issue, CodeFix, AnalysisMetrics, NodeStatus } from '../types'
+import type { ProjectGraph, GraphNode, Issue, CodeFix, AnalysisMetrics, NodeStatus, DebugFrame, ViewMode } from '../types'
+
+export type DebugSessionState = 'idle' | 'running' | 'paused'
 
 export interface AppState {
   graph: ProjectGraph | null
@@ -14,6 +16,11 @@ export interface AppState {
   highlightedNodes: string[]
   explanations: Record<string, string>
   breakpoints: string[]
+  debugFrame: DebugFrame | null
+  debugState: DebugSessionState
+  isAutoRefreshing: boolean
+  viewMode: ViewMode
+  focusedNodeId: string | null  // node whose expanded panel should be on top
 }
 
 export type AppAction =
@@ -30,6 +37,12 @@ export type AppAction =
   | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: NodeStatus } }
   | { type: 'SET_HIGHLIGHTED'; payload: string[] }
   | { type: 'TOGGLE_BREAKPOINT'; payload: string }
+  | { type: 'SET_DEBUG_FRAME'; payload: DebugFrame }
+  | { type: 'CLEAR_DEBUG_FRAME' }
+  | { type: 'SET_DEBUG_STATE'; payload: DebugSessionState }
+  | { type: 'SET_AUTO_REFRESHING'; payload: boolean }
+  | { type: 'SET_VIEW_MODE'; payload: ViewMode }
+  | { type: 'SET_FOCUSED_NODE'; payload: string | null }
 
 export const initialState: AppState = {
   graph: null,
@@ -44,12 +57,17 @@ export const initialState: AppState = {
   highlightedNodes: [],
   explanations: {},
   breakpoints: [],
+  debugFrame: null,
+  debugState: 'idle',
+  isAutoRefreshing: false,
+  viewMode: 'neuromap',
+  focusedNodeId: null,
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_GRAPH':
-      return { ...state, graph: action.payload, isAnalyzing: false }
+      return { ...state, graph: action.payload, isAnalyzing: false, isAutoRefreshing: false }
 
     case 'SELECT_NODE': {
       const node = action.payload
@@ -77,7 +95,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, isAnalyzing: true, error: null }
 
     case 'ANALYSIS_COMPLETE':
-      return { ...state, isAnalyzing: false, metrics: action.payload }
+      return { ...state, isAnalyzing: false, metrics: action.payload, isAutoRefreshing: false }
 
     case 'SET_ERROR':
       return { ...state, error: action.payload, isAnalyzing: false }
@@ -121,6 +139,24 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           : [...state.breakpoints, key],
       }
     }
+
+    case 'SET_DEBUG_FRAME':
+      return { ...state, debugFrame: action.payload, debugState: 'paused' }
+
+    case 'CLEAR_DEBUG_FRAME':
+      return { ...state, debugFrame: null, debugState: 'idle' }
+
+    case 'SET_DEBUG_STATE':
+      return { ...state, debugState: action.payload }
+
+    case 'SET_AUTO_REFRESHING':
+      return { ...state, isAutoRefreshing: action.payload }
+
+    case 'SET_VIEW_MODE':
+      return { ...state, viewMode: action.payload }
+
+    case 'SET_FOCUSED_NODE':
+      return { ...state, focusedNodeId: action.payload }
 
     default:
       return state

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { NeuroMap } from './components/neuromap/NeuroMap'
 import { DetailPanel } from './components/detail-panel/DetailPanel'
 import { StatusBar } from './components/layout/StatusBar'
+import { PixelCity } from './components/pixelcity/PixelCity'
 import { AppContext, appReducer, initialState } from './stores/appStore'
 import { bridge } from './bridge/pluginBridge'
 
@@ -11,41 +12,54 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialState)
 
   useEffect(() => {
-    bridge.onGraphUpdate(graph => dispatch({ type: 'SET_GRAPH', payload: graph }))
-
-    bridge.onExplanation(({ issueId, explanation }) =>
+    const unsubGraph    = bridge.onGraphUpdate(graph => dispatch({ type: 'SET_GRAPH', payload: graph }))
+    const unsubExpl     = bridge.onExplanation(({ issueId, explanation }) =>
       dispatch({ type: 'SET_EXPLANATION', payload: { issueId, explanation } })
     )
-
-    bridge.onFixSuggestion(fix => dispatch({ type: 'SET_FIX', payload: fix }))
-
-    bridge.onNodeUpdate(({ nodeId, status }) =>
+    const unsubFix      = bridge.onFixSuggestion(fix => dispatch({ type: 'SET_FIX', payload: fix }))
+    const unsubNode     = bridge.onNodeUpdate(({ nodeId, status }) =>
       dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } })
     )
-
-    bridge.onAnalysisStart(() => dispatch({ type: 'ANALYSIS_START' }))
-
-    bridge.onAnalysisComplete(metrics => dispatch({ type: 'ANALYSIS_COMPLETE', payload: metrics }))
-
-    bridge.onError(message => {
+    const unsubStart    = bridge.onAnalysisStart(() => dispatch({ type: 'ANALYSIS_START' }))
+    const unsubComplete = bridge.onAnalysisComplete(metrics => dispatch({ type: 'ANALYSIS_COMPLETE', payload: metrics }))
+    
+    const unsubError    = bridge.onError(message => {
       dispatch({ type: 'SET_ERROR', payload: message })
       setTimeout(() => dispatch({ type: 'SET_ERROR', payload: null }), 5000)
     })
 
-    bridge.onSystemExplanation(explanation =>
+    const unsubSystem   = bridge.onSystemExplanation(explanation =>
       dispatch({ type: 'SET_SYSTEM_EXPLANATION', payload: explanation })
     )
 
-    bridge.onImpactAnalysis(({ nodeId, affectedNodes }) => {
+    const unsubImpact   = bridge.onImpactAnalysis(({ nodeId, affectedNodes }) => {
       dispatch({ type: 'SET_HIGHLIGHTED', payload: [nodeId, ...affectedNodes] })
-      setTimeout(() => dispatch({ type: 'SET_HIGHLIGHTED', payload: [] }), 3000)
     })
 
-    console.log('[GhostDebugger] ready, bridge connected:', bridge.isConnected())
+    const unsubFrame    = bridge.onDebugFrame(frame => dispatch({ type: 'SET_DEBUG_FRAME', payload: frame }))
+    const unsubEnd      = bridge.onDebugSessionEnded(() => dispatch({ type: 'CLEAR_DEBUG_FRAME' }))
+    const unsubState    = bridge.onDebugStateChanged(s => dispatch({ type: 'SET_DEBUG_STATE', payload: s }))
+    const unsubAuto     = bridge.onAutoRefreshStart(() => dispatch({ type: 'SET_AUTO_REFRESHING', payload: true }))
+
+    return () => {
+      unsubGraph(); unsubExpl(); unsubFix(); unsubNode();
+      unsubStart(); unsubComplete(); unsubError(); unsubSystem();
+      unsubImpact(); unsubFrame(); unsubEnd(); unsubState(); unsubAuto();
+    }
   }, [])
 
   const handleAnalyze = useCallback(() => bridge.requestAnalysis(), [])
   const handleOverview = useCallback(() => dispatch({ type: 'SELECT_NODE', payload: null }), [dispatch])
+  const handleExport = useCallback(() => bridge.requestExport(), [])
+  const handleToggleView = useCallback(() => {
+    dispatch({
+      type: 'SET_VIEW_MODE',
+      payload: state.viewMode === 'neuromap' ? 'pixelcity' : 'neuromap'
+    })
+  }, [state.viewMode])
+
+  const isDebugging = state.debugState !== 'idle'
+  const isPaused = state.debugState === 'paused'
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
@@ -62,9 +76,10 @@ export default function App() {
           metrics={state.metrics}
           projectName={state.graph?.metadata.projectName}
           totalNodes={state.graph?.nodes.length}
+          isAutoRefreshing={state.isAutoRefreshing}
         />
 
-        {/* Toolbar */}
+        {/* Main Toolbar */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '6px 12px',
@@ -72,11 +87,7 @@ export default function App() {
           borderBottom: '1px solid #21262d',
           flexShrink: 0,
         }}>
-          <ToolbarButton
-            onClick={handleAnalyze}
-            disabled={state.isAnalyzing}
-            primary
-          >
+          <ToolbarButton onClick={handleAnalyze} disabled={state.isAnalyzing} primary>
             {state.isAnalyzing ? '⟳ Analyzing…' : '▶  Analyze Project'}
           </ToolbarButton>
 
@@ -84,24 +95,139 @@ export default function App() {
             ≡  Overview
           </ToolbarButton>
 
+          <ToolbarButton onClick={handleExport} disabled={!state.graph}>
+            📄 Export Report
+          </ToolbarButton>
+
+          <ToolbarButton onClick={handleToggleView}>
+            {state.viewMode === 'neuromap' ? '🏙 Pixel City' : '🧠 NeuroMap'}
+          </ToolbarButton>
+
           <div style={{ flex: 1 }} />
+
+          {/* Auto-refresh indicator */}
+          {state.isAutoRefreshing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginRight: 8 }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: '#388bfd',
+                animation: 'pulse-glow-blue 1.5s ease-in-out infinite',
+              }} />
+              <span style={{ color: '#388bfd', fontSize: 9 }}>Auto-refreshing</span>
+            </div>
+          )}
 
           {/* Legend */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 9, color: '#6e7681' }}>
             <LegendDot color="#f85149" label="Error" />
             <LegendDot color="#d29922" label="Warning" />
             <LegendDot color="#3fb950" label="Healthy" />
+            {state.viewMode === 'neuromap' && (
+              <LegendDot color="#f0883e" label="Cycle" />
+            )}
           </div>
         </div>
+
+        {/* Debug Controls Toolbar — appears when debugging */}
+        <AnimatePresence>
+          {isDebugging && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px',
+                background: 'rgba(86,212,221,0.06)',
+                borderBottom: '1px solid rgba(86,212,221,0.15)',
+                flexShrink: 0,
+              }}>
+                {/* Debug status indicator */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'rgba(86,212,221,0.1)',
+                  border: '1px solid rgba(86,212,221,0.25)',
+                  padding: '3px 8px',
+                  borderRadius: 5,
+                  marginRight: 4,
+                }}>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: isPaused ? '#f0883e' : '#3fb950',
+                    animation: isPaused ? undefined : 'pulse-glow-blue 1s ease-in-out infinite',
+                  }} />
+                  <span style={{ color: '#56d4dd', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em' }}>
+                    {isPaused ? 'PAUSED' : 'RUNNING'}
+                  </span>
+                </div>
+
+                {/* Step controls */}
+                <DebugButton onClick={() => bridge.debugStepOver()} disabled={!isPaused} title="Step Over (F8)">
+                  ⏭ Step Over
+                </DebugButton>
+                <DebugButton onClick={() => bridge.debugStepInto()} disabled={!isPaused} title="Step Into (F7)">
+                  ⬇ Step Into
+                </DebugButton>
+                <DebugButton onClick={() => bridge.debugStepOut()} disabled={!isPaused} title="Step Out (Shift+F8)">
+                  ⬆ Step Out
+                </DebugButton>
+
+                <div style={{ width: 1, height: 16, background: 'rgba(86,212,221,0.2)', margin: '0 2px' }} />
+
+                <DebugButton
+                  onClick={() => isPaused ? bridge.debugResume() : bridge.debugPause()}
+                  title={isPaused ? 'Resume (F9)' : 'Pause'}
+                  highlight
+                >
+                  {isPaused ? '▶ Resume' : '⏸ Pause'}
+                </DebugButton>
+
+                <div style={{ flex: 1 }} />
+
+                {/* Current debug location */}
+                {state.debugFrame && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    color: '#8b949e', fontSize: 9, fontFamily: 'monospace',
+                  }}>
+                    <span style={{ color: '#56d4dd' }}>📍</span>
+                    <span>
+                      {state.debugFrame.filePath.split('/').pop()}:{state.debugFrame.line}
+                    </span>
+                    {state.debugFrame.variables.length > 0 && (
+                      <span style={{
+                        color: '#56d4dd',
+                        background: 'rgba(86,212,221,0.1)',
+                        border: '1px solid rgba(86,212,221,0.2)',
+                        padding: '1px 5px',
+                        borderRadius: 3,
+                        fontSize: 8,
+                      }}>
+                        {state.debugFrame.variables.length} vars
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Main */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Canvas */}
-          <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ flex: 1, position: 'relative', minWidth: 0, flexGrow: 1 }}>
             {state.graph ? (
-              <ReactFlowProvider>
-                <NeuroMap graph={state.graph} />
-              </ReactFlowProvider>
+              state.viewMode === 'neuromap' ? (
+                <ReactFlowProvider>
+                  <NeuroMap graph={state.graph} />
+                </ReactFlowProvider>
+              ) : (
+                <PixelCity graph={state.graph} />
+              )
             ) : (
               <EmptyState isAnalyzing={state.isAnalyzing} onAnalyze={handleAnalyze} />
             )}
@@ -114,8 +240,10 @@ export default function App() {
             borderLeft: '1px solid #21262d',
             background: '#0d1117',
             overflowY: 'auto',
+            position: 'relative',
+            zIndex: 100, // Ensure it's on top of city/map layers
           }}>
-            <DetailPanel />
+            <DetailPanel key={state.selectedNode?.id || 'overview'} />
           </div>
         </div>
 
@@ -172,6 +300,38 @@ function ToolbarButton({
         letterSpacing: '0.03em',
         fontFamily: 'inherit',
         transition: 'opacity 0.1s',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function DebugButton({
+  children, onClick, disabled, title, highlight,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  title?: string
+  highlight?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '4px 10px',
+        background: highlight ? 'rgba(86,212,221,0.12)' : '#21262d',
+        border: `1px solid ${highlight ? 'rgba(86,212,221,0.3)' : '#30363d'}`,
+        color: highlight ? '#56d4dd' : '#8b949e',
+        fontSize: 9, fontWeight: 600,
+        borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        fontFamily: 'inherit',
+        transition: 'all 0.1s',
       }}
     >
       {children}

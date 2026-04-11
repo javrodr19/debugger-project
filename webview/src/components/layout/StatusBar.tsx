@@ -5,9 +5,10 @@ interface StatusBarProps {
   metrics: AnalysisMetrics | null
   projectName?: string
   totalNodes?: number
+  isAutoRefreshing?: boolean
 }
 
-export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes }: StatusBarProps) {
+export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAutoRefreshing }: StatusBarProps) {
   const health = metrics?.healthScore ?? null
   const hColor = health == null ? '#6e7681'
     : health >= 80 ? '#3fb950'
@@ -77,6 +78,23 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes }: Sta
       </div>
 
       <div style={{ flex: 1 }} />
+
+      {/* Auto-refresh indicator */}
+      {isAutoRefreshing && (
+        <div style={{
+          padding: '0 10px', height: '100%',
+          borderLeft: '1px solid #21262d',
+          display: 'flex', alignItems: 'center', gap: 5,
+          flexShrink: 0,
+        }}>
+          <div style={{
+            width: 5, height: 5, borderRadius: '50%',
+            background: '#388bfd',
+            animation: 'pulse-glow-blue 1.5s ease-in-out infinite',
+          }} />
+          <span style={{ color: '#388bfd', fontSize: 9 }}>Auto</span>
+        </div>
+      )}
 
       {/* Node count */}
       {totalNodes !== undefined && totalNodes > 0 && (

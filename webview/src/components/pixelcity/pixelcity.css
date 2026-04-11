@@ -1,0 +1,650 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Pixel City — Living 2D city scene for GhostDebugger (Barcelona Edition)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Wrapper ── */
+.pixel-city-wrapper {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(180deg, #0a1628 0%, #0d1b2e 30%, #101d2f 60%, #0d1117 100%);
+}
+
+/* ── Scene container ── */
+.pixel-city-scene {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+/* ── Sky layer ── */
+.city-sky {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(180deg, #0a1628 0%, #111d33 100%);
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pixel-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #e6edf3;
+  border-radius: 50%;
+  animation: star-twinkle 3s ease-in-out infinite alternate;
+  image-rendering: pixelated;
+}
+
+@keyframes star-twinkle {
+  0% { opacity: 0.2; transform: scale(1); }
+  100% { opacity: 0.8; transform: scale(1.5); box-shadow: 0 0 4px #e6edf3; }
+}
+
+.pixel-cloud {
+  position: absolute;
+  width: 24px;
+  height: 8px;
+  background: rgba(139, 148, 158, 0.12);
+  border-radius: 4px;
+  animation: cloud-drift 40s linear infinite;
+  image-rendering: pixelated;
+}
+
+.pixel-cloud::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 6px;
+  width: 12px;
+  height: 6px;
+  background: rgba(139, 148, 158, 0.1);
+  border-radius: 3px;
+}
+
+@keyframes cloud-drift {
+  0% { transform: translateX(-40px); }
+  100% { transform: translateX(calc(100vw + 40px)); }
+}
+
+/* ── UFO Event ── */
+.ufo {
+  position: absolute;
+  width: 16px;
+  height: 8px;
+  background: #30363d;
+  border-radius: 50% 50% 10% 10%;
+  z-index: 100;
+  border: 1px solid #79c0ff;
+  box-shadow: 0 0 10px rgba(121, 192, 255, 0.4);
+  animation: ufo-fly 35s linear infinite;
+  pointer-events: none;
+}
+
+.ufo-dome {
+  position: absolute;
+  top: -3px;
+  left: 4px;
+  width: 8px;
+  height: 4px;
+  background: rgba(86, 212, 221, 0.6);
+  border-radius: 50% 50% 0 0;
+}
+
+.ufo-beam {
+  position: absolute;
+  top: 8px;
+  left: 2px;
+  width: 12px;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(86, 212, 221, 0.4), transparent);
+  animation: beam-flicker 0.2s infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes ufo-fly {
+  0% { left: -50px; top: 10px; transform: rotate(5deg) scale(1.2); }
+  25% { top: 20px; transform: rotate(-5deg) scale(1.2); }
+  45% { left: 40%; top: 15px; transform: rotate(0deg) scale(1.2); }
+  50% { left: 40%; top: 15px; transform: rotate(0deg) scale(1.2); } /* Hovering to beam */
+  55% { left: 40%; top: 15px; transform: rotate(0deg) scale(1.2); }
+  75% { top: 5px; transform: rotate(10deg) scale(1.2); }
+  100% { left: calc(100vw + 50px); top: 10px; transform: rotate(5deg) scale(1.2); }
+}
+
+@keyframes beam-flicker {
+  0% { opacity: 0.3; }
+  100% { opacity: 0.8; }
+}
+
+/* ── City blocks container ── */
+.city-blocks {
+  position: relative;
+  padding: 0 40px 40px; /* More padding for cross streets */
+  z-index: 1;
+}
+
+/* ── City block row (buildings + road) ── */
+.city-block-row {
+  display: flex;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+/* ── Barcelona Eixample Block Container ── */
+.barcelona-block {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+  background: #0d1117;
+  flex-shrink: 0;
+}
+
+/* ── Sidewalk strip ── */
+.city-sidewalk {
+  height: 8px;
+  background: #1a1f2b;
+  border-top: 1px solid #262c38;
+  position: relative;
+}
+
+.city-sidewalk::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 16px,
+    #21262d 16px,
+    #21262d 17px
+  );
+  opacity: 0.4;
+}
+
+/* Chamfered corners for Barcelona blocks */
+.barcelona-block .city-sidewalk.top-sidewalk {
+  border-radius: 4px 4px 0 0;
+}
+
+.barcelona-block .city-sidewalk.bottom-sidewalk {
+  border-radius: 0 0 4px 4px;
+}
+
+/* ── Vertical Cross Street ── */
+.cross-street {
+  display: inline-flex;
+  flex-direction: column;
+  width: 40px; /* Width of the vertical street */
+  flex-shrink: 0;
+  position: relative;
+  background: #151a24;
+}
+
+.cross-street-sidewalk-gap {
+  height: 8px; /* Matches sidewalk height */
+  background: #151a24;
+}
+
+.vertical-road {
+  flex: 1;
+  background: #151a24;
+  position: relative;
+}
+
+/* ── Horizontal Road ── */
+.city-road {
+  height: 24px;
+  background: #151a24;
+  position: relative;
+  border-top: 2px solid #1e242e;
+  border-bottom: 2px solid #1e242e;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.city-road.intersection {
+  border-top: none;
+  border-bottom: none;
+  background: #181d28; /* Slightly lighter intersection */
+}
+
+/* Road center line (dashed) */
+.city-road.main-road::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 2px;
+  transform: translateY(-50%);
+  background: repeating-linear-gradient(
+    90deg,
+    #d29922 0px,
+    #d29922 12px,
+    transparent 12px,
+    transparent 24px
+  );
+  opacity: 0.4;
+}
+
+/* Crosswalk stripes in intersections */
+.crosswalk {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 12px;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.4) 0px,
+    rgba(255, 255, 255, 0.4) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+.crosswalk.left { left: 4px; }
+.crosswalk.right { right: 4px; }
+
+/* ── Buildings row ── */
+.city-buildings-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 0 12px;
+  min-height: 60px;
+  position: relative;
+}
+
+/* ── Decorative elements ── */
+
+/* Street light */
+.street-light {
+  position: relative;
+  width: 6px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 0 4px;
+  align-self: flex-end;
+  pointer-events: none;
+}
+
+.lamp-pole { width: 2px; height: 28px; background: #484f58; }
+.lamp-arm { width: 8px; height: 2px; background: #484f58; position: relative; }
+.lamp-bulb {
+  position: absolute; top: -1px; left: -1px; width: 4px; height: 4px;
+  border-radius: 50%; background: #d29922;
+  box-shadow: 0 0 6px rgba(210, 153, 34, 0.5), 0 0 12px rgba(210, 153, 34, 0.2);
+  animation: lamp-flicker 4s ease-in-out infinite;
+}
+
+@keyframes lamp-flicker {
+  0%, 90%, 100% { opacity: 0.9; box-shadow: 0 0 6px rgba(210, 153, 34, 0.5); }
+  92% { opacity: 0.4; box-shadow: 0 0 2px rgba(210, 153, 34, 0.2); }
+  94% { opacity: 0.9; box-shadow: 0 0 6px rgba(210, 153, 34, 0.5); }
+}
+
+.lamp-cone {
+  position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%);
+  width: 20px; height: 6px; pointer-events: none;
+  background: radial-gradient(ellipse, rgba(210, 153, 34, 0.08) 0%, transparent 70%);
+}
+
+/* Pixel tree */
+.pixel-tree {
+  position: relative; width: 14px; flex-shrink: 0; display: flex;
+  flex-direction: column; align-items: center; justify-content: flex-end;
+  margin: 0 3px; align-self: flex-end;
+  pointer-events: none;
+}
+
+.tree-trunk { width: 3px; height: 6px; background: #5a3d20; image-rendering: pixelated; }
+.tree-crown {
+  width: 12px; height: 12px; background: #1b4d2e; border-radius: 2px;
+  position: relative; image-rendering: pixelated; border: 1px solid #2d6b3e;
+}
+.tree-crown::before {
+  content: ''; position: absolute; top: -4px; left: 2px; width: 8px; height: 6px;
+  background: #1f5a33; border-radius: 2px; border: 1px solid #2d6b3e;
+}
+
+/* Park bench */
+.pixel-bench {
+  width: 12px; height: 8px; flex-shrink: 0; align-self: flex-end;
+  margin: 0 2px; position: relative;
+  pointer-events: none;
+}
+.bench-seat {
+  position: absolute; bottom: 3px; left: 0; width: 12px; height: 3px;
+  background: #5a3d20; border: 1px solid #7a5a30; image-rendering: pixelated;
+}
+.bench-leg { position: absolute; bottom: 0; width: 2px; height: 4px; background: #5a3d20; }
+.bench-leg.left { left: 1px; }
+.bench-leg.right { right: 1px; }
+
+/* ── Sleepy Cat Event ── */
+.cat-sleeping {
+  position: absolute;
+  width: 6px;
+  height: 4px;
+  background: #f0883e;
+  border-radius: 3px 3px 0 0;
+  z-index: 5;
+  image-rendering: auto;
+}
+
+.cat-sleeping::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0px;
+  width: 2px; height: 2px;
+  background: #f0883e;
+}
+
+.cat-sleeping::after {
+  content: 'z';
+  position: absolute;
+  top: -6px; right: -2px;
+  font-size: 5px;
+  color: #fff;
+  opacity: 0.5;
+  animation: snore 2s ease-in-out infinite;
+}
+
+/* Places for cats */
+.bench-seat .cat-sleeping { bottom: 3px; left: 3px; }
+.building-roof .cat-sleeping { bottom: 8px; left: 40%; }
+
+@keyframes snore {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  50% { opacity: 0.8; }
+  100% { transform: translateY(-4px) scale(1); opacity: 0; }
+}
+
+/* ── Animated pixel people ── */
+.pixel-person {
+  position: absolute;
+  width: 4px;
+  height: 7px;
+  image-rendering: pixelated;
+  z-index: 6;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  pointer-events: none;
+}
+
+.pixel-person::before {
+  content: ''; position: absolute; top: 0; left: 1px; width: 2px; height: 2px; border-radius: 50%;
+}
+.pixel-person::after {
+  content: ''; position: absolute; top: 2px; left: 0; width: 4px; height: 5px; border-radius: 1px;
+}
+
+.pixel-person.blue::before { background: #e6edf3; } .pixel-person.blue::after { background: #388bfd; }
+.pixel-person.green::before { background: #e6edf3; } .pixel-person.green::after { background: #3fb950; }
+.pixel-person.purple::before { background: #e6edf3; } .pixel-person.purple::after { background: #8b5cf6; }
+.pixel-person.orange::before { background: #e6edf3; } .pixel-person.orange::after { background: #f0883e; }
+.pixel-person.red::before { background: #e6edf3; } .pixel-person.red::after { background: #f85149; }
+
+.pixel-person.walk-right { animation: person-walk-right var(--walk-duration, 12s) linear infinite; }
+.pixel-person.walk-left { animation: person-walk-left var(--walk-duration, 12s) linear infinite; transform: scaleX(-1); }
+
+@keyframes person-walk-right { 0% { left: -20px; } 100% { left: 110%; } }
+@keyframes person-walk-left { 0% { left: 110%; } 100% { left: -20px; } }
+
+.pixel-person .legs { position: absolute; bottom: -1px; left: 0; width: 4px; height: 2px; animation: leg-bob 0.3s steps(2) infinite; }
+.pixel-person .legs::before, .pixel-person .legs::after { content: ''; position: absolute; bottom: 0; width: 2px; height: 2px; background: #21262d; }
+.pixel-person .legs::before { left: 0; } .pixel-person .legs::after { right: 0; }
+
+@keyframes leg-bob { 0% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+
+/* ── The Clown Event ! ── */
+.clown-running {
+  position: absolute;
+  width: 5px;
+  height: 8px;
+  image-rendering: pixelated;
+  z-index: 10;
+  animation: run-clown 15s linear infinite;
+  pointer-events: none;
+}
+
+.clown-running::before {
+  content: ''; position: absolute; top: 0; left: 1px; width: 3px; height: 3px;
+  background: radial-gradient(circle, #f85149 30%, #fff 35%); /* Red nose face */
+  border-radius: 50%;
+}
+.clown-running::after {
+  content: ''; position: absolute; top: 3px; left: 0; width: 5px; height: 5px;
+  background: repeating-linear-gradient(45deg, #f0883e 0px, #f0883e 2px, #79c0ff 2px, #79c0ff 4px); /* Rainbow suit */
+  border-radius: 2px;
+}
+.clown-running .legs {
+  position: absolute; bottom: -2px; left: 0; width: 5px; height: 2px;
+  animation: leg-bob-fast 0.15s steps(2) infinite;
+}
+.clown-running .legs::before, .clown-running .legs::after {
+  content: ''; position: absolute; bottom: 0; width: 2px; height: 2px; background: #d29922; /* Huge yellow shoes */
+  border-radius: 1px;
+}
+.clown-running .legs::before { left: -1px; width: 3px; }
+.clown-running .legs::after { right: -1px; width: 3px; }
+
+@keyframes leg-bob-fast { 0% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes run-clown {
+  0% { left: -50px; transform: scaleX(1); }
+  45% { left: 120%; transform: scaleX(1); }
+  55% { left: 120%; transform: scaleX(-1); }
+  100% { left: -50px; transform: scaleX(-1); }
+}
+
+/* ── Building container ── */
+.pixel-building {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.pixel-building:hover { transform: translateY(-4px); filter: brightness(1.15); z-index: 10; }
+.pixel-building.selected { filter: brightness(1.2); z-index: 11; }
+.pixel-building.selected .building-body { box-shadow: 0 0 12px rgba(56, 139, 253, 0.4); }
+
+/* ── Base building structure ── */
+.building-body {
+  position: relative; border: 2px solid; image-rendering: pixelated;
+}
+
+.building-body.healthy { background: #1a2332; border-color: #2d4a3e; }
+.building-body.warning { background: #2a2218; border-color: #5a4000; }
+.building-body.error { background: #2a1518; border-color: #6e2a2a; }
+
+/* ── Roof ── */
+.building-roof {
+  position: relative; height: 8px; margin-bottom: -1px; image-rendering: pixelated; transition: transform 0.2s;
+}
+
+.building-roof.healthy { background: #1b4d2e; border: 2px solid #2d4a3e; border-bottom: none; }
+.building-roof.warning { background: #5a4000; border: 2px solid #7a5a00; border-bottom: none; }
+.building-roof.error { background: #6e2a2a; border: 2px solid #8b3a3a; border-bottom: none; }
+
+/* COLLAPSED ROOF FOR ERROR */
+.building-roof.error.collapsed {
+  transform: rotate(-10deg) translateY(4px) translateX(-2px);
+  border-right-color: transparent;
+  background: linear-gradient(90deg, #6e2a2a 70%, transparent 100%);
+}
+
+/* ── Windows ── */
+.building-windows { display: grid; gap: 3px; padding: 5px 4px; image-rendering: pixelated; }
+.building-window { width: 7px; height: 7px; border: 1px solid; image-rendering: pixelated; }
+.building-window.lit { background: #79c0ff; border-color: #58a6ff; box-shadow: 0 0 3px rgba(121, 192, 255, 0.3); }
+.building-window.dark { background: #21262d; border-color: #30363d; }
+.building-window.broken { background: #161b22; border-color: #6e2a2a; position: relative; }
+.building-window.broken::after { content: '×'; position: absolute; top: -2px; left: 1px; font-size: 7px; color: #f85149; line-height: 1; }
+
+/* ── DEVASTATED ERROR EFFECTS ── */
+
+/* Exposed Girders */
+.exposed-girder {
+  position: absolute;
+  top: 10px; right: -2px;
+  width: 8px; height: 20px;
+  border: 1px solid #484f58;
+  background: repeating-linear-gradient(45deg, #161b22 0px, #161b22 2px, transparent 2px, transparent 4px);
+  z-index: 1;
+}
+
+/* Massive Cracks */
+.building-cracks {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2; overflow: hidden;
+}
+.crack-line { position: absolute; background: rgba(248, 81, 73, 0.5); transform-origin: top left; }
+.crack-line.huge { height: 2px; }
+.crack-line:nth-child(1) { top: 20%; left: 10%; width: 60%; transform: rotate(15deg); }
+.crack-line:nth-child(2) { top: 50%; right: -5%; width: 50%; transform: rotate(-25deg); }
+.crack-line:nth-child(3) { top: 70%; left: 20%; width: 40%; transform: rotate(10deg); }
+
+/* Hazard Tape */
+.hazard-tape {
+  position: absolute;
+  bottom: 8px; left: -3px; right: -3px;
+  height: 4px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #d29922 0px,
+    #d29922 4px,
+    #0d1117 4px,
+    #0d1117 8px
+  );
+  z-index: 4;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  transform: rotate(-2deg);
+}
+
+/* Pixel Fire Animation */
+.pixel-fire {
+  position: absolute;
+  bottom: 0; left: 5px; right: 5px;
+  height: 15px;
+  pointer-events: none;
+  z-index: 5;
+  filter: blur(0.5px);
+}
+
+.flame {
+  position: absolute;
+  bottom: 0;
+  width: 5px;
+  background: #f85149;
+  border-radius: 50% 50% 0 0;
+  animation: burn 0.5s infinite alternate ease-in-out;
+  transform-origin: bottom;
+}
+
+.flame:nth-child(1) { left: 10%; height: 8px; background: #d29922; animation-delay: 0.1s; }
+.flame:nth-child(2) { left: 40%; height: 14px; background: #f85149; animation-delay: 0.2s; }
+.flame:nth-child(3) { left: 70%; height: 10px; background: #f0883e; animation-delay: 0.3s; }
+
+@keyframes burn {
+  0% { transform: scaleY(0.8) skewX(-5deg); opacity: 0.8; }
+  100% { transform: scaleY(1.2) skewX(5deg); opacity: 1; }
+}
+
+/* Thick Smoke for Fires */
+.smoke-particles {
+  position: absolute; top: -20px; left: 0; right: 0; height: 25px; pointer-events: none; z-index: 3;
+}
+.smoke-particle {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(33, 38, 45, 0.7); animation: smoke-rise 2s ease-out infinite; image-rendering: pixelated;
+}
+.smoke-particle:nth-child(1) { left: 10%; animation-delay: 0s; width: 8px; height: 8px; }
+.smoke-particle:nth-child(2) { left: 50%; animation-delay: 0.7s; }
+.smoke-particle:nth-child(3) { left: 80%; animation-delay: 1.4s; }
+
+@keyframes smoke-rise {
+  0% { transform: translateY(0px) scale(1); opacity: 0.8; }
+  100% { transform: translateY(-30px) scale(2.5); opacity: 0; }
+}
+
+/* ── Scaffolding overlay (WARNING) ── */
+.scaffolding {
+  position: absolute; top: 0; left: -5px; right: -5px; bottom: 0; pointer-events: none;
+  border: 2px dashed rgba(210, 153, 34, 0.6); z-index: 2;
+}
+.scaffolding::before, .scaffolding::after {
+  content: ''; position: absolute; width: 2px;
+  background: repeating-linear-gradient(to bottom, #5a4000 0px, #5a4000 4px, transparent 4px, transparent 6px);
+  top: -4px; bottom: -4px;
+}
+.scaffolding::before { left: -3px; } .scaffolding::after { right: -3px; }
+
+/* ── Crane (WARNING) ── */
+.building-crane { position: absolute; top: -24px; right: -8px; width: 16px; height: 24px; z-index: 4; pointer-events: none; }
+.crane-pole { position: absolute; bottom: 0; right: 6px; width: 2px; height: 24px; background: #d29922; }
+.crane-arm {
+  position: absolute; top: 0; right: 0; width: 18px; height: 2px; background: #d29922;
+  transform-origin: right center; animation: crane-swing 4s ease-in-out infinite alternate;
+}
+.crane-hook {
+  position: absolute; top: 2px; left: 2px; width: 2px; height: 10px; background: #8b949e;
+  animation: crane-swing 4s ease-in-out infinite alternate;
+}
+@keyframes crane-swing { 0% { transform: rotate(-8deg); } 100% { transform: rotate(8deg); } }
+
+/* ── Building label ── */
+.building-label {
+  text-align: center; margin-top: 2px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 7px;
+  color: #6e7681; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.03em;
+}
+
+/* ── Issue badge ── */
+.building-badge {
+  position: absolute; top: -5px; left: -3px; min-width: 12px; height: 12px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800;
+  font-family: 'JetBrains Mono', monospace; z-index: 5; image-rendering: auto; border: 1px solid;
+}
+.building-badge.error { background: rgba(248, 81, 73, 0.9); border-color: #f85149; color: #fff; }
+.building-badge.warning { background: rgba(210, 153, 34, 0.9); border-color: #d29922; color: #fff; }
+
+/* ── Flag on roof ── */
+.building-flag {
+  position: absolute; top: -12px; right: 4px; width: 2px; height: 14px; background: #6e7681;
+}
+.building-flag::after {
+  content: ''; position: absolute; top: 0; left: 2px; width: 8px; height: 5px;
+  animation: flag-wave 1s ease-in-out infinite alternate;
+}
+.building-flag.healthy::after { background: #3fb950; }
+.building-flag.warning::after { background: #d29922; }
+.building-flag.error::after { background: #f85149; }
+@keyframes flag-wave { 0% { transform: skewY(0deg); } 100% { transform: skewY(-5deg); } }
+
+/* ── Door ── */
+.building-door {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 8px; height: 10px;
+  border: 1px solid; border-bottom: none; border-radius: 2px 2px 0 0; image-rendering: pixelated;
+}
+.building-door.healthy { background: #1b4d2e; border-color: #2d4a3e; }
+.building-door.warning { background: #3d3010; border-color: #5a4000; }
+.building-door.error { background: #3a1518; border-color: #6e2a2a; }
+
+/* ── Grass patch ── */
+.grass-patch { width: 16px; flex-shrink: 0; align-self: flex-end; margin: 0 2px; position: relative; pointer-events: none; }
+.grass-ground { width: 16px; height: 4px; background: #1b3a20; border: 1px solid #2d5a30; border-radius: 1px; image-rendering: pixelated; }
+.grass-blade { position: absolute; bottom: 4px; width: 2px; height: 4px; background: #2d6b3e; image-rendering: pixelated; }
+.grass-blade:nth-child(1) { left: 2px; height: 5px; } .grass-blade:nth-child(2) { left: 6px; height: 3px; }
+.grass-blade:nth-child(3) { left: 10px; height: 4px; } .grass-blade:nth-child(4) { left: 13px; height: 3px; }

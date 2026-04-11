@@ -11,7 +11,7 @@ class ExplainSystemAction : AnAction() {
         val project = e.project ?: return
         val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("GhostDebugger")
         toolWindow?.show()
-        GhostDebuggerService.getInstance(project).handleUIEvent(UIEvent.ExplainSystemRequested())
+        GhostDebuggerService.getInstance(project).handleUIEvent(UIEvent.ExplainSystemRequested)
     }
 
     override fun update(e: AnActionEvent) {

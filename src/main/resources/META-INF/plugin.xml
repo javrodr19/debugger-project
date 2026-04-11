@@ -20,6 +20,7 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Tool Window para el NeuroMap -->
@@ -43,6 +44,10 @@
                 id="com.ghostdebugger.settings"
                 displayName="GhostDebugger"
                 parentId="tools"/>
+
+        <!-- ExternalAnnotator for Problems window — registered for all languages -->
+        <externalAnnotator language=""
+                           implementationClass="com.ghostdebugger.annotator.GhostDebuggerAnnotator"/>
 
         <!-- Notification group -->
         <notificationGroup id="GhostDebugger"

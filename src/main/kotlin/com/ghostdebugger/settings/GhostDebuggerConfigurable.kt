@@ -27,8 +27,9 @@ class GhostDebuggerConfigurable : Configurable {
 
         // API Key section
         val apiKeyLabel = JLabel("OpenAI API Key:")
-        apiKeyField = JPasswordField(ApiKeyManager.getApiKey() ?: "", 40)
-        apiKeyField!!.preferredSize = Dimension(400, 28)
+        val field = JPasswordField(ApiKeyManager.getApiKey() ?: "", 40)
+        field.preferredSize = Dimension(400, 28)
+        apiKeyField = field
 
         val apiKeyPanel = JPanel(FlowLayout(FlowLayout.LEFT))
         apiKeyPanel.add(apiKeyLabel)
@@ -36,22 +37,25 @@ class GhostDebuggerConfigurable : Configurable {
 
         val testButton = JButton("Test Connection")
         testButton.addActionListener {
-            val key = String(apiKeyField!!.password)
-            if (key.isBlank()) {
-                Messages.showWarningDialog("Please enter an API key first.", "GhostDebugger")
-            } else {
-                Messages.showInfoMessage(
-                    "API key saved. Connection will be tested on first analysis.",
-                    "GhostDebugger"
-                )
+            apiKeyField?.let { field ->
+                val key = String(field.password)
+                if (key.isBlank()) {
+                    Messages.showWarningDialog("Please enter an API key first.", "GhostDebugger")
+                } else {
+                    Messages.showInfoMessage(
+                        "API key saved. Connection will be tested on first analysis.",
+                        "GhostDebugger"
+                    )
+                }
             }
         }
         apiKeyPanel.add(testButton)
 
         // Model selection
         val modelLabel = JLabel("Model:")
-        modelCombo = JComboBox(arrayOf("gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"))
-        modelCombo!!.selectedItem = GhostDebuggerSettings.getInstance().openAiModel
+        val combo = JComboBox(arrayOf("gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"))
+        combo.selectedItem = GhostDebuggerSettings.getInstance().openAiModel
+        modelCombo = combo
 
         val modelPanel = JPanel(FlowLayout(FlowLayout.LEFT))
         modelPanel.add(modelLabel)
@@ -59,10 +63,11 @@ class GhostDebuggerConfigurable : Configurable {
 
         // Max files
         val maxFilesLabel = JLabel("Max files to analyze:")
-        maxFilesSpinner = JSpinner(SpinnerNumberModel(
+        val spinner = JSpinner(SpinnerNumberModel(
             GhostDebuggerSettings.getInstance().maxFilesToAnalyze, 10, 2000, 50
         ))
-        maxFilesSpinner!!.preferredSize = Dimension(80, 28)
+        spinner.preferredSize = Dimension(80, 28)
+        maxFilesSpinner = spinner
 
         val maxFilesPanel = JPanel(FlowLayout(FlowLayout.LEFT))
         maxFilesPanel.add(maxFilesLabel)

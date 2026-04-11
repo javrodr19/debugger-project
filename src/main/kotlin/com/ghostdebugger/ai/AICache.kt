@@ -29,9 +29,14 @@ class AICache(private val ttlSeconds: Long = 3600) {
 
     fun computeKey(code: String, promptType: String): String {
         val input = "$promptType:$code"
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(input.toByteArray())
-        return hash.joinToString("") { "%02x".format(it) }
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val hash = digest.digest(input.toByteArray())
+            hash.joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            // Fallback for environments where SHA-256 might be restricted
+            input.hashCode().toString()
+        }
     }
 
     fun clear() {
