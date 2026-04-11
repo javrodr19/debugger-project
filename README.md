@@ -60,13 +60,13 @@ GhostDebugger **no es un debugger tradicional**. Es un plugin para el ecosistema
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    JetBrains IDE (IntelliJ Platform)          │
+│                    JetBrains IDE (IntelliJ Platform)         │
 │                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Plugin Core (Kotlin)                     │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │   │
-│  │  │  Parser  │  │  Graph   │  │  Analysis Engine  │  │   │
-│  │  │(PSI API) │  │  Builder │  │  (Heurísticas)    │  │   │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │              Plugin Core (Kotlin)                    │    │
+│  │  ┌──────────┐  ┌──────────┐  ┌───────────────────┐   │    │
+│  │  │  Parser  │  │  Graph   │  │  Analysis Engine  │   │    │
+│  │  │(PSI API) │  │  Builder │  │  (Heurísticas)    │   │    │
 │  │  └──────────┘  └──────────┘  └───────────────────┘  │   │
 │  │  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │   │
 │  │  │ AI Layer │  │ Fix      │  │  Impact / Sim     │  │   │

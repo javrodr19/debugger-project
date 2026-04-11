@@ -16,7 +16,10 @@ class JcefBridge(
     private val onEvent: (UIEvent) -> Unit
 ) {
     private val log = logger<JcefBridge>()
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     private var query: JBCefJSQuery? = null
 
     fun initialize() {
