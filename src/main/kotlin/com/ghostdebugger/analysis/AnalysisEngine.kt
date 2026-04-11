@@ -1,6 +1,7 @@
 package com.ghostdebugger.analysis
 
 import com.ghostdebugger.analysis.analyzers.*
+import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.model.*
 import com.intellij.openapi.diagnostic.logger
 
@@ -15,16 +16,28 @@ class AnalysisEngine {
         ComplexityAnalyzer()
     )
 
-    fun analyze(context: AnalysisContext): AnalysisResult {
+    suspend fun analyze(context: AnalysisContext): AnalysisResult {
         val allIssues = mutableListOf<Issue>()
-
-        for (analyzer in analyzers) {
-            try {
-                val issues = analyzer.analyze(context)
-                log.info("${analyzer.name}: found ${issues.size} issues")
-                allIssues.addAll(issues)
-            } catch (e: Exception) {
-                log.warn("Analyzer ${analyzer.name} failed", e)
+        val apiKey = ApiKeyManager.getApiKey()
+        
+        if (!apiKey.isNullOrBlank()) {
+            // Priority: Send context to deep AI Analyzer if enabled
+            log.info("AI Analysis mode enabled. Starting deep scan...")
+            allIssues.addAll(AIAnalyzer(apiKey).analyze(context))
+            
+            // Still run CircularDependency and Complexity as they are graph level tasks
+            allIssues.addAll(CircularDependencyAnalyzer().analyze(context))
+            allIssues.addAll(ComplexityAnalyzer().analyze(context))
+        } else {
+            log.info("No API Key detected. Falling back to static pattern matchers.")
+            for (analyzer in analyzers) {
+                try {
+                    val issues = analyzer.analyze(context)
+                    log.info("${analyzer.name}: found ${issues.size} issues")
+                    allIssues.addAll(issues)
+                } catch (e: Exception) {
+                    log.warn("Analyzer ${analyzer.name} failed", e)
+                }
             }
         }
 

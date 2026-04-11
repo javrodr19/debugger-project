@@ -29,6 +29,9 @@ class GhostDebuggerService(private val project: Project) {
     private var currentGraph: ProjectGraph? = null
     private var currentIssues: List<Issue> = emptyList()
     private var openAIService: OpenAIService? = null
+    
+    private var lastHealthScore: Double = 100.0
+    private var isVerifyingFix: Boolean = false
 
     companion object {
         fun getInstance(project: Project): GhostDebuggerService =
@@ -48,6 +51,7 @@ class GhostDebuggerService(private val project: Project) {
     fun handleUIEvent(event: UIEvent) {
         when (event) {
             is UIEvent.NodeClicked -> handleNodeClicked(event.nodeId)
+            is UIEvent.NodeDoubleClicked -> handleNodeDoubleClicked(event.nodeId)
             is UIEvent.FixRequested -> handleFixRequested(event.issueId, event.nodeId)
             is UIEvent.SimulateRequested -> handleSimulateRequested(event.entryNodeId)
             is UIEvent.WhatIfQuestion -> handleWhatIf(event.question)
@@ -117,7 +121,16 @@ class GhostDebuggerService(private val project: Project) {
                         analysisResult.metrics.warningCount,
                         analysisResult.metrics.healthScore
                     )
+                    
+                    if (isVerifyingFix) {
+                        if (analysisResult.metrics.healthScore < lastHealthScore) {
+                            bridge?.sendError("Fix applied, but project health dropped from ${String.format("%.1f", lastHealthScore)}% to ${String.format("%.1f", analysisResult.metrics.healthScore)}%. Potential regression detected!")
+                        }
+                        isVerifyingFix = false
+                    }
                 }
+                
+                lastHealthScore = analysisResult.metrics.healthScore
 
                 // 10. Pre-fetch AI explanations for critical issues
                 val apiKey = ApiKeyManager.getApiKey()
@@ -140,10 +153,10 @@ class GhostDebuggerService(private val project: Project) {
                     }
                 }
 
-            } catch (e: Exception) {
-                log.error("Analysis failed", e)
+            } catch (t: Throwable) {
+                log.error("Analysis failed with Throwable", t)
                 withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Analysis failed: ${e.message}")
+                    bridge?.sendError("Analysis failed: ${t.message ?: t.javaClass.simpleName}")
                 }
             }
         }
@@ -185,6 +198,18 @@ class GhostDebuggerService(private val project: Project) {
         }
     }
 
+    private fun handleNodeDoubleClicked(nodeId: String) {
+        val graph = currentGraph ?: return
+        val node = graph.nodes.firstOrNull { it.id == nodeId } ?: return
+        if (node.filePath.startsWith("ext:")) return // don't try to open external deps
+        
+        val virtualFile = LocalFileSystem.getInstance().findFileByPath(node.filePath) ?: return
+        
+        ApplicationManager.getApplication().invokeLater {
+            com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(virtualFile, true)
+        }
+    }
+
     private fun handleFixRequested(issueId: String, nodeId: String) {
         val issue = currentIssues.firstOrNull { it.id == issueId }
             ?: currentIssues.firstOrNull { nodeId.contains(it.filePath.substringAfterLast("/")) }
@@ -200,7 +225,19 @@ class GhostDebuggerService(private val project: Project) {
                 }
 
                 val aiService = openAIService ?: OpenAIService(apiKey).also { openAIService = it }
-                val fix = aiService.suggestFix(issue, issue.codeSnippet)
+                val virtualFile = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
+                val fullFileContent = virtualFile?.contentsToByteArray()?.let { String(it) } ?: issue.codeSnippet
+                
+                // Calculate architectural context
+                val impactContext = currentGraph?.nodes?.find { it.filePath == issue.filePath }?.let { node ->
+                    """
+                    ARCHITECTURAL CONTEXT:
+                    - This file is imported by (Dependents): ${if (node.dependents.isEmpty()) "None" else node.dependents.joinToString(", ") { it.substringAfterLast("/") }}
+                    - This file imports (Dependencies): ${if (node.dependencies.isEmpty()) "None" else node.dependencies.joinToString(", ") { it.substringAfterLast("/") }}
+                    """.trimIndent()
+                } ?: ""
+                
+                val fix = aiService.suggestFix(issue, fullFileContent, impactContext)
                 issue.suggestedFix = fix
 
                 withContext(Dispatchers.Swing) {
@@ -221,19 +258,23 @@ class GhostDebuggerService(private val project: Project) {
 
     private fun applyFix(fix: CodeFix) {
         if (fix.fixedCode == fix.originalCode || fix.fixedCode.isBlank()) return
-
+        
+        isVerifyingFix = true
         val virtualFile = LocalFileSystem.getInstance().findFileByPath(fix.filePath) ?: return
         ApplicationManager.getApplication().invokeLater {
             com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project, "GhostDebugger Fix", null, Runnable {
                 try {
-                    val content = String(virtualFile.contentsToByteArray())
-                    if (content.contains(fix.originalCode)) {
-                        val newContent = content.replace(fix.originalCode, fix.fixedCode)
-                        virtualFile.setBinaryContent(newContent.toByteArray())
-                        // Update the node to green
-                        val nodeId = fix.filePath.replace("\\", "/")
-                        bridge?.sendNodeUpdate(nodeId, NodeStatus.HEALTHY)
-                        log.info("Fix applied to ${fix.filePath}")
+                    // Replace the entire file with the AI generated result
+                    virtualFile.setBinaryContent(fix.fixedCode.toByteArray())
+                    
+                    // Update the node to green immediately for visual feedback
+                    val nodeId = fix.filePath.replace("\\", "/")
+                    bridge?.sendNodeUpdate(nodeId, NodeStatus.HEALTHY)
+                    log.info("Fix applied completely to ${fix.filePath}")
+
+                    // Queue re-analysis after fix to verify its correctness
+                    ApplicationManager.getApplication().invokeLater {
+                        analyzeProject()
                     }
                 } catch (e: Exception) {
                     log.error("Failed to apply fix to ${fix.filePath}", e)

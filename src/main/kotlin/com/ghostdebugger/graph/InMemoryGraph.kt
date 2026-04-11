@@ -133,15 +133,19 @@ class InMemoryGraph {
         val levels = mutableMapOf<String, Int>()
         val roots = nodes.keys.filter { reverseAdjacencyList[it].isNullOrEmpty() }
 
-        fun assignLevel(nodeId: String, level: Int) {
+        fun assignLevel(nodeId: String, level: Int, visitedPath: Set<String>) {
+            // Prevent infinite recursion in case of cycles
+            if (visitedPath.contains(nodeId)) return
+            
             val currentLevel = levels[nodeId] ?: -1
             if (level > currentLevel) {
                 levels[nodeId] = level
-                adjacencyList[nodeId]?.forEach { assignLevel(it, level + 1) }
+                val newPath = visitedPath + nodeId
+                adjacencyList[nodeId]?.forEach { assignLevel(it, level + 1, newPath) }
             }
         }
 
-        roots.forEach { assignLevel(it, 0) }
+        roots.forEach { assignLevel(it, 0, emptySet()) }
         nodes.keys.forEach { if (!levels.containsKey(it)) levels[it] = 0 }
 
         return levels

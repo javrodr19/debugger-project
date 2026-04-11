@@ -8,6 +8,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,10 +30,57 @@ class OpenAIService(
     private val json = Json { ignoreUnknownKeys = true }
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .build()
+
+    suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
+        val prompt = PromptTemplates.detectIssues(filePath, fileContent)
+        val rawResponse = callOpenAI(prompt, SystemPrompts.DEBUGGER, jsonMode = true)
+        
+        return try {
+            val element = json.parseToJsonElement(rawResponse)
+            val jsonArray = if (element is kotlinx.serialization.json.JsonObject) {
+                if (element.containsKey("issues")) {
+                    element["issues"]!!.jsonArray
+                } else if (element.containsKey("type") || element.containsKey("severity")) {
+                    // It returned a single issue object instead of an array
+                    kotlinx.serialization.json.JsonArray(listOf(element))
+                } else {
+                    // Just an empty object
+                    kotlinx.serialization.json.JsonArray(emptyList())
+                }
+            } else {
+                element.jsonArray
+            }
+            
+            jsonArray.map { item ->
+                val obj = item.jsonObject
+                Issue(
+                    id = UUID.randomUUID().toString(),
+                    type = try { IssueType.valueOf(obj["type"]?.jsonPrimitive?.content ?: "ARCHITECTURE") } catch (e: Exception) { IssueType.ARCHITECTURE },
+                    severity = try { IssueSeverity.valueOf(obj["severity"]?.jsonPrimitive?.content ?: "WARNING") } catch(e:Exception){ IssueSeverity.WARNING },
+                    title = obj["title"]?.jsonPrimitive?.content ?: "Detected Issue",
+                    description = obj["description"]?.jsonPrimitive?.content ?: "No description provided.",
+                    filePath = filePath,
+                    line = obj["line"]?.jsonPrimitive?.int ?: 1,
+                    codeSnippet = getSnippet(fileContent, obj["line"]?.jsonPrimitive?.int ?: 1),
+                    affectedNodes = listOf(filePath)
+                )
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to parse detectIssues output: $rawResponse", e)
+            emptyList()
+        }
+    }
+    
+    private fun getSnippet(content: String, lineNum: Int): String {
+        val lines = content.lines()
+        val start = maxOf(0, lineNum - 3)
+        val end = minOf(lines.size, lineNum + 2)
+        return lines.subList(start, end).joinToString("\n")
+    }
 
     suspend fun explainIssue(issue: Issue, codeSnippet: String): String {
         val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "explain")
@@ -40,14 +92,14 @@ class OpenAIService(
         return response
     }
 
-    suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
+    suspend fun suggestFix(issue: Issue, codeSnippet: String, impactContext: String = ""): CodeFix {
         val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "fix")
         val cached = cache.get(cacheKey)
 
         val rawResponse = if (cached != null) {
             cached
         } else {
-            val prompt = PromptTemplates.suggestFix(issue, codeSnippet)
+            val prompt = PromptTemplates.suggestFix(issue, codeSnippet, impactContext)
             val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
             cache.put(cacheKey, response)
             response
@@ -71,7 +123,7 @@ class OpenAIService(
         return callOpenAI(prompt, SystemPrompts.CTO)
     }
 
-    private suspend fun callOpenAI(userPrompt: String, systemPrompt: String): String =
+    private suspend fun callOpenAI(userPrompt: String, systemPrompt: String, jsonMode: Boolean = false): String =
         withContext(Dispatchers.IO) {
             val request = ChatCompletionRequest(
                 model = model,
@@ -79,8 +131,9 @@ class OpenAIService(
                     ChatMessage(role = "system", content = systemPrompt.trimIndent()),
                     ChatMessage(role = "user", content = userPrompt)
                 ),
-                max_tokens = 1024,
-                temperature = 0.3
+                max_tokens = 2000,
+                temperature = 0.2,
+                response_format = if (jsonMode) ResponseFormat("json_object") else null
             )
 
             val requestBody = json.encodeToString(request)
@@ -109,23 +162,23 @@ class OpenAIService(
                 ?: throw RuntimeException("No content in OpenAI response")
         }
 
-    private fun parseFixResponse(rawResponse: String, issue: Issue, originalCode: String): CodeFix {
+    private fun parseFixResponse(rawResponse: String, issue: Issue, originalFullFile: String): CodeFix {
         val lines = rawResponse.lines()
         val explanation = lines.firstOrNull { it.startsWith("EXPLANATION:") }
             ?.removePrefix("EXPLANATION:")?.trim() ?: rawResponse.take(200)
 
-        val codeBlockRegex = Regex("""```[\w]*\n([\s\S]*?)```""")
-        val fixedCode = codeBlockRegex.find(rawResponse)?.groupValues?.get(1)?.trim() ?: originalCode
+        val codeBlockRegex = Regex("""```(?:[\w]*)\n([\s\S]*?)```""")
+        val fixedCode = codeBlockRegex.find(rawResponse)?.groupValues?.get(1)?.trim() ?: originalFullFile
 
         return CodeFix(
             id = UUID.randomUUID().toString(),
             issueId = issue.id,
             description = explanation,
-            originalCode = originalCode,
+            originalCode = originalFullFile,
             fixedCode = fixedCode,
             filePath = issue.filePath,
-            lineStart = issue.line,
-            lineEnd = issue.line + originalCode.lines().size
+            lineStart = 1,
+            lineEnd = originalFullFile.lines().size
         )
     }
 }

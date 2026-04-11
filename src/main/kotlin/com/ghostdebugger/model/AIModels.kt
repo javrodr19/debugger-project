@@ -7,8 +7,12 @@ data class ChatCompletionRequest(
     val model: String,
     val messages: List<ChatMessage>,
     val max_tokens: Int = 4096,
-    val temperature: Double = 0.3
+    val temperature: Double = 0.3,
+    val response_format: ResponseFormat? = null
 )
+
+@Serializable
+data class ResponseFormat(val type: String)
 
 @Serializable
 data class ChatMessage(

@@ -5,6 +5,30 @@ import com.ghostdebugger.model.ProjectGraph
 
 object PromptTemplates {
 
+    fun detectIssues(filePath: String, fileContent: String): String = """
+        You are an expert software engineer reviewing the following source code file for bugs, memory leaks, missing error handling, circular dependencies, state bugs, and edge cases.
+        
+        File Path: $filePath
+        
+        ```
+        $fileContent
+        ```
+        
+        If you find any issues, return a JSON array of objects representing the issues.
+        Return ONLY valid JSON.
+        
+        JSON schema for each array item:
+        {
+          "type": "<a string from the following exact list: NULL_SAFETY, CIRCULAR_DEPENDENCY, ASYNC_FLOW, UNHANDLED_PROMISE, STATE_BEFORE_INIT, HIGH_COMPLEXITY, MISSING_ERROR_HANDLING, DEAD_CODE, RESOURCE_LEAK, MEMORY_LEAK, ARCHITECTURE>",
+          "severity": "<either ERROR or WARNING>",
+          "title": "<A concise title for the issue in English>",
+          "description": "<A detailed explanation of the problem, max 2 sentences in Spanish>",
+          "line": <Integer, the 1-indexed line number where the issue exists>
+        }
+        
+        If no issues are found, return an empty array [].
+    """.trimIndent()
+
     fun explainIssue(issue: Issue, codeSnippet: String, projectContext: String = ""): String = """
         You are a senior software developer explaining a bug to a teammate.
 
@@ -31,8 +55,10 @@ object PromptTemplates {
         Respond in Spanish. Be concise (max 150 words). Use simple language, no jargon.
     """.trimIndent()
 
-    fun suggestFix(issue: Issue, codeSnippet: String): String = """
-        You are a senior developer providing a code fix.
+    fun suggestFix(issue: Issue, codeSnippet: String, impactContext: String = ""): String = """
+        You are a world-class senior developer. Fix the bug in the provided source code.
+        
+        $impactContext
 
         ## Issue to Fix
         Type: ${issue.type}
@@ -45,19 +71,22 @@ object PromptTemplates {
         ${codeSnippet.take(800)}
         ```
 
-        Provide a minimal, targeted fix. Return ONLY:
+        Provide a COMPLETE file replacement. Return ONLY:
         1. A brief explanation (1-2 sentences in Spanish)
-        2. The fixed code block
+        2. The ENTIRE fixed source file content.
 
         Format:
         EXPLANATION: <1-2 sentences in Spanish>
 
         FIXED_CODE:
         ```
-        <fixed code here>
+        <entire fixed source file content here>
         ```
 
-        Do NOT add extra imports or refactor. Fix ONLY the specific issue.
+        Do NOT change exported function signatures, component props names, or shared types unless it is the ONLY way to fix the bug.
+        Other modules depend on these signatures. If you must change them, explain why in the EXPLANATION.
+        
+        Return the FULL file content in the FIXED_CODE section.
     """.trimIndent()
 
     fun explainSystem(graph: ProjectGraph): String = """

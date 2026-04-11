@@ -35,20 +35,42 @@ class GraphBuilder {
         val edgeSet = mutableSetOf<String>()
         for (dep in dependencies) {
             val sourceId = normalizeId(dep.fromPath)
-            val targetId = normalizeId(dep.toPath)
-
-            if (graph.getNode(sourceId) != null && graph.getNode(targetId) != null) {
-                val edgeId = "$sourceId->$targetId"
-                if (edgeSet.add(edgeId)) {
-                    graph.addEdge(
-                        GraphEdge(
-                            id = edgeId,
-                            source = sourceId,
-                            target = targetId,
-                            type = EdgeType.IMPORT,
-                            weight = 1.0
+            
+            if (dep.toPath.startsWith("ext:")) {
+                val moduleName = dep.importSource
+                val targetId = "ext_${normalizeId(moduleName)}"
+                
+                // Inject external dependency node dynamically
+                if (graph.getNode(targetId) == null) {
+                    graph.addNode(
+                        GraphNode(
+                            id = targetId,
+                            type = NodeType.MODULE,
+                            name = moduleName,
+                            filePath = dep.toPath,
+                            status = NodeStatus.HEALTHY
                         )
                     )
+                }
+                
+                if (graph.getNode(sourceId) != null) {
+                    val edgeId = "$sourceId->$targetId"
+                    if (edgeSet.add(edgeId)) {
+                        graph.addEdge(
+                            GraphEdge(id = edgeId, source = sourceId, target = targetId, type = EdgeType.IMPORT)
+                        )
+                    }
+                }
+            } else {
+                val targetId = normalizeId(dep.toPath)
+
+                if (graph.getNode(sourceId) != null && graph.getNode(targetId) != null) {
+                    val edgeId = "$sourceId->$targetId"
+                    if (edgeSet.add(edgeId)) {
+                        graph.addEdge(
+                            GraphEdge(id = edgeId, source = sourceId, target = targetId, type = EdgeType.IMPORT)
+                        )
+                    }
                 }
             }
         }

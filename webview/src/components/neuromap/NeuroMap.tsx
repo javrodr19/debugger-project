@@ -70,6 +70,13 @@ export function NeuroMap({ graph }: NeuroMapProps) {
     bridge.requestImpact(graphNode.id)
   }, [graph.nodes, dispatch])
 
+  const onNodeDoubleClick: NodeMouseHandler = useCallback((_event, node) => {
+    const graphNode = graph.nodes.find(n => n.id === node.id)
+    if (graphNode) {
+      bridge.nodeDoubleClicked(graphNode.id)
+    }
+  }, [graph.nodes])
+
   const statusColor = (status: string) => {
     if (status === 'ERROR') return '#ef4444'
     if (status === 'WARNING') return '#eab308'
@@ -83,6 +90,7 @@ export function NeuroMap({ graph }: NeuroMapProps) {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}

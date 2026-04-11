@@ -14,6 +14,7 @@ data class UIEventEnvelope(
 
 sealed class UIEvent {
     data class NodeClicked(val nodeId: String) : UIEvent()
+    data class NodeDoubleClicked(val nodeId: String) : UIEvent()
     data class FixRequested(val issueId: String, val nodeId: String) : UIEvent()
     data class SimulateRequested(val entryNodeId: String) : UIEvent()
     data class WhatIfQuestion(val question: String) : UIEvent()
@@ -31,6 +32,9 @@ object UIEventParser {
             val envelope = json.decodeFromString<UIEventEnvelope>(message)
             when (envelope.type) {
                 "NODE_CLICKED" -> UIEvent.NodeClicked(
+                    nodeId = envelope.payload?.get("nodeId")?.jsonPrimitive?.content ?: ""
+                )
+                "NODE_DOUBLE_CLICKED" -> UIEvent.NodeDoubleClicked(
                     nodeId = envelope.payload?.get("nodeId")?.jsonPrimitive?.content ?: ""
                 )
                 "FIX_REQUESTED" -> UIEvent.FixRequested(

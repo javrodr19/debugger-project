@@ -74,6 +74,7 @@ class PluginBridge {
   }
 
   nodeClicked(nodeId: string) { this.sendEvent('NODE_CLICKED', { nodeId }) }
+  nodeDoubleClicked(nodeId: string) { this.sendEvent('NODE_DOUBLE_CLICKED', { nodeId }) }
   requestFix(issueId: string, nodeId: string) { this.sendEvent('FIX_REQUESTED', { issueId, nodeId }) }
   requestSimulation(entryNodeId: string) { this.sendEvent('SIMULATE_REQUESTED', { entryNodeId }) }
   askWhatIf(question: string) { this.sendEvent('WHAT_IF', { question }) }

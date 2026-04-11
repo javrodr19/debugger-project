@@ -21,6 +21,8 @@ return (
       <li key={item.id}>{item.name}</li>
     )) : null}
   </ul>
+);
+  </ul>
 )
 </ul>
 );

@@ -29,6 +29,15 @@ class DependencyResolver(private val projectBasePath: String) {
                             )
                         )
                     }
+                } else {
+                    // External dependency (e.g., react, axios, node.js builtins)
+                    relations.add(
+                        DependencyRelation(
+                            fromPath = file.path,
+                            toPath = "ext:${import.source}",
+                            importSource = import.source
+                        )
+                    )
                 }
             }
         }
