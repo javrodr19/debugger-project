@@ -12,7 +12,7 @@
         </p>
         <ul>
             <li><strong>NeuroMap</strong> — Mapa visual interactivo del proyecto</li>
-            <li><strong>Detección profunda</strong> — Null safety, circular deps, complexity</li>
+            <li><strong>Detección profunda</strong> — Null safety, circular deps, async issues</li>
             <li><strong>Explicación IA</strong> — OpenAI GPT-4o explica errores como un senior</li>
             <li><strong>Fix automático</strong> — Correcciones contextuales con un clic</li>
             <li><strong>Análisis de impacto</strong> — Saber qué rompe un cambio</li>
@@ -33,8 +33,12 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.GhostDebuggerService"/>
 
+        <!-- Application-level settings service -->
+        <applicationService
+                serviceImplementation="com.ghostdebugger.settings.GhostDebuggerSettings"/>
+
         <!-- Settings/Configurable para API key de OpenAI -->
-        <projectConfigurable
+        <applicationConfigurable
                 instance="com.ghostdebugger.settings.GhostDebuggerConfigurable"
                 id="com.ghostdebugger.settings"
                 displayName="GhostDebugger"

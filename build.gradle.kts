@@ -21,12 +21,12 @@ dependencies {
         intellijIdeaCommunity("2024.3.2")
         pluginVerifier()
         zipSigner()
-        instrumentationTools()
     }
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
 
     // Kotlin Serialization (JSON)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
@@ -43,7 +43,7 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 intellijPlatform {
@@ -52,9 +52,9 @@ intellijPlatform {
         name = "GhostDebugger"
         version = project.version.toString()
         description = """
-            Intelligent debugging system that understands, predicts, 
+            Intelligent debugging system that understands, predicts,
             and fixes code like a senior developer.
-            
+
             Features:
             - Global project analysis with NeuroMap visualization
             - AI-powered error explanations (OpenAI GPT-4o)
@@ -74,24 +74,24 @@ intellijPlatform {
     }
 }
 
+val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+val npmCmd = if (isWindows) listOf("cmd", "/c", "npm") else listOf("npm")
+
 tasks {
     test {
         useJUnitPlatform()
     }
 
-    // Copy webview build output to plugin resources before building
-    register<Copy>("copyWebview") {
-        from("webview/dist")
-        into("src/main/resources/web")
-        dependsOn(":buildWebview")
-    }
-
     register<Exec>("buildWebview") {
         workingDir = file("webview")
-        commandLine("npm", "run", "build")
+        commandLine(npmCmd + listOf("run", "build"))
+        inputs.dir("webview/src")
+        inputs.file("webview/package.json")
+        inputs.file("webview/vite.config.ts")
+        outputs.dir("src/main/resources/web")
     }
 
     processResources {
-        dependsOn("copyWebview")
+        dependsOn("buildWebview")
     }
 }

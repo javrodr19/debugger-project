@@ -1,0 +1,131 @@
+package com.ghostdebugger.ai
+
+import com.ghostdebugger.ai.prompts.PromptTemplates
+import com.ghostdebugger.ai.prompts.SystemPrompts
+import com.ghostdebugger.model.*
+import com.intellij.openapi.diagnostic.logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.UUID
+import java.util.concurrent.TimeUnit
+
+class OpenAIService(
+    private val apiKey: String,
+    private val model: String = "gpt-4o",
+    private val baseUrl: String = "https://api.openai.com/v1"
+) {
+    private val log = logger<OpenAIService>()
+    private val cache = AICache()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    suspend fun explainIssue(issue: Issue, codeSnippet: String): String {
+        val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "explain")
+        cache.get(cacheKey)?.let { return it }
+
+        val prompt = PromptTemplates.explainIssue(issue, codeSnippet)
+        val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
+        cache.put(cacheKey, response)
+        return response
+    }
+
+    suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
+        val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "fix")
+        val cached = cache.get(cacheKey)
+
+        val rawResponse = if (cached != null) {
+            cached
+        } else {
+            val prompt = PromptTemplates.suggestFix(issue, codeSnippet)
+            val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
+            cache.put(cacheKey, response)
+            response
+        }
+
+        return parseFixResponse(rawResponse, issue, codeSnippet)
+    }
+
+    suspend fun explainSystem(graph: ProjectGraph): String {
+        val cacheKey = cache.computeKey(graph.metadata.projectName + graph.nodes.size, "system")
+        cache.get(cacheKey)?.let { return it }
+
+        val prompt = PromptTemplates.explainSystem(graph)
+        val response = callOpenAI(prompt, SystemPrompts.CTO)
+        cache.put(cacheKey, response)
+        return response
+    }
+
+    suspend fun whatIf(question: String, graph: ProjectGraph): String {
+        val prompt = PromptTemplates.whatIf(question, graph)
+        return callOpenAI(prompt, SystemPrompts.CTO)
+    }
+
+    private suspend fun callOpenAI(userPrompt: String, systemPrompt: String): String =
+        withContext(Dispatchers.IO) {
+            val request = ChatCompletionRequest(
+                model = model,
+                messages = listOf(
+                    ChatMessage(role = "system", content = systemPrompt.trimIndent()),
+                    ChatMessage(role = "user", content = userPrompt)
+                ),
+                max_tokens = 1024,
+                temperature = 0.3
+            )
+
+            val requestBody = json.encodeToString(request)
+                .toRequestBody("application/json".toMediaType())
+
+            val httpRequest = Request.Builder()
+                .url("$baseUrl/chat/completions")
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .post(requestBody)
+                .build()
+
+            val response = httpClient.newCall(httpRequest).execute()
+
+            if (!response.isSuccessful) {
+                val body = response.body?.string() ?: ""
+                log.error("OpenAI API error: ${response.code} - $body")
+                throw RuntimeException("OpenAI API error: ${response.code}")
+            }
+
+            val responseBody = response.body?.string()
+                ?: throw RuntimeException("Empty response from OpenAI")
+
+            val completionResponse = json.decodeFromString<ChatCompletionResponse>(responseBody)
+            completionResponse.choices.firstOrNull()?.message?.content
+                ?: throw RuntimeException("No content in OpenAI response")
+        }
+
+    private fun parseFixResponse(rawResponse: String, issue: Issue, originalCode: String): CodeFix {
+        val lines = rawResponse.lines()
+        val explanation = lines.firstOrNull { it.startsWith("EXPLANATION:") }
+            ?.removePrefix("EXPLANATION:")?.trim() ?: rawResponse.take(200)
+
+        val codeBlockRegex = Regex("""```[\w]*\n([\s\S]*?)```""")
+        val fixedCode = codeBlockRegex.find(rawResponse)?.groupValues?.get(1)?.trim() ?: originalCode
+
+        return CodeFix(
+            id = UUID.randomUUID().toString(),
+            issueId = issue.id,
+            description = explanation,
+            originalCode = originalCode,
+            fixedCode = fixedCode,
+            filePath = issue.filePath,
+            lineStart = issue.line,
+            lineEnd = issue.line + originalCode.lines().size
+        )
+    }
+}
