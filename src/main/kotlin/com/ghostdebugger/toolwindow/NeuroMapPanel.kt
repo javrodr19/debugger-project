@@ -10,6 +10,9 @@ import java.awt.BorderLayout
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
+import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.util.jar.JarFile
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -145,39 +148,52 @@ class NeuroMapPanel(private val project: Project) : JPanel(BorderLayout()) {
         tempDir.deleteOnExit()
 
         val classLoader = javaClass.classLoader
-
-        // Find the JAR or directory containing "web/index.html"
-        val webIndexUrl = classLoader.getResource("web/index.html")
-            ?: throw IllegalStateException("web/index.html not found on classpath")
-
-        if (webIndexUrl.protocol == "jar") {
-            // Extract from JAR file
-            val jarPath = webIndexUrl.path.substringAfter("file:").substringBefore("!")
-            val jarFile = JarFile(File(jarPath))
-
-            jarFile.use { jar ->
-                val entries = jar.entries()
-                while (entries.hasMoreElements()) {
-                    val entry = entries.nextElement()
-                    if (entry.name.startsWith("web/") && !entry.isDirectory) {
-                        val relativePath = entry.name.removePrefix("web/")
-                        val targetFile = File(tempDir, relativePath)
-                        targetFile.parentFile.mkdirs()
-
-                        jar.getInputStream(entry).use { input ->
-                            targetFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
+        
+        try {
+            // Priority 1: Use the plugin path from IntelliJ's PluginManager
+            val plugin = com.intellij.ide.plugins.PluginManagerCore.getPlugin(
+                com.intellij.openapi.extensions.PluginId.getId("com.ghostdebugger")
+            )
+            
+            if (plugin != null) {
+                val pluginPath = plugin.pluginPath
+                val webDir = pluginPath.resolve("web")
+                
+                // If web dir exists outside JAR (exploded)
+                if (Files.isDirectory(webDir)) {
+                    log.info("NeuroMapPanel: Found web resources at exploded plugin path: $webDir")
+                    webDir.toFile().copyRecursively(tempDir, overwrite = true)
+                } else {
+                    // Look for the JAR in lib/
+                    val libDir = pluginPath.resolve("lib")
+                    val jarPath = if (Files.isDirectory(libDir)) {
+                        Files.list(libDir).use { stream ->
+                            stream.filter { it.toString().endsWith(".jar") && it.fileName.toString().contains("ghostdebugger") }
+                                .findFirst().orElse(null)
                         }
-                        log.info("Extracted: ${entry.name} → ${targetFile.absolutePath}")
+                    } else null
+
+                    if (jarPath != null) {
+                        log.info("NeuroMapPanel: Extracting resources from discovered JAR: $jarPath")
+                        extractFromJar(jarPath.toFile(), tempDir)
+                    } else {
+                        // Fallback: Use the classpath resource and try to find the JAR file manually
+                        val resource = classLoader.getResource("web/index.html")
+                        if (resource?.protocol == "jar") {
+                            val rawJarPath = resource.path.substringAfter("file:").substringBefore("!")
+                            // Use URI carefully to handle spaces and Unicode
+                            val jarFile = File(java.net.URI(resource.path.substringBefore("!")))
+                            log.info("NeuroMapPanel: Extracting resources from classpath JAR: ${jarFile.absolutePath}")
+                            extractFromJar(jarFile, tempDir)
+                        } else if (resource?.protocol == "file") {
+                            File(resource.toURI()).parentFile.copyRecursively(tempDir, overwrite = true)
+                        }
                     }
                 }
             }
-        } else {
-            // Resources are in a directory (e.g., exploded classes)
-            val webDir = File(webIndexUrl.toURI()).parentFile
-            webDir.copyRecursively(tempDir, overwrite = true)
-            log.info("Copied web directory: ${webDir.absolutePath} → ${tempDir.absolutePath}")
+        } catch (e: Exception) {
+            log.error("Failed to extract web resources securely", e)
+            throw IllegalStateException("Fatal: Could not load NeuroMap resources. Please ensure the plugin is correctly installed.", e)
         }
 
         val indexFile = File(tempDir, "index.html")
@@ -185,16 +201,34 @@ class NeuroMapPanel(private val project: Project) : JPanel(BorderLayout()) {
             throw IllegalStateException("Failed to extract web resources: index.html not found in $tempDir")
         }
 
-        // Verify assets were extracted
+        log.info("Web resources extracted successfully to: ${tempDir.absolutePath}")
+        return indexFile.toURI().toString()
+    }
+
+    private fun extractFromJar(jarFile: File, targetDir: File) {
+        java.util.jar.JarFile(jarFile).use { jar ->
+            val entries = jar.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                if (entry.name.startsWith("web/") && !entry.isDirectory) {
+                    val relativePath = entry.name.removePrefix("web/")
+                    val targetFile = File(targetDir, relativePath)
+                    targetFile.parentFile.mkdirs()
+                    jar.getInputStream(entry).use { input ->
+                        targetFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun verifyExtraction(tempDir: File) {
         val assetsDir = File(tempDir, "assets")
         if (assetsDir.isDirectory) {
             val assetFiles = assetsDir.listFiles()?.map { it.name } ?: emptyList()
             log.info("Extracted assets: $assetFiles")
-        } else {
-            log.warn("No assets directory found after extraction!")
         }
-
-        log.info("Web resources extracted to: ${tempDir.absolutePath}")
-        return indexFile.toURI().toString()
     }
 }

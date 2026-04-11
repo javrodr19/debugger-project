@@ -82,7 +82,16 @@ tasks {
         useJUnitPlatform()
     }
 
+    register<Exec>("npmInstallWebview") {
+        workingDir = file("webview")
+        commandLine(npmCmd + listOf("install"))
+        inputs.file("webview/package.json")
+        inputs.file("webview/package-lock.json")
+        outputs.dir("webview/node_modules")
+    }
+
     register<Exec>("buildWebview") {
+        dependsOn("npmInstallWebview")
         workingDir = file("webview")
         commandLine(npmCmd + listOf("run", "build"))
         inputs.dir("webview/src")
@@ -93,5 +102,9 @@ tasks {
 
     processResources {
         dependsOn("buildWebview")
+    }
+
+    instrumentCode {
+        enabled = false
     }
 }
