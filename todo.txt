@@ -1,0 +1,21 @@
+Update SymbolExtractor.kt — add Python, Go, Rust, C# extractors
+
+Update GhostDebuggerService.kt — file watcher, debug overlay, export handler, annotator refresh
+
+Create GhostDebuggerAnnotator.kt — ExternalAnnotator for Problems window
+
+Create ReportGenerator.kt — self-contained HTML report
+
+Update plugin.xml — register annotator for all languages
+
+Update webview types, bridge, store — DebugFrame, cycles, export, auto-refresh
+
+Update App.tsx — Export button, auto-refresh indicator
+
+Update NeuroMap.tsx — cycle edges orange, debug active node
+
+Update CustomNode.tsx — debug active indicator + variables overlay
+
+Update DetailPanel.tsx — cycle count in Overview
+
+Build webview + Kotlin, fix errors
