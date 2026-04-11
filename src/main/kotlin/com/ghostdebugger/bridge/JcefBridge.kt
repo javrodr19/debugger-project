@@ -25,10 +25,16 @@ class JcefBridge(
     private var query: JBCefJSQuery? = null
 
     fun initialize() {
-        val q = JBCefJSQuery.create(browser as JBCefBrowserBase)
-        query = q
-        q.addHandler { message ->
-            handleIncomingQuery(message)
+        query = JBCefJSQuery.create(browser as JBCefBrowserBase)
+        query!!.addHandler { message ->
+            try {
+                val event = UIEventParser.parse(message)
+                log.info("JcefBridge received event: ${event::class.simpleName}")
+                onEvent(event)
+            } catch (e: Exception) {
+                log.error("Failed to parse UI event: $message", e)
+            }
+            JBCefJSQuery.Response("ok")
         }
 
         browser.jbCefClient.addLoadHandler(object : CefLoadHandlerAdapter() {
@@ -38,17 +44,6 @@ class JcefBridge(
                 }
             }
         }, browser.cefBrowser)
-    }
-
-    private fun handleIncomingQuery(message: String): JBCefJSQuery.Response {
-        try {
-            val event = UIEventParser.parse(message)
-            log.info("JcefBridge received event: ${event::class.simpleName}")
-            onEvent(event)
-        } catch (e: Exception) {
-            log.error("Failed to parse UI event: $message", e)
-        }
-        return JBCefJSQuery.Response("ok")
     }
 
     private fun injectBridgeScript() {
@@ -73,8 +68,8 @@ class JcefBridge(
     }
 
     fun sendIssueExplanation(issueId: String, explanation: String) {
-        val payload = json.encodeToString(IssueExplanationPayload(issueId, explanation))
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onExplanation($payload)")
+        val explanationEscaped = json.encodeToString(mapOf("issueId" to issueId, "explanation" to explanation))
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onExplanation($explanationEscaped)")
     }
 
     fun sendFixSuggestion(fix: CodeFix) {
@@ -83,7 +78,8 @@ class JcefBridge(
     }
 
     fun sendNodeUpdate(nodeId: String, status: NodeStatus) {
-        val payload = json.encodeToString(NodeUpdatePayload(nodeId, status.name))
+        val escapedId = nodeId.replace("\"", "\\\"")
+        val payload = """{"nodeId":"$escapedId","status":"${status.name}"}"""
         executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onNodeUpdate($payload)")
     }
 
@@ -92,36 +88,32 @@ class JcefBridge(
     }
 
     fun sendAnalysisComplete(errorCount: Int, warningCount: Int, healthScore: Double) {
-        val payload = json.encodeToString(AnalysisCompletePayload(
-            errorCount = errorCount,
-            warningCount = warningCount,
-            healthScore = healthScore
-        ))
+        val payload = """{"errorCount":$errorCount,"warningCount":$warningCount,"healthScore":$healthScore}"""
         executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onAnalysisComplete($payload)")
     }
 
     fun sendError(message: String) {
-        val payload = json.encodeToString(message)
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onError($payload)")
+        val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"")
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onError(\"$escaped\")")
     }
 
     fun sendSystemExplanation(explanation: String) {
-        val payload = json.encodeToString(explanation)
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onSystemExplanation($payload)")
+        val escaped = explanation.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onSystemExplanation(\"$escaped\")")
     }
 
     fun sendImpactAnalysis(nodeId: String, affectedNodes: List<String>) {
-        val payload = json.encodeToString(ImpactAnalysisPayload(nodeId, affectedNodes))
+        val affectedJson = json.encodeToString(affectedNodes)
+        val escapedId = nodeId.replace("\"", "\\\"")
+        val payload = """{"nodeId":"$escapedId","affectedNodes":$affectedJson}"""
         executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onImpactAnalysis($payload)")
     }
 
     fun sendDebugFrame(nodeId: String, filePath: String, line: Int, variables: List<DebugVariable>) {
-        val payload = json.encodeToString(DebugFramePayload(
-            nodeId = nodeId,
-            filePath = filePath,
-            line = line,
-            variables = variables
-        ))
+        val varsJson = json.encodeToString(variables)
+        val escapedId = nodeId.replace("\"", "\\\"")
+        val escapedPath = filePath.replace("\\", "/").replace("\"", "\\\"")
+        val payload = """{"nodeId":"$escapedId","filePath":"$escapedPath","line":$line,"variables":$varsJson}"""
         executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugFrame($payload)")
     }
 
@@ -130,8 +122,8 @@ class JcefBridge(
     }
 
     fun sendDebugStateChanged(state: String) {
-        val payload = json.encodeToString(state)
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugStateChanged($payload)")
+        val escaped = state.replace("\"", "\\\"")
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugStateChanged(\"$escaped\")")
     }
 
     fun sendAutoRefreshStart() {

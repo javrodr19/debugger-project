@@ -11,19 +11,12 @@ class GraphBuilder {
         dependencies: List<DependencyRelation>
     ): InMemoryGraph {
         val graph = InMemoryGraph()
-        
-        createFileNodes(graph, parsedFiles)
-        createDependencyEdges(graph, dependencies)
 
-        return graph
-    }
-
-    private fun createFileNodes(graph: InMemoryGraph, parsedFiles: List<com.ghostdebugger.model.ParsedFile>) {
+        // Create nodes for each file
         for (file in parsedFiles) {
             val nodeType = detectNodeType(file)
-            val functions = file.functions.map { FunctionInfo(name = it.name, line = it.line, isAsync = it.isAsync) }
-            val variables = file.variables.map { VariableInfo(name = it.name, line = it.line, kind = it.kind) }
-            
+            val functionInfos = file.functions.map { FunctionInfo(name = it.name, line = it.line, isAsync = it.isAsync) }
+            val variableInfos = file.variables.map { VariableInfo(name = it.name, line = it.line, kind = it.kind) }
             val node = GraphNode(
                 id = normalizeId(file.path),
                 type = nodeType,
@@ -33,80 +26,60 @@ class GraphBuilder {
                 lineEnd = file.content.lines().size,
                 complexity = estimateComplexity(file.content),
                 status = NodeStatus.HEALTHY,
-                functions = functions,
-                variables = variables
+                issues = emptyList(),
+                dependencies = emptyList(),
+                dependents = emptyList(),
+                functions = functionInfos,
+                variables = variableInfos
             )
             graph.addNode(node)
         }
-    }
 
-    private fun createDependencyEdges(graph: InMemoryGraph, dependencies: List<DependencyRelation>) {
+        // Create edges from dependencies
         val edgeSet = mutableSetOf<String>()
         for (dep in dependencies) {
             val sourceId = normalizeId(dep.fromPath)
-            val sourceNode = graph.getNode(sourceId) ?: continue
-
+            
             if (dep.toPath.startsWith("ext:")) {
-                handleExternalDependency(graph, dep, sourceId, edgeSet)
+                val moduleName = dep.importSource
+                val targetId = "ext_${normalizeId(moduleName)}"
+                
+                // Inject external dependency node dynamically
+                if (graph.getNode(targetId) == null) {
+                    graph.addNode(
+                        GraphNode(
+                            id = targetId,
+                            type = NodeType.MODULE,
+                            name = moduleName,
+                            filePath = dep.toPath,
+                            status = NodeStatus.HEALTHY
+                        )
+                    )
+                }
+                
+                if (graph.getNode(sourceId) != null) {
+                    val edgeId = "$sourceId->$targetId"
+                    if (edgeSet.add(edgeId)) {
+                        graph.addEdge(
+                            GraphEdge(id = edgeId, source = sourceId, target = targetId, type = EdgeType.IMPORT)
+                        )
+                    }
+                }
             } else {
-                handleInternalDependency(graph, dep, sourceId, edgeSet)
+                val targetId = normalizeId(dep.toPath)
+
+                if (graph.getNode(sourceId) != null && graph.getNode(targetId) != null) {
+                    val edgeId = "$sourceId->$targetId"
+                    if (edgeSet.add(edgeId)) {
+                        graph.addEdge(
+                            GraphEdge(id = edgeId, source = sourceId, target = targetId, type = EdgeType.IMPORT)
+                        )
+                    }
+                }
             }
         }
-    }
 
-    private fun handleExternalDependency(
-        graph: InMemoryGraph,
-        dep: DependencyRelation,
-        sourceId: String,
-        edgeSet: MutableSet<String>
-    ) {
-        val moduleName = dep.importSource
-        val targetId = "ext_${normalizeId(moduleName)}"
-        
-        if (graph.getNode(targetId) == null) {
-            graph.addNode(
-                GraphNode(
-                    id = targetId,
-                    type = NodeType.MODULE,
-                    name = moduleName,
-                    filePath = dep.toPath,
-                    status = NodeStatus.HEALTHY
-                )
-            )
-        }
-        
-        addEdgeIfPossible(graph, sourceId, targetId, edgeSet)
-    }
-
-    private fun handleInternalDependency(
-        graph: InMemoryGraph,
-        dep: DependencyRelation,
-        sourceId: String,
-        edgeSet: MutableSet<String>
-    ) {
-        val targetId = normalizeId(dep.toPath)
-        if (graph.getNode(targetId) != null) {
-            addEdgeIfPossible(graph, sourceId, targetId, edgeSet)
-        }
-    }
-
-    private fun addEdgeIfPossible(
-        graph: InMemoryGraph,
-        sourceId: String,
-        targetId: String,
-        edgeSet: MutableSet<String>
-    ) {
-        val edgeId = "$sourceId->$targetId"
-        if (edgeSet.add(edgeId)) {
-            graph.addEdge(
-                GraphEdge(
-                    id = edgeId,
-                    source = sourceId,
-                    target = targetId,
-                    type = EdgeType.IMPORT
-                )
-            )
-        }
+        return graph
     }
 
     fun applyIssues(graph: InMemoryGraph, issues: List<Issue>): InMemoryGraph {

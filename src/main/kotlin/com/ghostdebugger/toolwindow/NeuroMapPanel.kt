@@ -44,27 +44,17 @@ class NeuroMapPanel(
             log.info("NeuroMapPanel: Loading JCEF browser with URL: $indexUrl")
             val jbBrowser = JBCefBrowser.createBuilder()
                 .setUrl(indexUrl)
-                .setOffScreenRendering(false)
                 .build()
-            
             Disposer.register(parentDisposable, jbBrowser)
             browser = jbBrowser
             
-            val service = try {
-                GhostDebuggerService.getInstance(project)
-            } catch (e: Exception) {
-                log.warn("Service not yet available during JCEF init", e)
-                null
+            val service = GhostDebuggerService.getInstance(project)
+            val bridge = JcefBridge(jbBrowser) { event ->
+                service.handleUIEvent(event)
             }
-
-            if (service != null) {
-                val bridge = JcefBridge(jbBrowser) { event ->
-                    service.handleUIEvent(event)
-                }
-                Disposer.register(parentDisposable, bridge)
-                bridge.initialize()
-                service.setBridge(bridge)
-            }
+            Disposer.register(parentDisposable, bridge)
+            bridge.initialize()
+            service.setBridge(bridge)
 
             jbBrowser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
                 override fun onConsoleMessage(
