@@ -86,7 +86,8 @@ data class ParsedFile(
     val content: String,
     val functions: List<FunctionSymbol> = emptyList(),
     val imports: List<ImportSymbol> = emptyList(),
-    val exports: List<ExportSymbol> = emptyList()
+    val exports: List<ExportSymbol> = emptyList(),
+    val variables: List<VariableSymbol> = emptyList()
 )
 
 data class FunctionSymbol(
@@ -94,6 +95,12 @@ data class FunctionSymbol(
     val line: Int,
     val isAsync: Boolean = false,
     val body: String = ""
+)
+
+data class VariableSymbol(
+    val name: String,
+    val line: Int,
+    val kind: String = "const"
 )
 
 data class ImportSymbol(
@@ -105,4 +112,23 @@ data class ImportSymbol(
 data class ExportSymbol(
     val name: String,
     val line: Int
+)
+
+/**
+ * Represents a cluster of connected nodes that are all in an error state.
+ */
+data class BrokenNeighborhood(
+    val primaryNodeId: String,
+    val neighbors: List<String>, // IDs (paths) of connected broken nodes
+    val healthyContextNodes: List<String> // IDs of connected healthy nodes for type/context info
+)
+
+/**
+ * Represents a logical fix that spans multiple files.
+ */
+@Serializable
+data class MultiFileFix(
+    val id: String,
+    val explanation: String,
+    val fileFixes: List<CodeFix>
 )

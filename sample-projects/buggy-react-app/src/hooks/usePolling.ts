@@ -19,7 +19,8 @@ export const usePolling = (url: string, interval: number = 5000) => {
       setLoading(false);
     }, interval);
 
-    // Missing: return () => clearInterval(timer);
+    // Cleanup function to prevent memory leak
+    return () => clearInterval(timer);
   }, [url, interval]);
 
   return { data, loading };

@@ -94,6 +94,9 @@ class InMemoryGraph {
     fun toProjectGraph(projectName: String = "Project"): ProjectGraph {
         val allNodes = getAllNodes()
         val allEdges = getAllEdges()
+        val cycles = findCycles()
+        val cycleEdgeIds = buildCycleEdgeIds(cycles)
+
         val totalIssues = allNodes.sumOf { it.issues.size }
         val healthScore = if (allNodes.isEmpty()) 100.0 else {
             val healthyCount = allNodes.count { it.status == NodeStatus.HEALTHY }
@@ -102,15 +105,28 @@ class InMemoryGraph {
 
         return ProjectGraph(
             nodes = positionNodes(allNodes),
-            edges = allEdges,
+            edges = allEdges.map { edge -> edge.copy(isCycle = edge.id in cycleEdgeIds) },
             metadata = GraphMetadata(
                 projectName = projectName,
                 totalFiles = allNodes.size,
                 totalIssues = totalIssues,
                 analysisTimestamp = System.currentTimeMillis(),
-                healthScore = healthScore
+                healthScore = healthScore,
+                cycles = cycles
             )
         )
+    }
+
+    private fun buildCycleEdgeIds(cycles: List<List<String>>): Set<String> {
+        val ids = mutableSetOf<String>()
+        for (cycle in cycles) {
+            for (i in cycle.indices) {
+                val src = cycle[i]
+                val tgt = cycle[(i + 1) % cycle.size]
+                edges.values.find { it.source == src && it.target == tgt }?.let { ids.add(it.id) }
+            }
+        }
+        return ids
     }
 
     private fun positionNodes(nodes: List<GraphNode>): List<GraphNode> {

@@ -1,4 +1,4 @@
-import type { ProjectGraph, Issue, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus } from '../types'
+import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus } from '../types'
 
 type EventHandler<T> = (data: T) => void
 
@@ -77,10 +77,11 @@ class PluginBridge {
   nodeDoubleClicked(nodeId: string) { this.sendEvent('NODE_DOUBLE_CLICKED', { nodeId }) }
   requestFix(issueId: string, nodeId: string) { this.sendEvent('FIX_REQUESTED', { issueId, nodeId }) }
   requestSimulation(entryNodeId: string) { this.sendEvent('SIMULATE_REQUESTED', { entryNodeId }) }
-  askWhatIf(question: string) { this.sendEvent('WHAT_IF', { question }) }
   requestImpact(nodeId: string) { this.sendEvent('IMPACT_REQUESTED', { nodeId }) }
   requestSystemExplanation() { this.sendEvent('EXPLAIN_SYSTEM') }
   requestAnalysis() { this.sendEvent('ANALYZE') }
+  setBreakpoint(filePath: string, line: number) { this.sendEvent('BREAKPOINT_SET', { filePath, line }) }
+  removeBreakpoint(filePath: string, line: number) { this.sendEvent('BREAKPOINT_REMOVED', { filePath, line }) }
 
   isConnected(): boolean {
     return typeof window.__jcefQuery__ === 'function'

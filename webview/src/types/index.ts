@@ -27,7 +27,6 @@ export interface Issue {
   codeSnippet: string
   affectedNodes: string[]
   explanation?: string
-  suggestedFix?: CodeFix
 }
 
 export interface CodeFix {
@@ -39,6 +38,18 @@ export interface CodeFix {
   filePath: string
   lineStart: number
   lineEnd: number
+}
+
+export interface FunctionInfo {
+  name: string
+  line: number
+  isAsync: boolean
+}
+
+export interface VariableInfo {
+  name: string
+  line: number
+  kind: string // const | let | var | val
 }
 
 export interface NodePosition {
@@ -59,6 +70,8 @@ export interface GraphNode {
   dependencies: string[]
   dependents: string[]
   position?: NodePosition
+  functions: FunctionInfo[]
+  variables: VariableInfo[]
 }
 
 export interface GraphEdge {

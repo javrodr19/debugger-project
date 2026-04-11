@@ -15,6 +15,8 @@ class GraphBuilder {
         // Create nodes for each file
         for (file in parsedFiles) {
             val nodeType = detectNodeType(file)
+            val functionInfos = file.functions.map { FunctionInfo(name = it.name, line = it.line, isAsync = it.isAsync) }
+            val variableInfos = file.variables.map { VariableInfo(name = it.name, line = it.line, kind = it.kind) }
             val node = GraphNode(
                 id = normalizeId(file.path),
                 type = nodeType,
@@ -26,7 +28,9 @@ class GraphBuilder {
                 status = NodeStatus.HEALTHY,
                 issues = emptyList(),
                 dependencies = emptyList(),
-                dependents = emptyList()
+                dependents = emptyList(),
+                functions = functionInfos,
+                variables = variableInfos
             )
             graph.addNode(node)
         }

@@ -1,6 +1,7 @@
 package com.ghostdebugger.bridge
 
 import com.ghostdebugger.model.*
+import com.ghostdebugger.model.DebugVariable
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefBrowserBase
@@ -106,6 +107,22 @@ class JcefBridge(
         val escapedId = nodeId.replace("\"", "\\\"")
         val payload = """{"nodeId":"$escapedId","affectedNodes":$affectedJson}"""
         executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onImpactAnalysis($payload)")
+    }
+
+    fun sendDebugFrame(nodeId: String, filePath: String, line: Int, variables: List<DebugVariable>) {
+        val varsJson = json.encodeToString(variables)
+        val escapedId = nodeId.replace("\"", "\\\"")
+        val escapedPath = filePath.replace("\\", "/").replace("\"", "\\\"")
+        val payload = """{"nodeId":"$escapedId","filePath":"$escapedPath","line":$line,"variables":$varsJson}"""
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugFrame($payload)")
+    }
+
+    fun sendDebugSessionEnded() {
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugSessionEnded()")
+    }
+
+    fun sendAutoRefreshStart() {
+        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onAutoRefreshStart()")
     }
 
     private fun executeJS(script: String) {

@@ -10,6 +10,20 @@ data class ProjectGraph(
 )
 
 @Serializable
+data class FunctionInfo(
+    val name: String,
+    val line: Int,
+    val isAsync: Boolean = false
+)
+
+@Serializable
+data class VariableInfo(
+    val name: String,
+    val line: Int,
+    val kind: String = "const" // const | let | var | val | var(kotlin)
+)
+
+@Serializable
 data class GraphNode(
     val id: String,
     val type: NodeType,
@@ -22,7 +36,9 @@ data class GraphNode(
     val issues: List<Issue> = emptyList(),
     val dependencies: List<String> = emptyList(),
     val dependents: List<String> = emptyList(),
-    val position: NodePosition? = null
+    val position: NodePosition? = null,
+    val functions: List<FunctionInfo> = emptyList(),
+    val variables: List<VariableInfo> = emptyList()
 )
 
 @Serializable
@@ -32,7 +48,8 @@ data class GraphEdge(
     val target: String,
     val type: EdgeType,
     val weight: Double = 1.0,
-    val animated: Boolean = false
+    val animated: Boolean = false,
+    val isCycle: Boolean = false
 )
 
 @Serializable
@@ -41,7 +58,15 @@ data class GraphMetadata(
     val totalFiles: Int,
     val totalIssues: Int,
     val analysisTimestamp: Long,
-    val healthScore: Double
+    val healthScore: Double,
+    val cycles: List<List<String>> = emptyList()
+)
+
+@Serializable
+data class DebugVariable(
+    val name: String,
+    val value: String,
+    val type: String = ""
 )
 
 @Serializable

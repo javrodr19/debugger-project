@@ -56,37 +56,32 @@ object PromptTemplates {
     """.trimIndent()
 
     fun suggestFix(issue: Issue, codeSnippet: String, impactContext: String = ""): String = """
-        You are a world-class senior developer. Fix the bug in the provided source code.
-        
-        $impactContext
+        You are a world-class senior developer. Provide a fix for the following bug.
 
-        ## Issue to Fix
+        ## Issue
         Type: ${issue.type}
         Title: ${issue.title}
         File: ${issue.filePath.substringAfterLast("/")}
         Line: ${issue.line}
 
-        ## Current Code
+        ## Buggy Code (snippet)
         ```
         ${codeSnippet.take(800)}
         ```
 
-        Provide a COMPLETE file replacement. Return ONLY:
-        1. A brief explanation (1-2 sentences in Spanish)
-        2. The ENTIRE fixed source file content.
+        Return EXACTLY this format — nothing else:
 
-        Format:
-        EXPLANATION: <1-2 sentences in Spanish>
+        EXPLANATION: <1-2 sentences in Spanish describing what you changed and why>
 
         FIXED_CODE:
         ```
-        <entire fixed source file content here>
+        <ONLY the fixed version of the snippet above — same scope, minimal changes>
         ```
 
-        Do NOT change exported function signatures, component props names, or shared types unless it is the ONLY way to fix the bug.
-        Other modules depend on these signatures. If you must change them, explain why in the EXPLANATION.
-        
-        Return the FULL file content in the FIXED_CODE section.
+        Rules:
+        - Only fix the shown snippet, do not rewrite the whole file
+        - Keep the same indentation style
+        - Preserve function/variable names unless the name itself is the bug
     """.trimIndent()
 
     fun explainSystem(graph: ProjectGraph): String = """
@@ -127,5 +122,39 @@ object PromptTemplates {
 
         Answer this question as a CTO in Spanish. Be direct, specific, and actionable.
         Max 200 words. Focus on technical risks and concrete recommendations.
+    """.trimIndent()
+    fun jointFix(issue: Issue, brokenFiles: Map<String, String>, healthyContext: Map<String, String>): String = """
+        You are a world-class senior developer fixing a bug that might span multiple related files.
+        
+        ## Primary Issue
+        Type: ${issue.type}
+        Title: ${issue.title}
+        Primary File: ${issue.filePath.substringAfterLast("/")}
+        
+        ## BROKEN NEIGHBORHOOD (Files that need fixing or review)
+        ${brokenFiles.entries.joinToString("\n\n") { (path, content) -> 
+            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```" 
+        }}
+        
+        ## HEALTHY CONTEXT (Reference these to ensure type/signature compatibility)
+        ${healthyContext.entries.joinToString("\n\n") { (path, content) -> 
+            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```" 
+        }}
+        
+        Provide a JOINT FIX plan. 
+        Your goal is to fix the issues while ensuring compatibility between all involved files.
+        Return ONLY a JSON object with this exact structure:
+        {
+          "explanation": "<1-2 sentences in Spanish explaining the global fix>",
+          "fixes": [
+            {
+              "filePath": "<full path of the file>",
+              "fixedCode": "<the entire new content of that file>"
+            }
+          ]
+        }
+        
+        Include a fix entry for EVERY file in the BROKEN NEIGHBORHOOD section, even if no changes were needed (in that case, return the original code).
+        Return ONLY valid JSON.
     """.trimIndent()
 }

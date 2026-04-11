@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.int
 
 @Serializable
 data class UIEventEnvelope(
@@ -17,10 +18,12 @@ sealed class UIEvent {
     data class NodeDoubleClicked(val nodeId: String) : UIEvent()
     data class FixRequested(val issueId: String, val nodeId: String) : UIEvent()
     data class SimulateRequested(val entryNodeId: String) : UIEvent()
-    data class WhatIfQuestion(val question: String) : UIEvent()
     data class ImpactRequested(val nodeId: String) : UIEvent()
     data class ExplainSystemRequested(val dummy: String = "") : UIEvent()
     data class AnalyzeRequested(val dummy: String = "") : UIEvent()
+    data class BreakpointSet(val filePath: String, val line: Int) : UIEvent()
+    data class BreakpointRemoved(val filePath: String, val line: Int) : UIEvent()
+    data class ExportReportRequested(val dummy: String = "") : UIEvent()
     data class Unknown(val raw: String) : UIEvent()
 }
 
@@ -44,14 +47,20 @@ object UIEventParser {
                 "SIMULATE_REQUESTED" -> UIEvent.SimulateRequested(
                     entryNodeId = envelope.payload?.get("entryNodeId")?.jsonPrimitive?.content ?: ""
                 )
-                "WHAT_IF" -> UIEvent.WhatIfQuestion(
-                    question = envelope.payload?.get("question")?.jsonPrimitive?.content ?: ""
-                )
                 "IMPACT_REQUESTED" -> UIEvent.ImpactRequested(
                     nodeId = envelope.payload?.get("nodeId")?.jsonPrimitive?.content ?: ""
                 )
                 "EXPLAIN_SYSTEM" -> UIEvent.ExplainSystemRequested()
                 "ANALYZE" -> UIEvent.AnalyzeRequested()
+                "BREAKPOINT_SET" -> UIEvent.BreakpointSet(
+                    filePath = envelope.payload?.get("filePath")?.jsonPrimitive?.content ?: "",
+                    line = envelope.payload?.get("line")?.jsonPrimitive?.int ?: 1
+                )
+                "BREAKPOINT_REMOVED" -> UIEvent.BreakpointRemoved(
+                    filePath = envelope.payload?.get("filePath")?.jsonPrimitive?.content ?: "",
+                    line = envelope.payload?.get("line")?.jsonPrimitive?.int ?: 1
+                )
+                "EXPORT_REPORT" -> UIEvent.ExportReportRequested()
                 else -> UIEvent.Unknown(message)
             }
         } catch (e: Exception) {

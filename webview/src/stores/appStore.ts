@@ -5,20 +5,23 @@ export interface AppState {
   graph: ProjectGraph | null
   selectedNode: GraphNode | null
   selectedIssue: Issue | null
-  pendingFix: CodeFix | null
+  pendingFixes: Record<string, CodeFix>  // issueId -> CodeFix
+  loadingFix: string | null              // issueId currently being fetched
   isAnalyzing: boolean
   metrics: AnalysisMetrics | null
   systemExplanation: string | null
   error: string | null
   highlightedNodes: string[]
   explanations: Record<string, string>
+  breakpoints: string[]
 }
 
 export type AppAction =
   | { type: 'SET_GRAPH'; payload: ProjectGraph }
   | { type: 'SELECT_NODE'; payload: GraphNode | null }
   | { type: 'SELECT_ISSUE'; payload: Issue | null }
-  | { type: 'SET_FIX'; payload: CodeFix | null }
+  | { type: 'SET_FIX'; payload: CodeFix }
+  | { type: 'SET_LOADING_FIX'; payload: string | null }
   | { type: 'ANALYSIS_START' }
   | { type: 'ANALYSIS_COMPLETE'; payload: AnalysisMetrics }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -26,18 +29,21 @@ export type AppAction =
   | { type: 'SET_EXPLANATION'; payload: { issueId: string; explanation: string } }
   | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: NodeStatus } }
   | { type: 'SET_HIGHLIGHTED'; payload: string[] }
+  | { type: 'TOGGLE_BREAKPOINT'; payload: string }
 
 export const initialState: AppState = {
   graph: null,
   selectedNode: null,
   selectedIssue: null,
-  pendingFix: null,
+  pendingFixes: {},
+  loadingFix: null,
   isAnalyzing: false,
   metrics: null,
   systemExplanation: null,
   error: null,
   highlightedNodes: [],
   explanations: {},
+  breakpoints: [],
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -55,8 +61,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SELECT_ISSUE':
       return { ...state, selectedIssue: action.payload }
 
-    case 'SET_FIX':
-      return { ...state, pendingFix: action.payload }
+    case 'SET_FIX': {
+      const fix = action.payload
+      return {
+        ...state,
+        pendingFixes: { ...state.pendingFixes, [fix.issueId]: fix },
+        loadingFix: null,
+      }
+    }
+
+    case 'SET_LOADING_FIX':
+      return { ...state, loadingFix: action.payload }
 
     case 'ANALYSIS_START':
       return { ...state, isAnalyzing: true, error: null }
@@ -72,7 +87,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_EXPLANATION': {
       const { issueId, explanation } = action.payload
-      // Also update the issue in the graph if present
       const updatedGraph = state.graph ? updateIssueExplanation(state.graph, issueId, explanation) : state.graph
       const updatedSelectedIssue = state.selectedIssue?.id === issueId
         ? { ...state.selectedIssue, explanation }
@@ -96,6 +110,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_HIGHLIGHTED':
       return { ...state, highlightedNodes: action.payload }
+
+    case 'TOGGLE_BREAKPOINT': {
+      const key = action.payload
+      const exists = state.breakpoints.includes(key)
+      return {
+        ...state,
+        breakpoints: exists
+          ? state.breakpoints.filter(b => b !== key)
+          : [...state.breakpoints, key],
+      }
+    }
 
     default:
       return state

@@ -1,12 +1,13 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  useNodesState,
+  useEdgesState,
   type Node,
   type Edge,
-  type NodeMouseHandler,
   BackgroundVariant,
   MarkerType,
 } from '@xyflow/react'
@@ -22,99 +23,122 @@ interface NeuroMapProps {
   graph: ProjectGraph
 }
 
+function buildInitialNodes(graphNodes: ProjectGraph['nodes']): Node[] {
+  return graphNodes.map((gn, idx) => ({
+    id: gn.id,
+    type: 'custom',
+    position: gn.position ?? {
+      x: (idx % 5) * 230 + 40,
+      y: Math.floor(idx / 5) * 190 + 40,
+    },
+    data: { node: gn, isSelected: false, isHighlighted: false },
+  }))
+}
+
 export function NeuroMap({ graph }: NeuroMapProps) {
   const { state, dispatch } = useAppStore()
 
-  const nodes: Node[] = useMemo(() => {
-    return graph.nodes.map((graphNode) => ({
-      id: graphNode.id,
-      type: 'custom',
-      position: graphNode.position ?? { x: Math.random() * 800, y: Math.random() * 600 },
-      data: {
-        node: graphNode,
-        isSelected: state.selectedNode?.id === graphNode.id,
-        isHighlighted: state.highlightedNodes.includes(graphNode.id),
-      },
-    }))
-  }, [graph.nodes, state.selectedNode, state.highlightedNodes])
+  // useNodesState stores positions internally — drag never touches external state
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildInitialNodes(graph.nodes))
+  const [edges, setEdges] = useEdgesState<Edge>([])
 
-  const edges: Edge[] = useMemo(() => {
-    return graph.edges.map((graphEdge) => ({
-      id: graphEdge.id,
-      source: graphEdge.source,
-      target: graphEdge.target,
-      animated: graphEdge.animated || state.highlightedNodes.includes(graphEdge.source),
-      style: {
-        stroke: state.highlightedNodes.includes(graphEdge.source)
-          ? 'rgba(139,92,246,0.8)'
-          : 'rgba(100,116,139,0.4)',
-        strokeWidth: state.highlightedNodes.includes(graphEdge.source) ? 2 : 1,
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: 'rgba(100,116,139,0.4)',
-        width: 12,
-        height: 12,
-      },
-    }))
-  }, [graph.edges, state.highlightedNodes])
+  // Rebuild nodes only when graph data changes (new analysis), preserving drag positions
+  useEffect(() => {
+    setNodes(prev => {
+      const posMap = new Map(prev.map(n => [n.id, n.position]))
+      return graph.nodes.map((gn, idx) => ({
+        id: gn.id,
+        type: 'custom',
+        position: posMap.get(gn.id) ?? gn.position ?? {
+          x: (idx % 5) * 230 + 40,
+          y: Math.floor(idx / 5) * 190 + 40,
+        },
+        data: { node: gn, isSelected: false, isHighlighted: false },
+      }))
+    })
+  }, [graph.nodes, setNodes])
 
-  const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
-    const graphNode = graph.nodes.find(n => n.id === node.id) as GraphNode | undefined
-    if (!graphNode) return
+  // Update selection/highlight — only touches data, never position
+  useEffect(() => {
+    setNodes(prev =>
+      prev.map(n => {
+        const nextSelected   = state.selectedNode?.id === n.id
+        const nextHighlighted = state.highlightedNodes.includes(n.id)
+        const d = n.data as { node: GraphNode; isSelected: boolean; isHighlighted: boolean }
+        if (d.isSelected === nextSelected && d.isHighlighted === nextHighlighted) return n
+        return { ...n, data: { ...d, isSelected: nextSelected, isHighlighted: nextHighlighted } }
+      })
+    )
+  }, [state.selectedNode, state.highlightedNodes, setNodes])
 
-    dispatch({ type: 'SELECT_NODE', payload: graphNode })
-    bridge.nodeClicked(graphNode.id)
+  // Rebuild edges when graph or highlights change
+  useEffect(() => {
+    setEdges(
+      graph.edges.map(e => {
+        const hl = state.highlightedNodes.includes(e.source)
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          animated: e.animated || hl,
+          style: { stroke: hl ? '#388bfd' : '#30363d', strokeWidth: hl ? 1.5 : 1 },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: hl ? '#388bfd' : '#30363d',
+            width: 9,
+            height: 9,
+          },
+        }
+      })
+    )
+  }, [graph.edges, state.highlightedNodes, setEdges])
 
-    // Request impact analysis
-    bridge.requestImpact(graphNode.id)
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const gn = graph.nodes.find(n => n.id === node.id) as GraphNode | undefined
+    if (!gn) return
+    dispatch({ type: 'SELECT_NODE', payload: gn })
+    bridge.nodeClicked(gn.id)
+    bridge.requestImpact(gn.id)
   }, [graph.nodes, dispatch])
 
-  const onNodeDoubleClick: NodeMouseHandler = useCallback((_event, node) => {
-    const graphNode = graph.nodes.find(n => n.id === node.id)
-    if (graphNode) {
-      bridge.nodeDoubleClicked(graphNode.id)
-    }
+  const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const gn = graph.nodes.find(n => n.id === node.id)
+    if (gn) bridge.nodeDoubleClicked(gn.id)
   }, [graph.nodes])
 
-  const statusColor = (status: string) => {
-    if (status === 'ERROR') return '#ef4444'
-    if (status === 'WARNING') return '#eab308'
-    return '#10b981'
-  }
+  const miniMapNodeColor = useCallback((n: Node) => {
+    const gn = graph.nodes.find(g => g.id === n.id)
+    if (gn?.status === 'ERROR')   return '#f85149'
+    if (gn?.status === 'WARNING') return '#d29922'
+    return '#3fb950'
+  }, [graph.nodes])
 
   return (
-    <div className="w-full h-full">
+    <div style={{ width: '100%', height: '100%', background: '#0d1117' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         fitView
         fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.1}
-        maxZoom={2}
-        defaultEdgeOptions={{
-          style: { stroke: 'rgba(100,116,139,0.4)', strokeWidth: 1 },
-        }}
+        minZoom={0.05}
+        maxZoom={3}
+        proOptions={{ hideAttribution: true }}
+        style={{ background: '#0d1117' }}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="rgba(100,116,139,0.15)"
-        />
+        <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#21262d" />
         <Controls
-          className="!bg-gray-800/90 !border-gray-700 [&>button]:!bg-gray-800 [&>button]:!border-gray-700 [&>button]:!text-gray-400 [&>button:hover]:!bg-gray-700"
+          showInteractive={false}
+          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 7 }}
         />
         <MiniMap
-          className="!bg-gray-900/90 !border-gray-700"
-          nodeColor={(node) => {
-            const graphNode = graph.nodes.find(n => n.id === node.id)
-            return statusColor(graphNode?.status ?? 'HEALTHY')
-          }}
+          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8 }}
+          nodeColor={miniMapNodeColor}
           maskColor="rgba(0,0,0,0.5)"
+          nodeBorderRadius={4}
         />
       </ReactFlow>
     </div>

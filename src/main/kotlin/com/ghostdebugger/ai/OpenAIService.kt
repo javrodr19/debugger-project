@@ -92,20 +92,37 @@ class OpenAIService(
         return response
     }
 
-    suspend fun suggestFix(issue: Issue, codeSnippet: String, impactContext: String = ""): CodeFix {
+    suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
         val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "fix")
-        val cached = cache.get(cacheKey)
-
-        val rawResponse = if (cached != null) {
-            cached
-        } else {
-            val prompt = PromptTemplates.suggestFix(issue, codeSnippet, impactContext)
-            val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
-            cache.put(cacheKey, response)
-            response
+        cache.get(cacheKey)?.let {
+            return parseFixResponse(it, issue, codeSnippet)
         }
+        val prompt = PromptTemplates.suggestFix(issue, codeSnippet)
+        val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
+        cache.put(cacheKey, response)
+        return parseFixResponse(response, issue, codeSnippet)
+    }
 
-        return parseFixResponse(rawResponse, issue, codeSnippet)
+    private fun parseFixResponse(rawResponse: String, issue: Issue, originalSnippet: String): CodeFix {
+        val explanation = rawResponse.lines()
+            .firstOrNull { it.startsWith("EXPLANATION:") }
+            ?.removePrefix("EXPLANATION:")?.trim()
+            ?: rawResponse.substringBefore("\n").take(200)
+
+        val codeBlockRegex = Regex("""```(?:\w*)\n([\s\S]*?)```""")
+        val fixedCode = codeBlockRegex.find(rawResponse)?.groupValues?.get(1)?.trim()
+            ?: originalSnippet
+
+        return CodeFix(
+            id = UUID.randomUUID().toString(),
+            issueId = issue.id,
+            description = explanation,
+            originalCode = originalSnippet,
+            fixedCode = fixedCode,
+            filePath = issue.filePath,
+            lineStart = issue.line,
+            lineEnd = issue.line + originalSnippet.lines().size
+        )
     }
 
     suspend fun explainSystem(graph: ProjectGraph): String {
@@ -113,14 +130,9 @@ class OpenAIService(
         cache.get(cacheKey)?.let { return it }
 
         val prompt = PromptTemplates.explainSystem(graph)
-        val response = callOpenAI(prompt, SystemPrompts.CTO)
+        val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
         cache.put(cacheKey, response)
         return response
-    }
-
-    suspend fun whatIf(question: String, graph: ProjectGraph): String {
-        val prompt = PromptTemplates.whatIf(question, graph)
-        return callOpenAI(prompt, SystemPrompts.CTO)
     }
 
     private suspend fun callOpenAI(userPrompt: String, systemPrompt: String, jsonMode: Boolean = false): String =
@@ -162,23 +174,4 @@ class OpenAIService(
                 ?: throw RuntimeException("No content in OpenAI response")
         }
 
-    private fun parseFixResponse(rawResponse: String, issue: Issue, originalFullFile: String): CodeFix {
-        val lines = rawResponse.lines()
-        val explanation = lines.firstOrNull { it.startsWith("EXPLANATION:") }
-            ?.removePrefix("EXPLANATION:")?.trim() ?: rawResponse.take(200)
-
-        val codeBlockRegex = Regex("""```(?:[\w]*)\n([\s\S]*?)```""")
-        val fixedCode = codeBlockRegex.find(rawResponse)?.groupValues?.get(1)?.trim() ?: originalFullFile
-
-        return CodeFix(
-            id = UUID.randomUUID().toString(),
-            issueId = issue.id,
-            description = explanation,
-            originalCode = originalFullFile,
-            fixedCode = fixedCode,
-            filePath = issue.filePath,
-            lineStart = 1,
-            lineEnd = originalFullFile.lines().size
-        )
-    }
 }

@@ -29,9 +29,6 @@ class GhostDebuggerService(private val project: Project) {
     private var currentGraph: ProjectGraph? = null
     private var currentIssues: List<Issue> = emptyList()
     private var openAIService: OpenAIService? = null
-    
-    private var lastHealthScore: Double = 100.0
-    private var isVerifyingFix: Boolean = false
 
     companion object {
         fun getInstance(project: Project): GhostDebuggerService =
@@ -41,11 +38,6 @@ class GhostDebuggerService(private val project: Project) {
     fun setBridge(bridge: JcefBridge) {
         this.bridge = bridge
         bridge.initialize()
-        setupEventHandlers()
-    }
-
-    private fun setupEventHandlers() {
-        // Event handlers are managed via the bridge callback
     }
 
     fun handleUIEvent(event: UIEvent) {
@@ -54,10 +46,11 @@ class GhostDebuggerService(private val project: Project) {
             is UIEvent.NodeDoubleClicked -> handleNodeDoubleClicked(event.nodeId)
             is UIEvent.FixRequested -> handleFixRequested(event.issueId, event.nodeId)
             is UIEvent.SimulateRequested -> handleSimulateRequested(event.entryNodeId)
-            is UIEvent.WhatIfQuestion -> handleWhatIf(event.question)
             is UIEvent.ImpactRequested -> handleImpactRequested(event.nodeId)
             is UIEvent.ExplainSystemRequested -> handleExplainSystem()
             is UIEvent.AnalyzeRequested -> analyzeProject()
+            is UIEvent.BreakpointSet -> handleBreakpointSet(event.filePath, event.line)
+            is UIEvent.BreakpointRemoved -> handleBreakpointRemoved(event.filePath, event.line)
             is UIEvent.Unknown -> log.warn("Unknown UI event: ${event.raw}")
         }
     }
@@ -121,16 +114,7 @@ class GhostDebuggerService(private val project: Project) {
                         analysisResult.metrics.warningCount,
                         analysisResult.metrics.healthScore
                     )
-                    
-                    if (isVerifyingFix) {
-                        if (analysisResult.metrics.healthScore < lastHealthScore) {
-                            bridge?.sendError("Fix applied, but project health dropped from ${String.format("%.1f", lastHealthScore)}% to ${String.format("%.1f", analysisResult.metrics.healthScore)}%. Potential regression detected!")
-                        }
-                        isVerifyingFix = false
-                    }
                 }
-                
-                lastHealthScore = analysisResult.metrics.healthScore
 
                 // 10. Pre-fetch AI explanations for critical issues
                 val apiKey = ApiKeyManager.getApiKey()
@@ -175,7 +159,6 @@ class GhostDebuggerService(private val project: Project) {
                 return
             }
 
-            // Fetch explanation from OpenAI
             scope.launch {
                 try {
                     val apiKey = ApiKeyManager.getApiKey() ?: return@launch
@@ -201,12 +184,44 @@ class GhostDebuggerService(private val project: Project) {
     private fun handleNodeDoubleClicked(nodeId: String) {
         val graph = currentGraph ?: return
         val node = graph.nodes.firstOrNull { it.id == nodeId } ?: return
-        if (node.filePath.startsWith("ext:")) return // don't try to open external deps
-        
+        if (node.filePath.startsWith("ext:")) return
+
         val virtualFile = LocalFileSystem.getInstance().findFileByPath(node.filePath) ?: return
-        
+
         ApplicationManager.getApplication().invokeLater {
             com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(virtualFile, true)
+        }
+    }
+
+    private fun handleBreakpointSet(filePath: String, line: Int) {
+        if (filePath.isBlank() || line < 1) return
+        val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath) ?: run {
+            log.warn("Breakpoint: file not found: $filePath")
+            return
+        }
+        ApplicationManager.getApplication().invokeLater {
+            try {
+                com.intellij.xdebugger.XDebuggerUtil.getInstance()
+                    .toggleLineBreakpoint(project, virtualFile, line - 1)
+                log.info("Breakpoint set at $filePath:$line")
+            } catch (e: Exception) {
+                log.warn("Could not set breakpoint at $filePath:$line — ${e.message}")
+            }
+        }
+    }
+
+    private fun handleBreakpointRemoved(filePath: String, line: Int) {
+        if (filePath.isBlank() || line < 1) return
+        val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath) ?: return
+        ApplicationManager.getApplication().invokeLater {
+            try {
+                // Toggle removes it if it already exists
+                com.intellij.xdebugger.XDebuggerUtil.getInstance()
+                    .toggleLineBreakpoint(project, virtualFile, line - 1)
+                log.info("Breakpoint removed at $filePath:$line")
+            } catch (e: Exception) {
+                log.warn("Could not remove breakpoint at $filePath:$line — ${e.message}")
+            }
         }
     }
 
@@ -223,32 +238,13 @@ class GhostDebuggerService(private val project: Project) {
                     }
                     return@launch
                 }
-
                 val aiService = openAIService ?: OpenAIService(apiKey).also { openAIService = it }
-                val virtualFile = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
-                val fullFileContent = virtualFile?.contentsToByteArray()?.let { String(it) } ?: issue.codeSnippet
-                
-                // Calculate architectural context
-                val impactContext = currentGraph?.nodes?.find { it.filePath == issue.filePath }?.let { node ->
-                    """
-                    ARCHITECTURAL CONTEXT:
-                    - This file is imported by (Dependents): ${if (node.dependents.isEmpty()) "None" else node.dependents.joinToString(", ") { it.substringAfterLast("/") }}
-                    - This file imports (Dependencies): ${if (node.dependencies.isEmpty()) "None" else node.dependencies.joinToString(", ") { it.substringAfterLast("/") }}
-                    """.trimIndent()
-                } ?: ""
-                
-                val fix = aiService.suggestFix(issue, fullFileContent, impactContext)
-                issue.suggestedFix = fix
-
+                val fix = aiService.suggestFix(issue, issue.codeSnippet)
                 withContext(Dispatchers.Swing) {
                     bridge?.sendFixSuggestion(fix)
                 }
-
-                // Apply the fix to the file
-                applyFix(fix)
-
             } catch (e: Exception) {
-                log.error("Failed to generate fix", e)
+                log.error("Failed to generate fix suggestion", e)
                 withContext(Dispatchers.Swing) {
                     bridge?.sendError("Error generating fix: ${e.message}")
                 }
@@ -256,42 +252,13 @@ class GhostDebuggerService(private val project: Project) {
         }
     }
 
-    private fun applyFix(fix: CodeFix) {
-        if (fix.fixedCode == fix.originalCode || fix.fixedCode.isBlank()) return
-        
-        isVerifyingFix = true
-        val virtualFile = LocalFileSystem.getInstance().findFileByPath(fix.filePath) ?: return
-        ApplicationManager.getApplication().invokeLater {
-            com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project, "GhostDebugger Fix", null, Runnable {
-                try {
-                    // Replace the entire file with the AI generated result
-                    virtualFile.setBinaryContent(fix.fixedCode.toByteArray())
-                    
-                    // Update the node to green immediately for visual feedback
-                    val nodeId = fix.filePath.replace("\\", "/")
-                    bridge?.sendNodeUpdate(nodeId, NodeStatus.HEALTHY)
-                    log.info("Fix applied completely to ${fix.filePath}")
-
-                    // Queue re-analysis after fix to verify its correctness
-                    ApplicationManager.getApplication().invokeLater {
-                        analyzeProject()
-                    }
-                } catch (e: Exception) {
-                    log.error("Failed to apply fix to ${fix.filePath}", e)
-                }
-            })
-        }
-    }
-
     private fun handleSimulateRequested(entryNodeId: String) {
         val graph = currentGraph ?: return
-        // Send a simple simulation sequence - animate the flow
         scope.launch {
             val startNode = graph.nodes.firstOrNull { it.id == entryNodeId } ?: return@launch
             val path = mutableListOf(startNode.id)
             var current = startNode
 
-            // Follow edges to simulate execution flow
             repeat(5) {
                 val edge = graph.edges.firstOrNull { it.source == current.id }
                 val next = edge?.let { graph.nodes.firstOrNull { n -> n.id == it.target } }
@@ -301,42 +268,11 @@ class GhostDebuggerService(private val project: Project) {
                 }
             }
 
-            // Animate path in the frontend
             for (nodeId in path) {
                 withContext(Dispatchers.Swing) {
                     bridge?.sendImpactAnalysis(nodeId, path)
                 }
                 delay(500)
-            }
-        }
-    }
-
-    private fun handleWhatIf(question: String) {
-        val graph = currentGraph ?: run {
-            scope.launch(Dispatchers.Swing) {
-                bridge?.sendSystemExplanation("Por favor, analiza el proyecto primero.")
-            }
-            return
-        }
-
-        scope.launch {
-            try {
-                val apiKey = ApiKeyManager.getApiKey() ?: run {
-                    withContext(Dispatchers.Swing) {
-                        bridge?.sendError("API key no configurada")
-                    }
-                    return@launch
-                }
-                val aiService = openAIService ?: OpenAIService(apiKey).also { openAIService = it }
-                val response = aiService.whatIf(question, graph)
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendSystemExplanation(response)
-                }
-            } catch (e: Exception) {
-                log.error("What-if analysis failed", e)
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Error en análisis What-If: ${e.message}")
-                }
             }
         }
     }
@@ -386,14 +322,16 @@ class GhostDebuggerService(private val project: Project) {
     private fun buildLocalSystemSummary(graph: ProjectGraph): String {
         val errorFiles = graph.nodes.count { it.status == NodeStatus.ERROR }
         val warningFiles = graph.nodes.count { it.status == NodeStatus.WARNING }
+        val totalIssues = graph.nodes.sumOf { it.issues.size }
         return """
-            📊 Resumen del Proyecto: ${graph.metadata.projectName}
+            Resumen del Proyecto: ${graph.metadata.projectName}
 
-            • Total de módulos: ${graph.nodes.size}
-            • Archivos con errores: $errorFiles 🔴
-            • Archivos con advertencias: $warningFiles 🟡
-            • Dependencias totales: ${graph.edges.size}
-            • Puntuación de salud: ${graph.metadata.healthScore.toInt()}%
+            • Módulos analizados: ${graph.nodes.size}
+            • Archivos con errores: $errorFiles
+            • Archivos con advertencias: $warningFiles
+            • Issues totales: $totalIssues
+            • Dependencias: ${graph.edges.size}
+            • Salud del proyecto: ${graph.metadata.healthScore.toInt()}%
 
             Configura tu API key de OpenAI en Settings → Tools → GhostDebugger para obtener análisis detallados con IA.
         """.trimIndent()
