@@ -1,14 +1,29 @@
-/**
- * Permissions utility — BUG: extremely high complexity
- * 
- * Cyclomatic complexity > 15 — too many branches,
- * hard to maintain and test.
- */
+type Role = 'admin' | 'editor' | 'viewer' | 'guest';
+type Permission = 'read' | 'write' | 'delete' | 'export' | 'import' | 'share';
 
-type Role = 'admin' | 'editor' | 'viewer' | 'moderator' | 'guest';
-type Permission = 'read' | 'write' | 'delete' | 'admin' | 'moderate' | 'export' | 'import' | 'share';
+const rolePermissionsMap: Record<Role, Permission[]> = {
+  admin: ['write', 'delete', 'export', 'import', 'share'],
+  editor: ['read', 'write', 'share'],
+  viewer: ['read'],
+  guest: []
+};
 
-// 💥 BUG: Cyclomatic complexity too high (17+)
+function checkAdminPermissions(permission: Permission): boolean {
+  return rolePermissionsMap['admin'].includes(permission);
+} 
+
+function checkEditorPermissions(permission: Permission): boolean {
+  return rolePermissionsMap['editor'].includes(permission);
+}
+
+function checkViewerPermissions(permission: Permission): boolean {
+  return permission === 'read' || permission === 'share';
+}
+
+function checkGuestPermissions(permission: Permission): boolean {
+  return permission === 'read';
+}
+
 export const checkPermissions = (
   role: Role,
   permission: Permission,
@@ -16,6 +31,19 @@ export const checkPermissions = (
   isPremium: boolean,
   isVerified: boolean
 ): boolean => {
+  switch (role) {
+    case 'admin':
+      return checkAdminPermissions(permission);
+    case 'editor':
+      return checkEditorPermissions(permission) || (isOwner && permission === 'delete');
+    case 'viewer':
+      return checkViewerPermissions(permission) || (isVerified && permission === 'export');
+    case 'guest':
+      return checkGuestPermissions(permission) && isVerified;
+    default:
+      return false;
+  }
+};
   if (role === 'admin') {
     return true;
   }

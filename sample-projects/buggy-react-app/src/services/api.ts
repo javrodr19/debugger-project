@@ -13,18 +13,28 @@ export const fetchUserProfile = async () => {
   return response.json();
 };
 
-// 💥 BUG: No error handling
 export const fetchData = async (endpoint: string) => {
-  const response = await fetch(`${API_BASE}/${endpoint}`);
-  return response.json();
+  try {
+    const response = await fetch(`${API_BASE}/${endpoint}`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Fetch error: ', error);
+    throw error;
+  }
 };
 
 // 💥 BUG: No error handling for POST
 export const postData = async (endpoint: string, data: unknown) => {
   const response = await fetch(`${API_BASE}/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(data),
   });
+  if (!response.ok) {
+    throw new Error(`Error en la solicitud: ${response.status}`);
+  }
   return response.json();
 };

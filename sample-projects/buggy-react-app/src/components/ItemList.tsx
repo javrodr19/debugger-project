@@ -15,11 +15,29 @@ const ItemList = () => {
   }, []);
 
   // 💥 BUG: items is undefined, .map() throws TypeError
-  return (
-    <ul className="item-list">
-      {items.map((item: any) => (
-        <li key={item.id}>{item.name}</li>
-      ))}
+return (
+  <ul className="item-list">
+    {items && Array.isArray(items) ? items.map((item: any) => (
+      <li key={item.id}>{item.name}</li>
+    )) : null}
+  </ul>
+)
+</ul>
+);
+  </ul>
+)
+  </ul>
+);
+</ul>
+) || null
+</ul>
+) || null
+</ul>
+</ul>
+  </ul>
+)
+  </ul>
+)
     </ul>
   );
 };

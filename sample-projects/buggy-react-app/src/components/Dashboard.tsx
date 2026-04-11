@@ -15,11 +15,19 @@ const Dashboard = () => {
   }, []);
 
   // 💥 BUG: user is null on first render
-  return (
-    <div className="dashboard">
-      <h1>Welcome, {user.name}</h1>
-      <p>Email: {user.email}</p>
-      <p>Role: {user.role}</p>
+return (
+  <div className="dashboard">
+    {user ? (
+      <>
+        <h1>Welcome, {user.name}</h1>
+        <p>Email: {user.email}</p>
+        <p>Role: {user.role}</p>
+      </>
+    ) : (
+      <p>No user data available</p>
+    )}
+  </div>
+)
     </div>
   );
 };
