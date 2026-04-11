@@ -1,0 +1,72 @@
+<idea-plugin>
+    <id>com.ghostdebugger</id>
+    <name>GhostDebugger</name>
+    <version>0.1.0</version>
+    <vendor email="team@ghostdebugger.dev">GhostDebugger Team</vendor>
+
+    <description><![CDATA[
+        <h2>👻 GhostDebugger — Un desarrollador senior dentro de tu IDE</h2>
+        <p>
+            Sistema inteligente que analiza el proyecto completo, detecta errores reales,
+            explica por qué ocurren en lenguaje humano y propone correcciones automáticas.
+        </p>
+        <ul>
+            <li><strong>NeuroMap</strong> — Mapa visual interactivo del proyecto</li>
+            <li><strong>Detección profunda</strong> — Null safety, circular deps, complexity</li>
+            <li><strong>Explicación IA</strong> — OpenAI GPT-4o explica errores como un senior</li>
+            <li><strong>Fix automático</strong> — Correcciones contextuales con un clic</li>
+            <li><strong>Análisis de impacto</strong> — Saber qué rompe un cambio</li>
+        </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Tool Window para el NeuroMap -->
+        <toolWindow id="GhostDebugger"
+                    secondary="true"
+                    anchor="right"
+                    factoryClass="com.ghostdebugger.toolwindow.GhostDebuggerToolWindowFactory"
+                    icon="/icons/ghost.svg"/>
+
+        <!-- Servicio principal del plugin (project-level) -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.GhostDebuggerService"/>
+
+        <!-- Settings/Configurable para API key de OpenAI -->
+        <projectConfigurable
+                instance="com.ghostdebugger.settings.GhostDebuggerConfigurable"
+                id="com.ghostdebugger.settings"
+                displayName="GhostDebugger"
+                parentId="tools"/>
+
+        <!-- Notification group -->
+        <notificationGroup id="GhostDebugger"
+                           displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <group id="GhostDebugger.Menu" text="GhostDebugger" popup="true"
+               icon="/icons/ghost.svg">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+
+            <action id="GhostDebugger.Analyze"
+                    class="com.ghostdebugger.actions.AnalyzeProjectAction"
+                    text="Analyze Project"
+                    description="Analyze entire project with GhostDebugger"
+                    icon="/icons/analyze.svg">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt G"/>
+            </action>
+
+            <action id="GhostDebugger.ExplainSystem"
+                    class="com.ghostdebugger.actions.ExplainSystemAction"
+                    text="Explain System"
+                    description="Get AI-powered explanation of the project architecture"/>
+
+            <action id="GhostDebugger.ConfigureApiKey"
+                    class="com.ghostdebugger.actions.ConfigureApiKeyAction"
+                    text="Configure OpenAI API Key"
+                    description="Set up your OpenAI API key for AI features"/>
+        </group>
+    </actions>
+</idea-plugin>
