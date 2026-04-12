@@ -50,12 +50,7 @@ GhostDebugger **no es un debugger tradicional**. Es un plugin para el ecosistema
 - **Simulación visual de flujo** — Ve cómo se ejecuta el código paso a paso
 - **Análisis de impacto** — "Si cambias esto, afecta a X partes del sistema"
 - **Explicación global automática** — "Explícame el sistema" en un clic
-
-### 🔮 Modo CTO / What If (OpenAI)
-- "¿Qué pasa si esto escala a 10.000 usuarios?"
-- "¿Dónde puede romper?"
-- "¿Qué módulo es más frágil?"
-
+- 
 ## 🏗️ Arquitectura
 
 ```
