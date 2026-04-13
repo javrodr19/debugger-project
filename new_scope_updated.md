@@ -639,4 +639,33 @@ This is the strongest match for the new positioning because:
 
 **Static analysis is the foundation. AI is the amplifier. Trust is the product.**
 
+## 11. Commercial V1 Upgrades (Beyond MVP)
+
+**Objective:** With the removal of hackathon time constraints, the focus shifts from visual approximations to engineering a genuinely robust, production-ready developer tool. The following architectural upgrades elevate Aegis Debug from a proof-of-concept to a commercially viable V1.
+
+### A. Context-Aware "What-If" Engine (Local RAG)
+Instead of a simple generic chat interface, implement a specialized Retrieval-Augmented Generation (RAG) system tailored for code architecture.
+* **Mechanism:** When a user asks an architectural question (e.g., "What happens if I replace this Auth hook?"), the engine queries the `InMemoryGraph` to retrieve the target node and its entire dependency tree.
+* **Execution:** This exact structural context is injected into the LLM prompt. This ensures the AI's answer is strictly grounded in the user's actual codebase, drastically reducing hallucinations.
+
+### B. Scalable PSI/AST Fix Engine
+Move away from hardcoded string replacements and build a robust syntax-tree manipulator.
+* **Mechanism:** Create a `StructuralFixProvider` interface. When a static analyzer flags a deterministic issue (like a missing null-check), the provider uses IntelliJ's native PSI (Program Structure Interface) to modify the AST safely.
+* **V1 Scope:** Select **one** primary ecosystem (e.g., TypeScript/React) to perfectly map out first. Guarantee that Tier 1 fixes respect the user's formatting, imports, and scope boundaries before expanding to other languages.
+
+### C. Local Persistence & Trend Analysis
+Enable the tool to track project health across multiple sessions.
+* **Mechanism:** Introduce a lightweight embedded database (like SQLite) or utilize IntelliJ's advanced `PersistentStateComponent` to store graph snapshots and analysis runs.
+* **UI Impact:** The Dashboard can now display "Delta Metrics" (e.g., "Health Score improved by +15% this week" or "3 new high-risk nodes introduced today"), transforming Aegis from a one-off scanner into a continuous monitoring tool.
+
+### D. Type-Safe Bi-Directional Event Bus
+Replace the brittle, raw-string JSON execution over the JCEF bridge with a robust communication layer.
+* **Mechanism:** Implement a structured message queue between Kotlin and TypeScript. 
+* **Benefits:** If the UI requests an action while the static engine is heavily processing, or if a payload fails to parse, the system handles the state gracefully (queuing or error-catching) rather than failing silently or hanging the UI.
+
+### E. Foundational Test Coverage
+The accuracy of the hybrid model completely depends on the reliability of the static base layer. If the static engine feeds incorrect data to the AI, the AI will hallucinate.
+* **Mechanism:** Build a comprehensive unit testing suite specifically for the `AnalysisEngine` and individual `Analyzers` (e.g., `NullSafetyAnalyzer`, `CircularDependencyAnalyzer`). 
+* **Standard:** Ensure 100% deterministic accuracy on known mock-projects before relying on the LLM to explain the findings.
+
 That principle should guide all implementation decisions across architecture, UX, messaging, and branding.
