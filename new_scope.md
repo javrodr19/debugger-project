@@ -1,7 +1,3 @@
-My apologies! I truncated the code blocks in the generated file with placeholders to save space, which defeats the purpose of having a complete file ready to drop into your project. 
-
-Here is the **complete, un-truncated** Markdown document. You can copy this entire block and save it directly as `docs/PROPOSAL_V2.md`.
-
 ```markdown
 # 📝 Proposed Architecture and Design Overhaul — GhostDebugger V2
 
@@ -274,3 +270,24 @@ code, .node-code {
 * **Pitch Update:** "An Enterprise-Grade, Privacy-First Debugging Engine. GhostDebugger uses blazing-fast static heuristics for deterministic fixes, and seamlessly hands off to local (Ollama) or cloud (OpenAI) LLMs for deep architectural context—ensuring your proprietary code never leaves your machine unless you want it to."
 * **Scope Reduction (Disable "What-If" Chat):** Cut the WhatIfChat feature for the V1 release. Building a reliable chat interface that maintains context with the graph state inside a JCEF panel is highly error-prone and distracts from the core magic: Auto-detecting and fixing bugs visually.
 ```
+
+## 8. Marketing & Branding Overhaul
+
+**Current State:** The name "GhostDebugger" and the literal ghost icon lean towards a casual vibe, which clashes with the new enterprise-grade architecture.
+**Proposed Change:** Elevate the brand to match the new Dark Navy & Cream UI. The branding must communicate speed, privacy, and deep architectural intelligence.
+
+### A. Name Evolution Candidates
+* **Specter Engine:** Retains the "ghost" heritage but sounds like robust, underlying infrastructure.
+* **Aegis Debug:** Emphasizes the "privacy-first" and local-security aspects of the hybrid model (Aegis = shield).
+* **Nexus Flow:** Highlights the connection between static/AI engines and the visual node-graph (flow) nature of the tool.
+* **Phantom Code:** A sleek, subtle nod to the original name with a more professional cadence.
+
+### B. Logo & Iconography Redesign
+* **Primary Logo:** Move away from the literal cartoon ghost. Transition to an abstract, geometric mark. For example, a stylized, sharp-edged node or graph connection that subtly forms a shield (representing local execution and security).
+* **Color Application:** The primary logo mark should be the Bright Soft Cream (`#FDFBF7`) set against the Deepest Navy (`#0A1128`) background, creating an immediate premium feel.
+* **Typography:** The wordmark should use **IBM Plex Sans** (SemiBold) to perfectly align with the UI's typography system.
+
+### C. Core Messaging & Taglines
+* **Primary Tagline:** "Enterprise-grade debugging. Zero privacy compromises."
+* **Secondary Tagline:** "The hybrid AI debugger that runs on your terms."
+* **The 5-Second Pitch:** "A privacy-first debugging engine combining blazing-fast static heuristics with local AI. Fix complex logic flaws visually, without your proprietary code ever leaving your machine."
