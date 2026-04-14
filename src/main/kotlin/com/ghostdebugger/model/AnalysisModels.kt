@@ -60,7 +60,9 @@ data class CodeFix(
     val fixedCode: String,
     val filePath: String,
     val lineStart: Int,
-    val lineEnd: Int
+    val lineEnd: Int,
+    val isDeterministic: Boolean = false,
+    val confidence: Double = 0.7
 )
 
 data class AnalysisResult(

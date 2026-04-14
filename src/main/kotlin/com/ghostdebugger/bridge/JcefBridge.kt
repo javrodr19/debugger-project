@@ -77,6 +77,11 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onFixSuggestion($fixJson)")
     }
 
+    fun sendFixApplied(issueId: String) {
+        val payload = json.encodeToString(mapOf("issueId" to issueId))
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onFixApplied($payload)")
+    }
+
     fun sendNodeUpdate(nodeId: String, status: NodeStatus) {
         val escapedId = nodeId.replace("\"", "\\\"")
         val payload = """{"nodeId":"$escapedId","status":"${status.name}"}"""

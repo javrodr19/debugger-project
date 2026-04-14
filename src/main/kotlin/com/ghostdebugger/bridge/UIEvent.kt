@@ -17,6 +17,7 @@ sealed class UIEvent {
     data class NodeClicked(val nodeId: String) : UIEvent()
     data class NodeDoubleClicked(val nodeId: String) : UIEvent()
     data class FixRequested(val issueId: String, val nodeId: String) : UIEvent()
+    data class ApplyFixRequested(val issueId: String, val fixId: String) : UIEvent()
 
     data class ImpactRequested(val nodeId: String) : UIEvent()
     object ExplainSystemRequested : UIEvent()
@@ -51,6 +52,10 @@ object UIEventParser {
                 "FIX_REQUESTED" -> UIEvent.FixRequested(
                     issueId = envelope.payload?.get("issueId")?.jsonPrimitive?.content ?: "",
                     nodeId = envelope.payload?.get("nodeId")?.jsonPrimitive?.content ?: ""
+                )
+                "APPLY_FIX" -> UIEvent.ApplyFixRequested(
+                    issueId = envelope.payload?.get("issueId")?.jsonPrimitive?.content ?: "",
+                    fixId = envelope.payload?.get("fixId")?.jsonPrimitive?.content ?: ""
                 )
 
                 "IMPACT_REQUESTED" -> UIEvent.ImpactRequested(

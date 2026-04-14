@@ -5,6 +5,8 @@ import com.ghostdebugger.ai.OpenAIService
 import com.ghostdebugger.analysis.AnalysisEngine
 import com.ghostdebugger.bridge.JcefBridge
 import com.ghostdebugger.bridge.UIEvent
+import com.ghostdebugger.fix.FixApplicator
+import com.ghostdebugger.fix.FixerRegistry
 import com.ghostdebugger.graph.GraphBuilder
 import com.ghostdebugger.model.*
 import com.ghostdebugger.parser.DependencyResolver
@@ -49,6 +51,7 @@ class GhostDebuggerService(private val project: Project) {
     private var fileWatcherRegistered = false
     private var autoRefreshJob: Job? = null
     private var debugSessionListener: XDebugSessionListener? = null
+    private val fixApplicator = FixApplicator()
 
     companion object {
         fun getInstance(project: Project): GhostDebuggerService =
@@ -214,6 +217,7 @@ class GhostDebuggerService(private val project: Project) {
             is UIEvent.NodeClicked -> handleNodeClicked(event.nodeId)
             is UIEvent.NodeDoubleClicked -> handleNodeDoubleClicked(event.nodeId)
             is UIEvent.FixRequested -> handleFixRequested(event.issueId, event.nodeId)
+            is UIEvent.ApplyFixRequested -> handleApplyFixRequested(event.issueId, event.fixId)
 
             is UIEvent.ImpactRequested -> handleImpactRequested(event.nodeId)
             is UIEvent.ExplainSystemRequested -> handleExplainSystem()
@@ -436,6 +440,25 @@ class GhostDebuggerService(private val project: Project) {
             ?: currentIssues.firstOrNull { nodeId.contains(it.filePath.substringAfterLast("/")) }
             ?: return
 
+        // 1. Try deterministic fixer first.
+        val fixer = FixerRegistry.forIssue(issue)
+        if (fixer != null) {
+            val fileContent = try {
+                java.io.File(issue.filePath).readText()
+            } catch (e: Exception) {
+                log.warn("Could not read file for deterministic fix: ${issue.filePath}", e)
+                null
+            }
+            val deterministicFix = fileContent?.let { fixer.generateFix(issue, it) }
+            if (deterministicFix != null) {
+                scope.launch(Dispatchers.Swing) {
+                    bridge?.sendFixSuggestion(deterministicFix)
+                }
+                return
+            }
+        }
+
+        // 2. Fall back to AI.
         scope.launch {
             try {
                 val apiKey = ApiKeyManager.getApiKey() ?: run {
@@ -453,6 +476,49 @@ class GhostDebuggerService(private val project: Project) {
                 log.error("Failed to generate fix suggestion", e)
                 withContext(Dispatchers.Swing) {
                     bridge?.sendError("Error generating fix: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun handleApplyFixRequested(issueId: String, fixId: String) {
+        val issue = currentIssues.firstOrNull { it.id == issueId } ?: run {
+            log.warn("ApplyFix: no issue with id $issueId in currentIssues")
+            return
+        }
+
+        // Rebuild the deterministic fix on-the-fly from current file content.
+        val fixer = FixerRegistry.forIssue(issue)
+        val fix = if (fixer != null) {
+            try {
+                val content = java.io.File(issue.filePath).readText()
+                fixer.generateFix(issue, content)
+            } catch (e: Exception) {
+                log.warn("Could not re-derive fix for issue $issueId: ${e.message}", e)
+                null
+            }
+        } else {
+            log.warn("ApplyFix requested for issue $issueId but no deterministic fixer registered.")
+            null
+        }
+
+        if (fix == null) {
+            scope.launch(Dispatchers.Swing) {
+                bridge?.sendError("Could not apply fix: fix could not be derived for issue $issueId.")
+            }
+            return
+        }
+
+        scope.launch {
+            val applied = fixApplicator.apply(fix, project)
+            if (applied) {
+                withContext(Dispatchers.Swing) {
+                    bridge?.sendFixApplied(issueId)
+                }
+                analyzeProject()
+            } else {
+                withContext(Dispatchers.Swing) {
+                    bridge?.sendError("Fix application failed for issue $issueId.")
                 }
             }
         }
