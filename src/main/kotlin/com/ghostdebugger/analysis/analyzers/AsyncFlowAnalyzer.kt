@@ -6,6 +6,9 @@ import java.util.UUID
 
 class AsyncFlowAnalyzer : Analyzer {
     override val name = "AsyncFlowAnalyzer"
+    override val ruleId = "AEG-ASYNC-001"
+    override val defaultSeverity = IssueSeverity.ERROR
+    override val description = "Detects unhandled promise rejections, fetch calls without status check or try/catch, and setInterval/setTimeout in useEffect without a cleanup return."
 
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()

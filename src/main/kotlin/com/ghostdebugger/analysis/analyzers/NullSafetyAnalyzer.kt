@@ -6,6 +6,9 @@ import java.util.UUID
 
 class NullSafetyAnalyzer : Analyzer {
     override val name = "NullSafetyAnalyzer"
+    override val ruleId = "AEG-NULL-001"
+    override val defaultSeverity = IssueSeverity.ERROR
+    override val description = "Detects property access on variables initialized as null/undefined without a guarding null check."
 
     // Patterns that indicate null/undefined access risk
     private val nullStatePatterns = listOf(

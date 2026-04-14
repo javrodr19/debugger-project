@@ -6,6 +6,9 @@ import java.util.UUID
 
 class CircularDependencyAnalyzer : Analyzer {
     override val name = "CircularDependencyAnalyzer"
+    override val ruleId = "AEG-CYCLE-001"
+    override val defaultSeverity = IssueSeverity.WARNING
+    override val description = "Detects import cycles between modules in the resolved dependency graph."
 
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()

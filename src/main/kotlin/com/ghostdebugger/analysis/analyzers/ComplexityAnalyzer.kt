@@ -6,6 +6,9 @@ import java.util.UUID
 
 class ComplexityAnalyzer : Analyzer {
     override val name = "ComplexityAnalyzer"
+    override val ruleId = "AEG-CPX-001"
+    override val defaultSeverity = IssueSeverity.WARNING
+    override val description = "Flags nodes whose estimated cyclomatic complexity exceeds the configured threshold (default 10)."
     private val complexityThreshold = 10
 
     override fun analyze(context: AnalysisContext): List<Issue> {

@@ -362,11 +362,22 @@ function EmptyState({ isAnalyzing, onAnalyze }: { isAnalyzing: boolean; onAnalyz
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 28,
       }}>
-        👻
+        <div style={{
+          width: 32, height: 32, borderRadius: 6,
+          border: '2px solid #e6edf3',
+          position: 'relative'
+        }}>
+           <div style={{
+             position: 'absolute', top: '50%', left: '50%',
+             transform: 'translate(-50%, -50%)',
+             width: 12, height: 12, borderRadius: '50%',
+             border: '2px solid #e6edf3'
+           }} />
+        </div>
       </div>
       <div>
         <div style={{ color: '#e6edf3', fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
-          GhostDebugger
+          Aegis Debug
         </div>
         <p style={{ color: '#6e7681', fontSize: 10, lineHeight: 1.7, maxWidth: 260, margin: 0 }}>
           Analyze your project to visualize the dependency graph, detect issues, and get AI-powered fix suggestions.

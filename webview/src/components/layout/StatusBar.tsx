@@ -35,9 +35,8 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
         borderRight: '1px solid #30363d',
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 11 }}>👻</span>
         <span style={{ color: '#79c0ff', fontWeight: 700, letterSpacing: '0.06em' }}>
-          GhostDebugger
+          Aegis Debug
         </span>
       </div>
 

@@ -18,6 +18,7 @@ class GhostDebuggerToolWindowFactory : ToolWindowFactory, DumbAware {
         content.component = neuroMapPanel
         
         contentManager.addContent(content)
+        toolWindow.setTitle("Aegis Debug")
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true

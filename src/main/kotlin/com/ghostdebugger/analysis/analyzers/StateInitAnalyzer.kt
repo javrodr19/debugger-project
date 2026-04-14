@@ -6,6 +6,9 @@ import java.util.UUID
 
 class StateInitAnalyzer : Analyzer {
     override val name = "StateInitAnalyzer"
+    override val ruleId = "AEG-STATE-001"
+    override val defaultSeverity = IssueSeverity.ERROR
+    override val description = "Detects React useState hooks called without an initial value whose values are later used via .map/.filter/.forEach/.reduce/.find/.some/.every/.length/.slice/.join."
 
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()

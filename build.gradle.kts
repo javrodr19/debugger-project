@@ -38,7 +38,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testImplementation("io.mockk:mockk:1.13.15")
+    testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
 
@@ -49,18 +49,19 @@ kotlin {
 intellijPlatform {
     pluginConfiguration {
         id = "com.ghostdebugger"
-        name = "GhostDebugger"
+        name = "Aegis Debug"
         version = project.version.toString()
         description = """
-            Intelligent debugging system that understands, predicts,
-            and fixes code like a senior developer.
+            Aegis Debug — privacy-first code debugging for IntelliJ.
+            Static analysis first. Deterministic PSI-based fixes where possible.
+            Optional local (Ollama) or cloud (OpenAI) AI reasoning, off by default.
 
             Features:
-            - Global project analysis with NeuroMap visualization
-            - AI-powered error explanations (OpenAI GPT-4o)
-            - Contextual automatic fixes
-            - Impact analysis
-            - Execution flow simulation
+            - Static-first project analysis with visual NeuroMap
+            - Deterministic issue detection (null safety, state init, async flow, cycles, complexity)
+            - Optional AI-assisted explanation and missed-issue discovery
+            - Clear provenance: engine-verified vs AI-suggested
+            - Local-first; cloud upload requires explicit opt-in
         """.trimIndent()
 
         ideaVersion {
@@ -69,7 +70,7 @@ intellijPlatform {
         }
 
         vendor {
-            name = "GhostDebugger Team"
+            name = "Aegis Debug"
         }
     }
 }

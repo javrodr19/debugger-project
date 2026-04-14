@@ -2,7 +2,7 @@
   "name": "@ghostdebugger/webview",
   "version": "0.1.0",
   "private": true,
-  "description": "GhostDebugger NeuroMap — React Flow visualization embedded in JCEF",
+  "description": "Aegis Debug NeuroMap — React Flow visualization embedded in JCEF",
   "type": "module",
   "scripts": {
     "dev": "vite",

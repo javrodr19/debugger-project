@@ -440,7 +440,7 @@ class GhostDebuggerService(private val project: Project) {
             try {
                 val apiKey = ApiKeyManager.getApiKey() ?: run {
                     withContext(Dispatchers.Swing) {
-                        bridge?.sendError("OpenAI API key not configured. Go to Settings → Tools → GhostDebugger")
+                        bridge?.sendError("OpenAI API key not configured. Go to Settings → Tools → Aegis Debug")
                     }
                     return@launch
                 }
@@ -555,7 +555,7 @@ class GhostDebuggerService(private val project: Project) {
             • Dependencias: ${graph.edges.size}
             • Salud del proyecto: ${graph.metadata.healthScore.toInt()}%
 
-            Configura tu API key de OpenAI en Settings → Tools → GhostDebugger para obtener análisis detallados con IA.
+            Configura tu API key de OpenAI en Settings → Tools → Aegis Debug para obtener análisis detallados con IA.
         """.trimIndent()
     }
 
