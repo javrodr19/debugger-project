@@ -4,9 +4,15 @@ import tailwindcss from '@tailwindcss/vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 import path from 'path'
 
+/// <reference types="vitest" />
 export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile()],
   base: './',
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/__tests__/setup.ts'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

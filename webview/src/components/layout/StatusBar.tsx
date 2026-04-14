@@ -1,4 +1,4 @@
-import type { AnalysisMetrics } from '../../types'
+import type { AnalysisMetrics, EngineStatusPayload } from '../../types'
 
 interface StatusBarProps {
   isAnalyzing: boolean
@@ -6,23 +6,24 @@ interface StatusBarProps {
   projectName?: string
   totalNodes?: number
   isAutoRefreshing?: boolean
+  engineStatus?: EngineStatusPayload | null
 }
 
-export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAutoRefreshing }: StatusBarProps) {
+export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAutoRefreshing, engineStatus }: StatusBarProps) {
   const health = metrics?.healthScore ?? null
-  const hColor = health == null ? '#6e7681'
-    : health >= 80 ? '#3fb950'
-    : health >= 50 ? '#d29922'
-    : '#f85149'
+  const hColor = health == null ? 'var(--fg-muted)'
+    : health >= 80 ? 'var(--ok-text)'
+    : health >= 50 ? 'var(--warn-text)'
+    : 'var(--error-text)'
 
   return (
     <div style={{
       display: 'flex',
       alignItems: 'center',
       height: 26,
-      background: '#161b22',
-      borderBottom: '1px solid #21262d',
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      background: 'var(--bg-surface)',
+      borderBottom: '1px solid var(--bg-elevated)',
+      fontFamily: 'var(--font-code)',
       fontSize: 10,
       flexShrink: 0,
       overflow: 'hidden',
@@ -31,22 +32,25 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
         padding: '0 12px', height: '100%',
-        background: '#21262d',
-        borderRight: '1px solid #30363d',
+        background: 'var(--bg-elevated)',
+        borderRight: '1px solid var(--border)',
         flexShrink: 0,
       }}>
-        <span style={{ color: '#79c0ff', fontWeight: 700, letterSpacing: '0.06em' }}>
+        <span style={{ color: 'var(--blue-text)', fontWeight: 700, letterSpacing: '0.06em' }}>
           Aegis Debug
         </span>
       </div>
+
+      {/* Engine status pill */}
+      {engineStatus && <EngineStatusPill payload={engineStatus} />}
 
       {/* Project name */}
       {projectName && (
         <div style={{
           padding: '0 12px', height: '100%',
-          borderRight: '1px solid #21262d',
+          borderRight: '1px solid var(--bg-elevated)',
           display: 'flex', alignItems: 'center',
-          color: '#8b949e',
+          color: 'var(--fg-secondary)',
           flexShrink: 0,
         }}>
           {projectName}
@@ -56,21 +60,21 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
       {/* Status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px' }}>
         {isAnalyzing ? (
-          <span style={{ color: '#388bfd' }}>⟳ Analyzing…</span>
+          <span style={{ color: 'var(--accent)' }}>⟳ Analyzing…</span>
         ) : metrics ? (
           <>
             {metrics.errorCount > 0 && (
-              <span style={{ color: '#f85149' }}>
+              <span style={{ color: 'var(--error-text)' }}>
                 ✕ {metrics.errorCount} {metrics.errorCount === 1 ? 'error' : 'errors'}
               </span>
             )}
             {metrics.warningCount > 0 && (
-              <span style={{ color: '#d29922' }}>
+              <span style={{ color: 'var(--warn-text)' }}>
                 ⚠ {metrics.warningCount} {metrics.warningCount === 1 ? 'warning' : 'warnings'}
               </span>
             )}
             {metrics.errorCount === 0 && metrics.warningCount === 0 && (
-              <span style={{ color: '#3fb950' }}>✓ No issues</span>
+              <span style={{ color: 'var(--ok-text)' }}>✓ No issues</span>
             )}
           </>
         ) : null}
@@ -82,16 +86,16 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
       {isAutoRefreshing && (
         <div style={{
           padding: '0 10px', height: '100%',
-          borderLeft: '1px solid #21262d',
+          borderLeft: '1px solid var(--bg-elevated)',
           display: 'flex', alignItems: 'center', gap: 5,
           flexShrink: 0,
         }}>
           <div style={{
             width: 5, height: 5, borderRadius: '50%',
-            background: '#388bfd',
+            background: 'var(--accent)',
             animation: 'pulse-glow-blue 1.5s ease-in-out infinite',
           }} />
-          <span style={{ color: '#388bfd', fontSize: 9 }}>Auto</span>
+          <span style={{ color: 'var(--accent)', fontSize: 9 }}>Auto</span>
         </div>
       )}
 
@@ -99,9 +103,9 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
       {totalNodes !== undefined && totalNodes > 0 && (
         <div style={{
           padding: '0 12px', height: '100%',
-          borderLeft: '1px solid #21262d',
+          borderLeft: '1px solid var(--bg-elevated)',
           display: 'flex', alignItems: 'center',
-          color: '#6e7681',
+          color: 'var(--fg-muted)',
           flexShrink: 0,
         }}>
           {totalNodes} modules
@@ -112,14 +116,63 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
       {health !== null && (
         <div style={{
           padding: '0 12px', height: '100%',
-          borderLeft: '1px solid #21262d',
+          borderLeft: '1px solid var(--bg-elevated)',
           display: 'flex', alignItems: 'center', gap: 5,
           flexShrink: 0,
         }}>
-          <span style={{ color: '#6e7681' }}>health</span>
+          <span style={{ color: 'var(--fg-muted)' }}>health</span>
           <span style={{ color: hColor, fontWeight: 700 }}>{health.toFixed(0)}%</span>
         </div>
       )}
+    </div>
+  )
+}
+
+function providerLabel(provider: string): string {
+  if (provider === 'OPENAI') return 'OpenAI'
+  if (provider === 'OLLAMA') return 'Ollama'
+  return 'Static'
+}
+
+export function EngineStatusPill({ payload }: { payload: EngineStatusPayload }) {
+  let dotColor: string
+  let label: string
+
+  switch (payload.status) {
+    case 'ONLINE':
+      dotColor = 'var(--ok-text)'
+      label    = `${providerLabel(payload.provider)} · Online`
+      break
+    case 'FALLBACK_TO_STATIC':
+      dotColor = 'var(--warn-text)'
+      label    = 'Static Mode'
+      break
+    case 'DEGRADED':
+      dotColor = 'var(--warn-text)'
+      label    = 'Degraded'
+      break
+    case 'OFFLINE':
+      dotColor = 'var(--error-text)'
+      label    = 'Offline'
+      break
+    case 'DISABLED':
+    default:
+      dotColor = 'var(--fg-muted)'
+      label    = 'Static Only'
+  }
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 5,
+      padding: '0 10px', height: '100%',
+      borderRight: '1px solid var(--border)',
+      flexShrink: 0,
+    }}>
+      <div style={{
+        width: 5, height: 5, borderRadius: '50%',
+        background: dotColor, flexShrink: 0,
+      }} />
+      <span style={{ color: 'var(--fg-secondary)', fontSize: 9 }}>{label}</span>
     </div>
   )
 }

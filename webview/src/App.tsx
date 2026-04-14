@@ -41,10 +41,19 @@ export default function App() {
     const unsubState    = bridge.onDebugStateChanged(s => dispatch({ type: 'SET_DEBUG_STATE', payload: s }))
     const unsubAuto     = bridge.onAutoRefreshStart(() => dispatch({ type: 'SET_AUTO_REFRESHING', payload: true }))
 
+    const unsubEngineStatus = bridge.onEngineStatus(payload =>
+      dispatch({ type: 'SET_ENGINE_STATUS', payload })
+    )
+
+    const unsubFixApplied = bridge.onFixApplied(({ issueId }) =>
+      dispatch({ type: 'FIX_APPLIED', payload: issueId })
+    )
+
     return () => {
       unsubGraph(); unsubExpl(); unsubFix(); unsubNode();
       unsubStart(); unsubComplete(); unsubError(); unsubSystem();
       unsubImpact(); unsubFrame(); unsubEnd(); unsubState(); unsubAuto();
+      unsubEngineStatus(); unsubFixApplied();
     }
   }, [])
 
@@ -66,9 +75,9 @@ export default function App() {
       <div style={{
         width: '100vw', height: '100vh',
         display: 'flex', flexDirection: 'column',
-        background: '#0d1117', color: '#e6edf3',
+        background: 'var(--bg-base)', color: 'var(--fg-primary)',
         overflow: 'hidden',
-        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+        fontFamily: 'var(--font-ui)',
       }}>
 
         <StatusBar
@@ -77,14 +86,15 @@ export default function App() {
           projectName={state.graph?.metadata.projectName}
           totalNodes={state.graph?.nodes.length}
           isAutoRefreshing={state.isAutoRefreshing}
+          engineStatus={state.engineStatus}
         />
 
         {/* Main Toolbar */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '6px 12px',
-          background: '#161b22',
-          borderBottom: '1px solid #21262d',
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border)',
           flexShrink: 0,
         }}>
           <ToolbarButton onClick={handleAnalyze} disabled={state.isAnalyzing} primary>
@@ -110,18 +120,18 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginRight: 8 }}>
               <div style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: '#388bfd',
+                background: 'var(--accent)',
                 animation: 'pulse-glow-blue 1.5s ease-in-out infinite',
               }} />
-              <span style={{ color: '#388bfd', fontSize: 9 }}>Auto-refreshing</span>
+              <span style={{ color: 'var(--accent)', fontSize: 9 }}>Auto-refreshing</span>
             </div>
           )}
 
           {/* Legend */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 9, color: '#6e7681' }}>
-            <LegendDot color="#f85149" label="Error" />
-            <LegendDot color="#d29922" label="Warning" />
-            <LegendDot color="#3fb950" label="Healthy" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 9, color: 'var(--fg-muted)' }}>
+            <LegendDot color="var(--error-text)" label="Error" />
+            <LegendDot color="var(--warn-text)" label="Warning" />
+            <LegendDot color="var(--ok-text)" label="Healthy" />
             {state.viewMode === 'neuromap' && (
               <LegendDot color="#f0883e" label="Cycle" />
             )}
@@ -156,7 +166,7 @@ export default function App() {
                 }}>
                   <div style={{
                     width: 6, height: 6, borderRadius: '50%',
-                    background: isPaused ? '#f0883e' : '#3fb950',
+                    background: isPaused ? 'var(--warn-text)' : 'var(--ok-text)',
                     animation: isPaused ? undefined : 'pulse-glow-blue 1s ease-in-out infinite',
                   }} />
                   <span style={{ color: '#56d4dd', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em' }}>
@@ -191,7 +201,7 @@ export default function App() {
                 {state.debugFrame && (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    color: '#8b949e', fontSize: 9, fontFamily: 'monospace',
+                    color: 'var(--fg-secondary)', fontSize: 9, fontFamily: 'var(--font-code)',
                   }}>
                     <span style={{ color: '#56d4dd' }}>📍</span>
                     <span>
@@ -237,8 +247,8 @@ export default function App() {
           <div style={{
             width: 260,
             flexShrink: 0,
-            borderLeft: '1px solid #21262d',
-            background: '#0d1117',
+            borderLeft: '1px solid var(--border)',
+            background: 'var(--bg-base)',
             overflowY: 'auto',
             position: 'relative',
             zIndex: 100, // Ensure it's on top of city/map layers
@@ -257,9 +267,9 @@ export default function App() {
               style={{
                 position: 'fixed', bottom: 16,
                 left: '50%', transform: 'translateX(-50%)',
-                background: '#21262d',
-                border: '1px solid #f85149',
-                color: '#f85149',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--error-text)',
+                color: 'var(--error-text)',
                 fontSize: 10, padding: '8px 16px',
                 borderRadius: 8, maxWidth: 320,
                 textAlign: 'center',
@@ -291,9 +301,9 @@ function ToolbarButton({
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
         padding: '5px 12px',
-        background: primary ? '#238636' : '#21262d',
-        border: `1px solid ${primary ? '#2ea043' : '#30363d'}`,
-        color: primary ? '#ffffff' : '#8b949e',
+        background: primary ? 'var(--ok-text)' : 'var(--bg-elevated)',
+        border: `1px solid ${primary ? 'var(--ok-border)' : 'var(--border)'}`,
+        color: primary ? '#ffffff' : 'var(--fg-secondary)',
         fontSize: 10, fontWeight: 600,
         borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
@@ -324,9 +334,9 @@ function DebugButton({
       style={{
         display: 'flex', alignItems: 'center', gap: 4,
         padding: '4px 10px',
-        background: highlight ? 'rgba(86,212,221,0.12)' : '#21262d',
-        border: `1px solid ${highlight ? 'rgba(86,212,221,0.3)' : '#30363d'}`,
-        color: highlight ? '#56d4dd' : '#8b949e',
+        background: highlight ? 'rgba(86,212,221,0.12)' : 'var(--bg-elevated)',
+        border: `1px solid ${highlight ? 'rgba(86,212,221,0.3)' : 'var(--border)'}`,
+        color: highlight ? '#56d4dd' : 'var(--fg-secondary)',
         fontSize: 9, fontWeight: 600,
         borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
@@ -354,32 +364,32 @@ function EmptyState({ isAnalyzing, onAnalyze }: { isAnalyzing: boolean; onAnalyz
       height: '100%', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       gap: 20, textAlign: 'center', padding: 32,
-      background: '#0d1117',
+      background: 'var(--bg-base)',
     }}>
       <div style={{
         width: 56, height: 56, borderRadius: 14,
-        background: '#161b22', border: '1px solid #30363d',
+        background: 'var(--bg-surface)', border: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 28,
       }}>
         <div style={{
           width: 32, height: 32, borderRadius: 6,
-          border: '2px solid #e6edf3',
+          border: '2px solid var(--fg-primary)',
           position: 'relative'
         }}>
            <div style={{
              position: 'absolute', top: '50%', left: '50%',
              transform: 'translate(-50%, -50%)',
              width: 12, height: 12, borderRadius: '50%',
-             border: '2px solid #e6edf3'
+             border: '2px solid var(--fg-primary)'
            }} />
         </div>
       </div>
       <div>
-        <div style={{ color: '#e6edf3', fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ color: 'var(--fg-primary)', fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
           Aegis Debug
         </div>
-        <p style={{ color: '#6e7681', fontSize: 10, lineHeight: 1.7, maxWidth: 260, margin: 0 }}>
+        <p style={{ color: 'var(--fg-muted)', fontSize: 10, lineHeight: 1.7, maxWidth: 260, margin: 0 }}>
           Analyze your project to visualize the dependency graph, detect issues, and get AI-powered fix suggestions.
         </p>
       </div>
@@ -388,7 +398,7 @@ function EmptyState({ isAnalyzing, onAnalyze }: { isAnalyzing: boolean; onAnalyz
           onClick={onAnalyze}
           style={{
             padding: '8px 24px',
-            background: '#238636', border: '1px solid #2ea043',
+            background: 'var(--ok-text)', border: '1px solid var(--ok-border)',
             color: '#fff', fontSize: 11, fontWeight: 700,
             borderRadius: 8, cursor: 'pointer',
             fontFamily: 'inherit',
@@ -398,7 +408,7 @@ function EmptyState({ isAnalyzing, onAnalyze }: { isAnalyzing: boolean; onAnalyz
         </button>
       )}
       {isAnalyzing && (
-        <span style={{ color: '#388bfd', fontSize: 11 }}>⟳ Analyzing project…</span>
+        <span style={{ color: 'var(--accent)', fontSize: 11 }}>⟳ Analyzing project…</span>
       )}
     </div>
   )

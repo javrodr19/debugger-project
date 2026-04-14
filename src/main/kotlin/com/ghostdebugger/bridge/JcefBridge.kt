@@ -2,6 +2,7 @@ package com.ghostdebugger.bridge
 
 import com.ghostdebugger.model.*
 import com.ghostdebugger.model.DebugVariable
+import com.ghostdebugger.model.EngineStatusPayload
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.ui.jcef.JBCefBrowser
@@ -133,6 +134,11 @@ class JcefBridge(
 
     fun sendAutoRefreshStart() {
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAutoRefreshStart()")
+    }
+
+    fun sendEngineStatus(payload: EngineStatusPayload) {
+        val payloadJson = json.encodeToString(payload)
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onEngineStatus($payloadJson)")
     }
 
     private fun executeJS(script: String) {

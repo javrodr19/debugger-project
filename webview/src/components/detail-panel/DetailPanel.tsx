@@ -10,27 +10,27 @@ import { bridge } from '../../bridge/pluginBridge'
 
 // ─── Color tokens ─────────────────────────────────────────────────────────────
 const C = {
-  bg:        '#0d1117',
-  surface:   '#161b22',
-  elevated:  '#21262d',
-  border:    '#30363d',
-  borderFg:  '#484f58',
-  text1:     '#e6edf3',
-  text2:     '#8b949e',
-  text3:     '#6e7681',
-  errorText: '#f85149',
-  errorBg:   'rgba(248,81,73,0.08)',
-  errorBdr:  'rgba(248,81,73,0.25)',
-  warnText:  '#d29922',
-  warnBg:    'rgba(210,153,34,0.08)',
-  warnBdr:   'rgba(210,153,34,0.25)',
-  okText:    '#3fb950',
-  okBg:      'rgba(63,185,80,0.08)',
-  okBdr:     'rgba(63,185,80,0.25)',
-  blueText:  '#79c0ff',
-  blueBg:    'rgba(121,192,255,0.08)',
-  blueBdr:   'rgba(121,192,255,0.2)',
-  accent:    '#388bfd',
+  bg:        'var(--bg-base)',
+  surface:   'var(--bg-surface)',
+  elevated:  'var(--bg-elevated)',
+  border:    'var(--border)',
+  borderFg:  'var(--border-fg)',
+  text1:     'var(--fg-primary)',
+  text2:     'var(--fg-secondary)',
+  text3:     'var(--fg-muted)',
+  errorText: 'var(--error-text)',
+  errorBg:   'var(--error-bg)',
+  errorBdr:  'var(--error-border)',
+  warnText:  'var(--warn-text)',
+  warnBg:    'var(--warn-bg)',
+  warnBdr:   'var(--warn-border)',
+  okText:    'var(--ok-text)',
+  okBg:      'var(--ok-bg)',
+  okBdr:     'var(--ok-border)',
+  blueText:  'var(--blue-text)',
+  blueBg:    'var(--blue-bg)',
+  blueBdr:   'var(--blue-border)',
+  accent:    'var(--accent)',
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -123,6 +123,7 @@ export function DetailPanel() {
               selectedIssue={selectedIssue}
               fixes={state.pendingFixes}
               loadingFix={state.loadingFix}
+              applyingFix={state.applyingFix}
               dispatch={dispatch}
             />
           </Section>
@@ -393,17 +394,25 @@ function IssueRow({
           <div style={{ color: C.text2, fontSize: 9, marginTop: 2, lineHeight: 1.5 }} className="line-clamp-2">
             {issue.description}
           </div>
-          {issue.line > 0 && (
-            <span style={{
-              display: 'inline-block', marginTop: 4,
-              color: C.text3, background: C.elevated,
-              border: `1px solid ${C.border}`,
-              fontSize: 8, padding: '1px 5px', borderRadius: 3,
-              fontFamily: 'monospace',
-            }}>
-              L{issue.line}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+            {issue.line > 0 && (
+              <span style={{
+                color: C.text3, background: C.elevated,
+                border: `1px solid ${C.border}`,
+                fontSize: 8, padding: '1px 5px', borderRadius: 3,
+                fontFamily: 'var(--font-code)',
+              }}>
+                L{issue.line}
+              </span>
+            )}
+            {issue.sources && issue.sources.length > 0 && (
+              <span style={{ display: 'inline-flex', gap: 3, marginLeft: 4, flexShrink: 0 }}>
+                {issue.sources.map(src => (
+                  <ProvenanceBadge key={src} source={src} />
+                ))}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -424,7 +433,7 @@ function IssueRow({
                 borderTop: `1px solid ${C.border}`,
                 color: C.text2,
                 fontSize: 9,
-                fontFamily: 'monospace',
+                fontFamily: 'var(--font-code)',
                 overflowX: 'auto',
                 maxHeight: 100,
                 lineHeight: 1.5,
@@ -465,12 +474,14 @@ function SolutionsContent({
   selectedIssue,
   fixes,
   loadingFix,
+  applyingFix,
   dispatch,
 }: {
   selectedNode: GraphNode
   selectedIssue: Issue | null
   fixes: Record<string, CodeFix>
   loadingFix: string | null
+  applyingFix: string | null
   dispatch: React.Dispatch<any>
 }) {
   const [copied, setCopied] = useState(false)
@@ -507,6 +518,12 @@ function SolutionsContent({
     })
   }
 
+  const handleApplyFix = () => {
+    if (!fix || !selectedIssue) return
+    dispatch({ type: 'SET_APPLYING_FIX', payload: selectedIssue.id })
+    bridge.applyFix(selectedIssue.id, fix.id)
+  }
+
   return (
     <div style={{ background: C.bg, padding: '10px 12px 12px' }}>
       {/* Issue reference */}
@@ -519,7 +536,7 @@ function SolutionsContent({
         <span style={{ color: C.text2, fontSize: 9, flex: 1 }} className="truncate">
           {selectedIssue.title}
         </span>
-        <span style={{ color: C.text3, fontSize: 8, fontFamily: 'monospace' }}>L{selectedIssue.line}</span>
+        <span style={{ color: C.text3, fontSize: 8, fontFamily: 'var(--font-code)' }}>L{selectedIssue.line}</span>
       </div>
 
       {!fix && !isLoading && (
@@ -529,7 +546,7 @@ function SolutionsContent({
             width: '100%',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             background: C.accent,
-            color: '#fff',
+            color: 'var(--fg-primary)',
             fontSize: 10, fontWeight: 700,
             padding: '8px 0',
             borderRadius: 6,
@@ -572,11 +589,42 @@ function SolutionsContent({
             </div>
           )}
 
+          {/* Trust badge */}
+          <div style={{ marginBottom: 10 }}>
+            <TrustBadge isDeterministic={fix.isDeterministic} />
+          </div>
+
           {/* Code diff */}
           <CodeDiff original={fix.originalCode} fixed={fix.fixedCode} filePath={fix.filePath} />
 
+          {/* Apply Fix */}
+          <button
+            onClick={handleApplyFix}
+            disabled={applyingFix === selectedIssue.id}
+            style={{
+              width: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              background: applyingFix === selectedIssue.id ? 'var(--bg-elevated)' : 'var(--accent)',
+              color: applyingFix === selectedIssue.id ? 'var(--fg-muted)' : 'var(--fg-primary)',
+              fontSize: 10, fontWeight: 700,
+              padding: '8px 0',
+              borderRadius: 6,
+              cursor: applyingFix === selectedIssue.id ? 'not-allowed' : 'pointer',
+              border: 'none',
+              letterSpacing: '0.04em',
+              marginBottom: 6,
+              transition: 'opacity 0.15s',
+              marginTop: 10,
+            }}
+          >
+            {applyingFix === selectedIssue.id
+              ? <><Loader2 size={11} className="animate-spin" /> Applying…</>
+              : <><Check size={11} /> Apply Fix</>
+            }
+          </button>
+
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={handleCopyForAI}
               style={{
@@ -623,19 +671,19 @@ function CodeDiff({ original, fixed, filePath }: { original: string; fixed: stri
       {/* Original */}
       <div>
         <div style={{
-          background: 'rgba(248,81,73,0.06)',
-          borderBottom: `1px solid rgba(248,81,73,0.15)`,
+          background: 'rgba(224, 85, 85, 0.06)',
+          borderBottom: `1px solid rgba(224, 85, 85, 0.15)`,
           padding: '4px 10px',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <span style={{ color: C.errorText, fontSize: 9, fontWeight: 700 }}>− Original</span>
-          <span style={{ color: C.text3, fontSize: 8, fontFamily: 'monospace', marginLeft: 'auto' }}>{lang}</span>
+          <span style={{ color: C.text3, fontSize: 8, fontFamily: 'var(--font-code)', marginLeft: 'auto' }}>{lang}</span>
         </div>
         <pre style={{
           margin: 0, padding: '8px 10px',
-          background: 'rgba(248,81,73,0.04)',
+          background: 'rgba(224, 85, 85, 0.04)',
           color: '#ffa198',
-          fontSize: 9, fontFamily: 'monospace',
+          fontSize: 9, fontFamily: 'var(--font-code)',
           overflowX: 'auto', maxHeight: 130,
           lineHeight: 1.55,
         }}>
@@ -649,8 +697,8 @@ function CodeDiff({ original, fixed, filePath }: { original: string; fixed: stri
       {/* Fixed */}
       <div>
         <div style={{
-          background: 'rgba(63,185,80,0.06)',
-          borderBottom: `1px solid rgba(63,185,80,0.15)`,
+          background: 'rgba(61, 181, 102, 0.06)',
+          borderBottom: `1px solid rgba(61, 181, 102, 0.15)`,
           padding: '4px 10px',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
@@ -658,9 +706,9 @@ function CodeDiff({ original, fixed, filePath }: { original: string; fixed: stri
         </div>
         <pre style={{
           margin: 0, padding: '8px 10px',
-          background: 'rgba(63,185,80,0.04)',
+          background: 'rgba(61, 181, 102, 0.04)',
           color: '#7ee787',
-          fontSize: 9, fontFamily: 'monospace',
+          fontSize: 9, fontFamily: 'var(--font-code)',
           overflowX: 'auto', maxHeight: 130,
           lineHeight: 1.55,
         }}>
@@ -709,10 +757,10 @@ function OverviewPanel({
         }}>
           <svg viewBox="0 0 13 13" width="22" height="22" aria-hidden="true">
             <path d="M6.5 1 L11 3 V6.5 C11 9 8.75 11.3 6.5 12 C4.25 11.3 2 9 2 6.5 V3 Z"
-                  fill="none" stroke="#FDFBF7" strokeWidth="1.1" strokeLinejoin="round"/>
-            <circle cx="5.2" cy="6.2" r="0.9" fill="none" stroke="#FDFBF7" strokeWidth="0.9"/>
-            <circle cx="7.8" cy="7.6" r="0.9" fill="none" stroke="#FDFBF7" strokeWidth="0.9"/>
-            <line x1="5.9" y1="6.7" x2="7.1" y2="7.2" stroke="#FDFBF7" strokeWidth="0.9" strokeLinecap="round"/>
+                  fill="none" stroke="var(--fg-primary)" strokeWidth="1.1" strokeLinejoin="round"/>
+            <circle cx="5.2" cy="6.2" r="0.9" fill="none" stroke="var(--fg-primary)" strokeWidth="0.9"/>
+            <circle cx="7.8" cy="7.6" r="0.9" fill="none" stroke="var(--fg-primary)" strokeWidth="0.9"/>
+            <line x1="5.9" y1="6.7" x2="7.1" y2="7.2" stroke="var(--fg-primary)" strokeWidth="0.9" strokeLinecap="round"/>
           </svg>
         </div>
         <p style={{ color: C.text1, fontSize: 12, fontWeight: 600, margin: '0 0 6px' }}>Aegis Debug</p>
@@ -765,7 +813,7 @@ function OverviewPanel({
               Project Health
             </span>
           </div>
-          <span style={{ color: hColor, fontSize: 18, fontWeight: 800, fontFamily: 'monospace' }}>
+          <span style={{ color: hColor, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-code)' }}>
             {health.toFixed(0)}%
           </span>
         </div>
@@ -805,17 +853,17 @@ function OverviewPanel({
       {(graph.metadata.cycles?.length ?? 0) > 0 && (
         <SummaryGroup title="Circular Dependencies">
           <div style={{
-            background: 'rgba(240,136,62,0.08)',
-            border: '1px solid rgba(240,136,62,0.25)',
+            background: 'var(--warn-bg)',
+            border: '1px solid var(--warn-border)',
             borderRadius: 7,
             padding: '8px 10px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div>
-              <div style={{ color: '#f0883e', fontSize: 16, fontWeight: 800, fontFamily: 'monospace' }}>
+              <div style={{ color: 'var(--warn-text)', fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-code)' }}>
                 {graph.metadata.cycles!.length}
               </div>
-              <div style={{ color: '#f0883e', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.07em', opacity: 0.75, marginTop: 2 }}>
+              <div style={{ color: 'var(--warn-text)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.07em', opacity: 0.75, marginTop: 2 }}>
                 Cycles Detected
               </div>
             </div>
@@ -840,7 +888,7 @@ function OverviewPanel({
                   width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
                   background: node.status === 'ERROR' ? C.errorText : node.status === 'WARNING' ? C.warnText : C.okText,
                 }} />
-                <span style={{ color: C.text2, fontSize: 9, fontFamily: 'monospace', flex: 1 }} className="truncate">
+                <span style={{ color: C.text2, fontSize: 9, fontFamily: 'var(--font-code)', flex: 1 }} className="truncate">
                   {node.name}
                 </span>
                 <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -964,7 +1012,7 @@ function SummaryTile({ count, label, color, bg, bdr }: { count: number; label: s
       background: bg, border: `1px solid ${bdr}`, borderRadius: 7,
       padding: '8px 6px', textAlign: 'center',
     }}>
-      <div style={{ color, fontSize: 18, fontWeight: 800, fontFamily: 'monospace', lineHeight: 1 }}>{count}</div>
+      <div style={{ color, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-code)', lineHeight: 1 }}>{count}</div>
       <div style={{ color, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 3, opacity: 0.75 }}>{label}</div>
     </div>
   )
@@ -976,7 +1024,7 @@ function MetricBox({ label, value, color }: { label: string; value: string; colo
       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
       padding: '6px 8px', textAlign: 'center',
     }}>
-      <div style={{ color: color ?? C.text1, fontSize: 14, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
+      <div style={{ color: color ?? C.text1, fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-code)', lineHeight: 1 }}>{value}</div>
       <div style={{ color: C.text3, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 3 }}>{label}</div>
     </div>
   )
@@ -1063,4 +1111,38 @@ Make sure the fix:
 4. Handles edge cases properly
 
 Respond with the final corrected code and a brief explanation of any additional improvements you made.`
+}
+
+function ProvenanceBadge({ source }: { source: 'STATIC' | 'AI_CLOUD' }) {
+  const isStatic = source === 'STATIC'
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      color:      isStatic ? 'var(--badge-static-text)' : 'var(--badge-ai-text)',
+      background: isStatic ? 'var(--badge-static-bg)'   : 'var(--badge-ai-bg)',
+      fontSize: 8, fontWeight: 700,
+      padding: '1px 5px', borderRadius: 3,
+      letterSpacing: '0.06em',
+      flexShrink: 0,
+    }}>
+      {isStatic ? 'STATIC' : 'AI'}
+    </span>
+  )
+}
+
+function TrustBadge({ isDeterministic }: { isDeterministic?: boolean }) {
+  const det = isDeterministic === true
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      color:      det ? 'var(--ok-text)'       : 'var(--badge-ai-text)',
+      background: det ? 'var(--ok-bg)'         : 'var(--badge-ai-bg)',
+      border: `1px solid ${det ? 'var(--ok-border)' : 'rgba(192,132,252,0.28)'}`,
+      fontSize: 8, fontWeight: 700,
+      padding: '2px 7px', borderRadius: 4,
+      letterSpacing: '0.05em',
+    }}>
+      {det ? 'Deterministic' : 'AI-Generated'}
+    </span>
+  )
 }

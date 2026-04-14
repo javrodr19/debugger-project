@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { ProjectGraph, GraphNode, Issue, CodeFix, AnalysisMetrics, NodeStatus, DebugFrame, ViewMode } from '../types'
+import type { ProjectGraph, GraphNode, Issue, CodeFix, AnalysisMetrics, NodeStatus, DebugFrame, ViewMode, EngineStatusPayload } from '../types'
 
 export type DebugSessionState = 'idle' | 'running' | 'paused'
 
@@ -9,8 +9,10 @@ export interface AppState {
   selectedIssue: Issue | null
   pendingFixes: Record<string, CodeFix>  // issueId -> CodeFix
   loadingFix: string | null              // issueId currently being fetched
+  applyingFix:  string | null            // issueId currently being applied; null when idle
   isAnalyzing: boolean
   metrics: AnalysisMetrics | null
+  engineStatus: EngineStatusPayload | null
   systemExplanation: string | null
   error: string | null
   highlightedNodes: string[]
@@ -29,8 +31,11 @@ export type AppAction =
   | { type: 'SELECT_ISSUE'; payload: Issue | null }
   | { type: 'SET_FIX'; payload: CodeFix }
   | { type: 'SET_LOADING_FIX'; payload: string | null }
+  | { type: 'SET_APPLYING_FIX';  payload: string | null }
+  | { type: 'FIX_APPLIED';       payload: string }          // payload is issueId
   | { type: 'ANALYSIS_START' }
   | { type: 'ANALYSIS_COMPLETE'; payload: AnalysisMetrics }
+  | { type: 'SET_ENGINE_STATUS'; payload: EngineStatusPayload }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_SYSTEM_EXPLANATION'; payload: string }
   | { type: 'SET_EXPLANATION'; payload: { issueId: string; explanation: string } }
@@ -50,8 +55,10 @@ export const initialState: AppState = {
   selectedIssue: null,
   pendingFixes: {},
   loadingFix: null,
+  applyingFix: null,
   isAnalyzing: false,
   metrics: null,
+  engineStatus: null,
   systemExplanation: null,
   error: null,
   highlightedNodes: [],
@@ -91,11 +98,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_LOADING_FIX':
       return { ...state, loadingFix: action.payload }
 
+    case 'SET_APPLYING_FIX':
+      return { ...state, applyingFix: action.payload }
+
+    case 'FIX_APPLIED': {
+      const { [action.payload]: _removed, ...remainingFixes } = state.pendingFixes
+      return { ...state, pendingFixes: remainingFixes, applyingFix: null }
+    }
+
     case 'ANALYSIS_START':
       return { ...state, isAnalyzing: true, error: null }
 
     case 'ANALYSIS_COMPLETE':
       return { ...state, isAnalyzing: false, metrics: action.payload, isAutoRefreshing: false }
+
+    case 'SET_ENGINE_STATUS':
+      return { ...state, engineStatus: action.payload }
 
     case 'SET_ERROR':
       return { ...state, error: action.payload, isAnalyzing: false }

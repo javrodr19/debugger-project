@@ -15,6 +15,18 @@ export type IssueType =
   | 'MEMORY_LEAK'
   | 'ARCHITECTURE'
 
+// ── Phase 2 provenance types ──────────────────────────────────────────────────
+export type IssueSource    = 'STATIC' | 'AI_CLOUD'
+export type EngineProvider = 'STATIC' | 'OPENAI' | 'OLLAMA'
+export type EngineStatus   = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'FALLBACK_TO_STATIC' | 'DISABLED'
+
+export interface EngineStatusPayload {
+  provider:  EngineProvider
+  status:    EngineStatus
+  message?:  string
+  latencyMs?: number
+}
+
 export interface Issue {
   id: string
   type: IssueType
@@ -27,6 +39,10 @@ export interface Issue {
   codeSnippet: string
   affectedNodes: string[]
   explanation?: string
+  ruleId?:     string
+  sources?:    IssueSource[]
+  providers?:  EngineProvider[]
+  confidence?: number
 }
 
 export interface CodeFix {
@@ -38,6 +54,8 @@ export interface CodeFix {
   filePath: string
   lineStart: number
   lineEnd: number
+  isDeterministic?: boolean
+  confidence?:      number
 }
 
 export interface FunctionInfo {

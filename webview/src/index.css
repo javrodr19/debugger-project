@@ -1,4 +1,49 @@
-@import "tailwindcss";
+:root {
+  /* ── Backgrounds ───────────────────────────────────── */
+  --bg-base:     #0A1128;   /* Dark Navy — main panel background */
+  --bg-surface:  #0F1A38;   /* card/panel surfaces */
+  --bg-elevated: #162040;   /* elevated cards, hover fills */
+  --border:      #1E2E50;   /* default borders */
+  --border-fg:   #283D62;   /* focused / hovered borders */
+
+  /* ── Foregrounds ───────────────────────────────────── */
+  --fg-primary:   #FDFBF7;  /* Cream — primary text */
+  --fg-secondary: #C4BDB5;  /* secondary text */
+  --fg-muted:     #7A7570;  /* placeholder / muted text */
+
+  /* ── Accent ────────────────────────────────────────── */
+  --accent: #4A8CFF;
+
+  /* ── Semantic: error ───────────────────────────────── */
+  --error-text:   #E05555;
+  --error-bg:     rgba(224, 85,  85,  0.10);
+  --error-border: rgba(224, 85,  85,  0.28);
+
+  /* ── Semantic: warning ─────────────────────────────── */
+  --warn-text:   #D4943A;
+  --warn-bg:     rgba(212, 148, 58,  0.10);
+  --warn-border: rgba(212, 148, 58,  0.28);
+
+  /* ── Semantic: ok / success ────────────────────────── */
+  --ok-text:   #3DB566;
+  --ok-bg:     rgba(61,  181, 102, 0.10);
+  --ok-border: rgba(61,  181, 102, 0.28);
+
+  /* ── Semantic: info / blue ─────────────────────────── */
+  --blue-text:   #79BFFF;
+  --blue-bg:     rgba(121, 191, 255, 0.10);
+  --blue-border: rgba(121, 191, 255, 0.22);
+
+  /* ── Provenance badges ─────────────────────────────── */
+  --badge-static-text: #79BFFF;
+  --badge-static-bg:   rgba(121, 191, 255, 0.15);
+  --badge-ai-text:     #C084FC;
+  --badge-ai-bg:       rgba(192, 132, 252, 0.15);
+
+  /* ── Typography ────────────────────────────────────── */
+  --font-ui:   'IBM Plex Sans',  -apple-system, sans-serif;
+  --font-code: 'IBM Plex Mono',  'Fira Code',   monospace;
+}
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -9,8 +54,14 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #0d1117;
-  color: #e6edf3;
+  background-color: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* React Flow overrides */
@@ -38,21 +89,14 @@ html, body, #root {
   background: rgba(100, 116, 139, 0.6);
 }
 
-/* Font */
-body {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 /* ═══════════════════════════════════════════════
    Animations
    ═══════════════════════════════════════════════ */
 
 /* Error node pulse */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
+  0%, 100% { box-shadow: 0 0 10px rgba(224, 85, 85, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(224, 85, 85, 0.6); }
 }
 
 .pulse-error {
@@ -61,8 +105,8 @@ body {
 
 /* Blue auto-refresh pulse */
 @keyframes pulse-glow-blue {
-  0%, 100% { box-shadow: 0 0 4px rgba(56, 139, 253, 0.3); opacity: 0.6; }
-  50% { box-shadow: 0 0 8px rgba(56, 139, 253, 0.6); opacity: 1; }
+  0%, 100% { box-shadow: 0 0 4px rgba(121, 191, 255, 0.3); opacity: 0.6; }
+  50% { box-shadow: 0 0 8px rgba(121, 191, 255, 0.6); opacity: 1; }
 }
 
 /* Cyan debug pulse */

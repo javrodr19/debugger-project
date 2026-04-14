@@ -316,6 +316,7 @@ class GhostDebuggerService(private val project: Project) {
                         analysisResult.metrics.warningCount,
                         analysisResult.metrics.healthScore
                     )
+                    bridge?.sendEngineStatus(analysisResult.engineStatus)
                 }
 
                 // 10. Refresh annotator

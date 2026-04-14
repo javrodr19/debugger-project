@@ -1,4 +1,4 @@
-import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus, DebugFrame } from '../types'
+import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus, DebugFrame, EngineStatusPayload } from '../types'
 import type { DebugSessionState } from '../stores/appStore'
 
 type EventHandler<T> = (data: T) => void
@@ -17,6 +17,8 @@ interface AegisAPI {
   onDebugSessionEnded: () => void
   onDebugStateChanged: (state: string) => void
   onAutoRefreshStart: () => void
+  onEngineStatus: (data: EngineStatusPayload) => void
+  onFixApplied:   (data: { issueId: string }) => void
   __ready__?: () => void
 }
 
@@ -41,6 +43,8 @@ class PluginBridge {
   private debugSessionEndedHandlers: EventHandler<void>[] = []
   private debugStateChangedHandlers: EventHandler<DebugSessionState>[] = []
   private autoRefreshStartHandlers: EventHandler<void>[] = []
+  private engineStatusHandlers: EventHandler<EngineStatusPayload>[] = []
+  private fixAppliedHandlers:   EventHandler<{ issueId: string }>[] = []
 
   constructor() {
     this.setupAPI()
@@ -61,6 +65,8 @@ class PluginBridge {
       onDebugSessionEnded: () => this.debugSessionEndedHandlers.forEach(h => h()),
       onDebugStateChanged: (state) => this.debugStateChangedHandlers.forEach(h => h(state as DebugSessionState)),
       onAutoRefreshStart: () => this.autoRefreshStartHandlers.forEach(h => h()),
+      onEngineStatus: (data) => this.engineStatusHandlers.forEach(h => h(data)),
+      onFixApplied:   (data) => this.fixAppliedHandlers.forEach(h => h(data)),
       __ready__: () => {},
     }
   }
@@ -118,6 +124,14 @@ class PluginBridge {
     this.autoRefreshStartHandlers.push(handler)
     return () => { this.autoRefreshStartHandlers = this.autoRefreshStartHandlers.filter(h => h !== handler) }
   }
+  onEngineStatus(handler: EventHandler<EngineStatusPayload>) {
+    this.engineStatusHandlers.push(handler)
+    return () => { this.engineStatusHandlers = this.engineStatusHandlers.filter(h => h !== handler) }
+  }
+  onFixApplied(handler: EventHandler<{ issueId: string }>) {
+    this.fixAppliedHandlers.push(handler)
+    return () => { this.fixAppliedHandlers = this.fixAppliedHandlers.filter(h => h !== handler) }
+  }
 
   // Send events to the plugin
   sendEvent(type: string, payload?: Record<string, unknown>) {
@@ -130,6 +144,7 @@ class PluginBridge {
   nodeClicked(nodeId: string) { this.sendEvent('NODE_CLICKED', { nodeId }) }
   nodeDoubleClicked(nodeId: string) { this.sendEvent('NODE_DOUBLE_CLICKED', { nodeId }) }
   requestFix(issueId: string, nodeId: string) { this.sendEvent('FIX_REQUESTED', { issueId, nodeId }) }
+  applyFix(issueId: string, fixId: string) { this.sendEvent('APPLY_FIX', { issueId, fixId }) }
 
   requestImpact(nodeId: string) { this.sendEvent('IMPACT_REQUESTED', { nodeId }) }
   requestSystemExplanation() { this.sendEvent('EXPLAIN_SYSTEM') }
