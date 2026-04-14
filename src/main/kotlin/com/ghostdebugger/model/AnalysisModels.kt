@@ -3,6 +3,12 @@ package com.ghostdebugger.model
 import kotlinx.serialization.Serializable
 
 @Serializable
+enum class IssueSource { STATIC, AI_LOCAL, AI_CLOUD }
+
+@Serializable
+enum class EngineProvider { STATIC, OLLAMA, OPENAI }
+
+@Serializable
 data class Issue(
     val id: String,
     val type: IssueType,
@@ -15,8 +21,15 @@ data class Issue(
     val codeSnippet: String = "",
     val affectedNodes: List<String> = emptyList(),
     var explanation: String? = null,
-    var suggestedFix: CodeFix? = null
-)
+    var suggestedFix: CodeFix? = null,
+    val sources: List<IssueSource> = listOf(IssueSource.STATIC),
+    val providers: List<EngineProvider> = listOf(EngineProvider.STATIC),
+    val confidence: Double? = null,
+    val ruleId: String? = null
+) {
+    fun fingerprint(): String =
+        listOf(ruleId ?: type.name, filePath, line.toString()).joinToString(":")
+}
 
 @Serializable
 enum class IssueType {
@@ -54,7 +67,8 @@ data class AnalysisResult(
     val issues: List<Issue>,
     val metrics: ProjectMetrics,
     val hotspots: List<String>,
-    val risks: List<RiskItem>
+    val risks: List<RiskItem>,
+    val engineStatus: EngineStatusPayload
 )
 
 data class ProjectMetrics(
