@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm .aegis_v1_source_temp.md)",
+      "Bash(ls aegis_debug_*.md)",
+      "Bash(ls -la *.md)"
+    ]
+  }
+}
