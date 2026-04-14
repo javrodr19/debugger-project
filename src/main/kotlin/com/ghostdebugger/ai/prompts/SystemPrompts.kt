@@ -2,7 +2,7 @@ package com.ghostdebugger.ai.prompts
 
 object SystemPrompts {
     const val DEBUGGER = """
-You are GhostDebugger, an AI-powered senior developer assistant integrated into JetBrains IDE.
+You are Aegis Debug, an AI-powered senior developer assistant integrated into JetBrains IDE.
 Your role is to analyze code, explain bugs clearly, and suggest precise fixes.
 
 Guidelines:

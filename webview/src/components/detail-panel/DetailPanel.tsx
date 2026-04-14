@@ -707,9 +707,15 @@ function OverviewPanel({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 20, marginBottom: 12,
         }}>
-          👻
+          <svg viewBox="0 0 13 13" width="22" height="22" aria-hidden="true">
+            <path d="M6.5 1 L11 3 V6.5 C11 9 8.75 11.3 6.5 12 C4.25 11.3 2 9 2 6.5 V3 Z"
+                  fill="none" stroke="#FDFBF7" strokeWidth="1.1" strokeLinejoin="round"/>
+            <circle cx="5.2" cy="6.2" r="0.9" fill="none" stroke="#FDFBF7" strokeWidth="0.9"/>
+            <circle cx="7.8" cy="7.6" r="0.9" fill="none" stroke="#FDFBF7" strokeWidth="0.9"/>
+            <line x1="5.9" y1="6.7" x2="7.1" y2="7.2" stroke="#FDFBF7" strokeWidth="0.9" strokeLinecap="round"/>
+          </svg>
         </div>
-        <p style={{ color: C.text1, fontSize: 12, fontWeight: 600, margin: '0 0 6px' }}>GhostDebugger</p>
+        <p style={{ color: C.text1, fontSize: 12, fontWeight: 600, margin: '0 0 6px' }}>Aegis Debug</p>
         <p style={{ color: C.text3, fontSize: 10, lineHeight: 1.6, maxWidth: 180 }}>
           Run an analysis, then click a node to inspect its code, issues and get fix suggestions.
         </p>

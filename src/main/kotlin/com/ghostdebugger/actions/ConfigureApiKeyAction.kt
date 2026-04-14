@@ -7,7 +7,7 @@ import com.intellij.openapi.options.ShowSettingsUtil
 class ConfigureApiKeyAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        ShowSettingsUtil.getInstance().showSettingsDialog(project, "GhostDebugger")
+        ShowSettingsUtil.getInstance().showSettingsDialog(project, "Aegis Debug")
     }
 
     override fun update(e: AnActionEvent) {

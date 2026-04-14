@@ -53,8 +53,8 @@ class JcefBridge(
                 window.__jcefQuery__ = function(msg) {
                     ${q.inject("msg")}
                 };
-                if (window.__ghostdebugger__ && window.__ghostdebugger__.__ready__) {
-                    window.__ghostdebugger__.__ready__();
+                if (window.__aegis_debug__ && window.__aegis_debug__.__ready__) {
+                    window.__aegis_debug__.__ready__();
                 }
             })();
         """.trimIndent()
@@ -64,49 +64,49 @@ class JcefBridge(
 
     fun sendGraphData(graph: ProjectGraph) {
         val graphJson = json.encodeToString(graph)
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onGraphUpdate($graphJson)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onGraphUpdate($graphJson)")
     }
 
     fun sendIssueExplanation(issueId: String, explanation: String) {
         val explanationEscaped = json.encodeToString(mapOf("issueId" to issueId, "explanation" to explanation))
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onExplanation($explanationEscaped)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onExplanation($explanationEscaped)")
     }
 
     fun sendFixSuggestion(fix: CodeFix) {
         val fixJson = json.encodeToString(fix)
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onFixSuggestion($fixJson)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onFixSuggestion($fixJson)")
     }
 
     fun sendNodeUpdate(nodeId: String, status: NodeStatus) {
         val escapedId = nodeId.replace("\"", "\\\"")
         val payload = """{"nodeId":"$escapedId","status":"${status.name}"}"""
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onNodeUpdate($payload)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onNodeUpdate($payload)")
     }
 
     fun sendAnalysisStart() {
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onAnalysisStart()")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAnalysisStart()")
     }
 
     fun sendAnalysisComplete(errorCount: Int, warningCount: Int, healthScore: Double) {
         val payload = """{"errorCount":$errorCount,"warningCount":$warningCount,"healthScore":$healthScore}"""
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onAnalysisComplete($payload)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAnalysisComplete($payload)")
     }
 
     fun sendError(message: String) {
         val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"")
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onError(\"$escaped\")")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onError(\"$escaped\")")
     }
 
     fun sendSystemExplanation(explanation: String) {
         val escaped = explanation.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onSystemExplanation(\"$escaped\")")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onSystemExplanation(\"$escaped\")")
     }
 
     fun sendImpactAnalysis(nodeId: String, affectedNodes: List<String>) {
         val affectedJson = json.encodeToString(affectedNodes)
         val escapedId = nodeId.replace("\"", "\\\"")
         val payload = """{"nodeId":"$escapedId","affectedNodes":$affectedJson}"""
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onImpactAnalysis($payload)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onImpactAnalysis($payload)")
     }
 
     fun sendDebugFrame(nodeId: String, filePath: String, line: Int, variables: List<DebugVariable>) {
@@ -114,20 +114,20 @@ class JcefBridge(
         val escapedId = nodeId.replace("\"", "\\\"")
         val escapedPath = filePath.replace("\\", "/").replace("\"", "\\\"")
         val payload = """{"nodeId":"$escapedId","filePath":"$escapedPath","line":$line,"variables":$varsJson}"""
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugFrame($payload)")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onDebugFrame($payload)")
     }
 
     fun sendDebugSessionEnded() {
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugSessionEnded()")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onDebugSessionEnded()")
     }
 
     fun sendDebugStateChanged(state: String) {
         val escaped = state.replace("\"", "\\\"")
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onDebugStateChanged(\"$escaped\")")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onDebugStateChanged(\"$escaped\")")
     }
 
     fun sendAutoRefreshStart() {
-        executeJS("window.__ghostdebugger__ && window.__ghostdebugger__.onAutoRefreshStart()")
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAutoRefreshStart()")
     }
 
     private fun executeJS(script: String) {

@@ -106,7 +106,7 @@ class GhostDebuggerService(private val project: Project) {
 
     /**
      * Hooks into the IDE's debug sessions to provide visual debug overlays.
-     * When the user starts debugging normally (Run → Debug), GhostDebugger
+     * When the user starts debugging normally (Run → Debug), Aegis Debug
      * listens for frame changes and sends debug frame data to the webview.
      */
     private fun registerDebugSessionListener() {
@@ -518,7 +518,7 @@ class GhostDebuggerService(private val project: Project) {
                 val htmlContent = reportGenerator.generateHTMLReport(graph)
 
                 val basePath = project.basePath ?: return@launch
-                val reportFile = File(basePath, "ghostdebugger-report.html")
+                val reportFile = File(basePath, "aegis-debug-report.html")
                 reportFile.writeText(htmlContent)
 
                 log.info("Report saved to: ${reportFile.absolutePath}")

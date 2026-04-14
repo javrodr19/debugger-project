@@ -12,7 +12,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 
 /**
- * ExternalAnnotator that surfaces GhostDebugger analysis issues in the
+ * ExternalAnnotator that surfaces Aegis Debug analysis issues in the
  * editor gutter and the Problems tool window.
  */
 class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssues, List<GhostDebuggerAnnotator.AnnotationInfo>>() {
@@ -74,7 +74,7 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
 
             AnnotationInfo(
                 severity = severity,
-                message = "GhostDebugger: ${issue.title}",
+                message = "Aegis Debug: ${issue.title}",
                 line = line,
                 description = issue.description
             )

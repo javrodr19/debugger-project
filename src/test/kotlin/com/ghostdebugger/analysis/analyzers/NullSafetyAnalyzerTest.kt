@@ -20,7 +20,7 @@ class NullSafetyAnalyzerTest {
             listOf(FixtureFactory.parsedFile("/src/A.tsx", "tsx", code))
         )
         val issues = analyzer.analyze(ctx)
-        assertTrue(issues.any { it.type == IssueType.NULL_SAFETY }, "expected NULL_SAFETY issue in ${'$'}issues")
+        assertTrue(issues.any { it.type == IssueType.NULL_SAFETY }, "expected NULL_SAFETY issue in $issues")
     }
 
     @Test
@@ -38,6 +38,6 @@ class NullSafetyAnalyzerTest {
             listOf(FixtureFactory.parsedFile("/src/B.tsx", "tsx", code))
         )
         val issues = analyzer.analyze(ctx)
-        assertTrue(issues.none { it.type == IssueType.NULL_SAFETY }, "did not expect NULL_SAFETY, got ${'$'}issues")
+        assertTrue(issues.none { it.type == IssueType.NULL_SAFETY }, "did not expect NULL_SAFETY, got $issues")
     }
 }

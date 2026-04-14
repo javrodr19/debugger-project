@@ -3,7 +3,7 @@ import type { DebugSessionState } from '../stores/appStore'
 
 type EventHandler<T> = (data: T) => void
 
-interface GhostDebuggerAPI {
+interface AegisAPI {
   onGraphUpdate: (data: ProjectGraph) => void
   onExplanation: (data: { issueId: string; explanation: string }) => void
   onFixSuggestion: (fix: CodeFix) => void
@@ -22,7 +22,7 @@ interface GhostDebuggerAPI {
 
 declare global {
   interface Window {
-    __ghostdebugger__: GhostDebuggerAPI
+    __aegis_debug__: AegisAPI
     __jcefQuery__: (msg: string) => void
   }
 }
@@ -47,7 +47,7 @@ class PluginBridge {
   }
 
   private setupAPI() {
-    window.__ghostdebugger__ = {
+    window.__aegis_debug__ = {
       onGraphUpdate: (data) => this.graphHandlers.forEach(h => h(data)),
       onExplanation: (data) => this.explanationHandlers.forEach(h => h(data)),
       onFixSuggestion: (fix) => this.fixHandlers.forEach(h => h(fix)),
