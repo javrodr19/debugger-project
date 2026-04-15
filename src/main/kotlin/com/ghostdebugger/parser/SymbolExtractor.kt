@@ -9,40 +9,23 @@ class SymbolExtractor {
             "ts", "tsx", "js", "jsx" -> extractFromTypeScript(parsedFile)
             "kt" -> extractFromKotlin(parsedFile)
             "java" -> extractFromJava(parsedFile)
-            "py" -> extractFromPython(parsedFile)
-            "go" -> extractFromGo(parsedFile)
-            "rs" -> extractFromRust(parsedFile)
-            "cs" -> extractFromCSharp(parsedFile)
-            "rb" -> extractFromRuby(parsedFile)
-            "swift" -> extractFromSwift(parsedFile)
-            "php" -> extractFromPhp(parsedFile)
             else -> parsedFile
         }
     }
 
     private fun extractFromTypeScript(parsedFile: ParsedFile): ParsedFile {
-        val content = parsedFile.content
-        val lines = content.lines()
+        val lines = parsedFile.lines
 
         val functions = mutableListOf<FunctionSymbol>()
         val imports = mutableListOf<ImportSymbol>()
         val exports = mutableListOf<ExportSymbol>()
         val variables = mutableListOf<VariableSymbol>()
 
-        val importRegex = Regex("""^import\s+(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+))\s+from\s+['"]([^'"]+)['"]""")
-        val namedImportRegex = Regex("""^import\s+['"]([^'"]+)['"]""")
-        val arrowFunctionRegex = Regex("""^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)""")
-        val constFunctionRegex = Regex("""^(?:export\s+)?const\s+(\w+)\s*(?::\s*[\w<>|&\[\]]+)?\s*=\s*(?:async\s+)?\(""")
-        val exportRegex = Regex("""^export\s+(?:default\s+)?(?:function|class|const|let|var)\s+(\w+)""")
-        val exportDefaultRegex = Regex("""^export\s+default\s+(\w+)""")
-        // Variable patterns: top-level const/let/var that are NOT functions
-        val constVarRegex = Regex("""^(?:export\s+)?(const|let|var)\s+(\w+)\s*(?::\s*[\w<>|&\[\]"' ]+)?\s*=\s*(?!(?:async\s+)?\()""")
-
         lines.forEachIndexed { index, line ->
             val trimmed = line.trim()
 
             // Extract imports
-            importRegex.find(trimmed)?.let { match ->
+            TS_IMPORT_REGEX.find(trimmed)?.let { match ->
                 val namesStr = match.groupValues[1]
                 val defaultImport = match.groupValues[2]
                 val source = match.groupValues[4]
@@ -52,24 +35,24 @@ class SymbolExtractor {
                     listOf(defaultImport)
                 } else emptyList()
                 imports.add(ImportSymbol(source = source, line = index + 1, names = names))
-            } ?: namedImportRegex.find(trimmed)?.let { match ->
+            } ?: TS_NAMED_IMPORT_REGEX.find(trimmed)?.let { match ->
                 imports.add(ImportSymbol(source = match.groupValues[1], line = index + 1))
             }
 
             // Extract function declarations
-            arrowFunctionRegex.find(trimmed)?.let { match ->
+            TS_ARROW_FUNCTION_REGEX.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
                 if (name.isNotBlank()) {
                     val isAsync = trimmed.contains("async")
-                    functions.add(FunctionSymbol(name = name, line = index + 1, isAsync = isAsync, body = trimmed))
+                    functions.add(FunctionSymbol(name = name, line = index + 1, isAsync = isAsync, body = trimmed.take(120)))
                 }
-            } ?: constFunctionRegex.find(trimmed)?.let { match ->
+            } ?: TS_CONST_FUNCTION_REGEX.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
                 if (name.isNotBlank()) {
                     val isAsync = trimmed.contains("async")
-                    functions.add(FunctionSymbol(name = name, line = index + 1, isAsync = isAsync, body = trimmed))
+                    functions.add(FunctionSymbol(name = name, line = index + 1, isAsync = isAsync, body = trimmed.take(120)))
                 }
-            } ?: constVarRegex.find(trimmed)?.let { match ->
+            } ?: TS_CONST_VAR_REGEX.find(trimmed)?.let { match ->
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
                 if (name.isNotBlank() && name != "default") {
@@ -78,12 +61,12 @@ class SymbolExtractor {
             }
 
             // Extract exports
-            exportRegex.find(trimmed)?.let { match ->
+            TS_EXPORT_REGEX.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
                 if (name.isNotBlank()) {
                     exports.add(ExportSymbol(name = name, line = index + 1))
                 }
-            } ?: exportDefaultRegex.find(trimmed)?.let { match ->
+            } ?: TS_EXPORT_DEFAULT_REGEX.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
                 if (name.isNotBlank()) {
                     exports.add(ExportSymbol(name = name, line = index + 1))
@@ -100,30 +83,25 @@ class SymbolExtractor {
     }
 
     private fun extractFromKotlin(parsedFile: ParsedFile): ParsedFile {
-        val content = parsedFile.content
-        val lines = content.lines()
+        val lines = parsedFile.lines
 
         val functions = mutableListOf<FunctionSymbol>()
         val imports = mutableListOf<ImportSymbol>()
         val exports = mutableListOf<ExportSymbol>()
         val variables = mutableListOf<VariableSymbol>()
 
-        val importRegex = Regex("""^import\s+([\w.]+)(?:\s+as\s+\w+)?""")
-        val funRegex = Regex("""(?:suspend\s+)?fun\s+(\w+)\s*\(""")
-        val valVarRegex = Regex("""^\s*(?:private\s+|protected\s+|public\s+|internal\s+)?(?:override\s+)?(val|var)\s+(\w+)\s*(?::\s*[\w<>?]+)?\s*=""")
-
         lines.forEachIndexed { index, line ->
             val trimmed = line.trim()
-            importRegex.find(trimmed)?.let { match ->
+            KT_IMPORT_REGEX.find(trimmed)?.let { match ->
                 val source = match.groupValues[1]
                 imports.add(ImportSymbol(source = source, line = index + 1))
             }
-            funRegex.find(trimmed)?.let { match ->
+            KT_FUN_REGEX.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
                 val isAsync = trimmed.contains("suspend")
-                functions.add(FunctionSymbol(name = name, line = index + 1, isAsync = isAsync, body = trimmed))
+                functions.add(FunctionSymbol(name = name, line = index + 1, isAsync = isAsync, body = trimmed.take(120)))
             }
-            valVarRegex.find(line)?.let { match ->
+            KT_VAL_VAR_REGEX.find(line)?.let { match ->
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
                 if (name.isNotBlank()) {
@@ -131,8 +109,7 @@ class SymbolExtractor {
                 }
             }
             if (trimmed.startsWith("class ") || trimmed.startsWith("object ")) {
-                val nameMatch = Regex("""(?:class|object)\s+(\w+)""").find(trimmed)
-                nameMatch?.let { exports.add(ExportSymbol(name = it.groupValues[1], line = index + 1)) }
+                KT_CLASS_OBJECT_REGEX.find(trimmed)?.let { exports.add(ExportSymbol(name = it.groupValues[1], line = index + 1)) }
             }
         }
 
@@ -140,25 +117,21 @@ class SymbolExtractor {
     }
 
     private fun extractFromJava(parsedFile: ParsedFile): ParsedFile {
-        val content = parsedFile.content
-        val lines = content.lines()
+        val lines = parsedFile.lines
 
         val functions = mutableListOf<FunctionSymbol>()
         val imports = mutableListOf<ImportSymbol>()
         val exports = mutableListOf<ExportSymbol>()
 
-        val importRegex = Regex("""^import\s+([\w.]+);""")
-        val methodRegex = Regex("""(?:public|private|protected|static|\s)+[\w<>[\]]+\s+(\w+)\s*\([^)]*\)""")
-
         lines.forEachIndexed { index, line ->
             val trimmed = line.trim()
-            importRegex.find(trimmed)?.let { match ->
+            JAVA_IMPORT_REGEX.find(trimmed)?.let { match ->
                 imports.add(ImportSymbol(source = match.groupValues[1], line = index + 1))
             }
-            methodRegex.find(trimmed)?.let { match ->
+            JAVA_METHOD_REGEX.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
-                if (name !in listOf("if", "while", "for", "switch")) {
-                    functions.add(FunctionSymbol(name = name, line = index + 1, body = trimmed))
+                if (name !in JAVA_RESERVED) {
+                    functions.add(FunctionSymbol(name = name, line = index + 1, body = trimmed.take(120)))
                 }
             }
         }
@@ -166,84 +139,22 @@ class SymbolExtractor {
         return parsedFile.copy(functions = functions, imports = imports, exports = exports)
     }
 
-    private fun extractFromPython(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val defRegex = Regex("""def\s+(\w+)\s*\(""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            defRegex.find(line.trim())?.let { match ->
-                functions.add(FunctionSymbol(name = match.groupValues[1], line = index + 1, body = line.trim()))
-            }
-        }
-        return parsedFile.copy(functions = functions)
-    }
+    companion object {
+        private val TS_IMPORT_REGEX = Regex("^import\\s+(?:\\{([^}]+)\\}|(\\w+)|\\*\\s+as\\s+(\\w+))\\s+from\\s+['\"]([^'\"]+)['\"]")
+        private val TS_NAMED_IMPORT_REGEX = Regex("^import\\s+['\"]([^'\"]+)['\"]")
+        private val TS_ARROW_FUNCTION_REGEX = Regex("^(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s+(\\w+)")
+        private val TS_CONST_FUNCTION_REGEX = Regex("^(?:export\\s+)?const\\s+(\\w+)\\s*(?::\\s*[\\w<>|&\\[\\]]+)?\\s*=\\s*(?:async\\s+)?\\(")
+        private val TS_EXPORT_REGEX = Regex("^export\\s+(?:default\\s+)?(?:function|class|const|let|var)\\s+(\\w+)")
+        private val TS_EXPORT_DEFAULT_REGEX = Regex("^export\\s+default\\s+(\\w+)")
+        private val TS_CONST_VAR_REGEX = Regex("^(?:export\\s+)?(const|let|var)\\s+(\\w+)\\s*(?::\\s*[\\w<>|&\\[\\]\"' ]+)?\\s*=\\s*(?!(?:async\\s+)?\\()")
 
-    private fun extractFromGo(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val funcRegex = Regex("""func\s+(\w+)\s*\(""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            funcRegex.find(line.trim())?.let { match ->
-                functions.add(FunctionSymbol(name = match.groupValues[1], line = index + 1, body = line.trim()))
-            }
-        }
-        return parsedFile.copy(functions = functions)
-    }
+        private val KT_IMPORT_REGEX = Regex("^import\\s+([\\w.]+)(?:\\s+as\\s+\\w+)?")
+        private val KT_FUN_REGEX = Regex("(?:suspend\\s+)?fun\\s+(\\w+)\\s*\\(")
+        private val KT_VAL_VAR_REGEX = Regex("^\\s*(?:private\\s+|protected\\s+|public\\s+|internal\\s+)?(?:override\\s+)?(val|var)\\s+(\\w+)\\s*(?::\\s*[\\w<>?]+)?\\s*=")
+        private val KT_CLASS_OBJECT_REGEX = Regex("(?:class|object)\\s+(\\w+)")
 
-    private fun extractFromRust(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val fnRegex = Regex("""fn\s+(\w+)\s*(?:<[^>]+>)?\s*\(""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            fnRegex.find(line.trim())?.let { match ->
-                functions.add(FunctionSymbol(name = match.groupValues[1], line = index + 1, body = line.trim()))
-            }
-        }
-        return parsedFile.copy(functions = functions)
-    }
-
-    private fun extractFromCSharp(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val methodRegex = Regex("""(?:public|private|protected|static|internal|\s)+[\w<>[\]]+\s+(\w+)\s*\([^)]*\)""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            val trimmed = line.trim()
-            methodRegex.find(trimmed)?.let { match ->
-                val name = match.groupValues[1]
-                if (name !in listOf("if", "while", "for", "switch", "using", "namespace", "class")) {
-                    functions.add(FunctionSymbol(name = name, line = index + 1, body = trimmed))
-                }
-            }
-        }
-        return parsedFile.copy(functions = functions)
-    }
-
-    private fun extractFromRuby(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val defRegex = Regex("""def\s+(\w+)""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            defRegex.find(line.trim())?.let { match ->
-                functions.add(FunctionSymbol(name = match.groupValues[1], line = index + 1, body = line.trim()))
-            }
-        }
-        return parsedFile.copy(functions = functions)
-    }
-
-    private fun extractFromSwift(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val funcRegex = Regex("""func\s+(\w+)\s*\(""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            funcRegex.find(line.trim())?.let { match ->
-                functions.add(FunctionSymbol(name = match.groupValues[1], line = index + 1, body = line.trim()))
-            }
-        }
-        return parsedFile.copy(functions = functions)
-    }
-
-    private fun extractFromPhp(parsedFile: ParsedFile): ParsedFile {
-        val functions = mutableListOf<FunctionSymbol>()
-        val funcRegex = Regex("""function\s+(\w+)\s*\(""")
-        parsedFile.content.lines().forEachIndexed { index, line ->
-            funcRegex.find(line.trim())?.let { match ->
-                functions.add(FunctionSymbol(name = match.groupValues[1], line = index + 1, body = line.trim()))
-            }
-        }
-        return parsedFile.copy(functions = functions)
+        private val JAVA_IMPORT_REGEX = Regex("^import\\s+([\\w.]+);")
+        private val JAVA_METHOD_REGEX = Regex("(?:public|private|protected|static|\\s)+[\\w<>\\[\\]]+\\s+(\\w+)\\s*\\([^)]*\\)")
+        private val JAVA_RESERVED = setOf("if", "while", "for", "switch")
     }
 }

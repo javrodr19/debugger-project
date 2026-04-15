@@ -19,7 +19,8 @@ object AIServiceFactory {
                     model           = settings.openAiModel,
                     timeoutMs       = settings.aiTimeoutMs,
                     cacheTtlSeconds = settings.cacheTtlSeconds,
-                    cacheEnabled    = settings.cacheEnabled
+                    cacheEnabled    = settings.cacheEnabled,
+                    cacheMaxEntries = settings.aiCacheMaxEntries
                 )
             }
             AIProvider.OLLAMA -> OllamaService(
@@ -27,7 +28,8 @@ object AIServiceFactory {
                 model           = settings.ollamaModel,
                 timeoutMs       = settings.aiTimeoutMs,
                 cacheTtlSeconds = settings.cacheTtlSeconds,
-                cacheEnabled    = settings.cacheEnabled
+                cacheEnabled    = settings.cacheEnabled,
+                cacheMaxEntries = settings.aiCacheMaxEntries
             )
         }
 }

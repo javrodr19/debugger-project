@@ -16,22 +16,21 @@ class NullSafetyAnalyzer : Analyzer {
         for (file in context.parsedFiles) {
             if (file.extension !in setOf("ts", "tsx", "js", "jsx")) continue
 
-            val lines = file.content.lines()
+            val lines = file.lines
             val nullStateVars = mutableSetOf<String>()
+            val regexCache = mutableMapOf<String, Regex>()
 
             // First pass: find variables initialized with null
             lines.forEachIndexed { index, line ->
                 val trimmed = line.trim()
 
                 // Detect useState(null) or useState()
-                val useStateNullRegex = Regex("""const\s+\[(\w+),\s*set\w+\]\s*=\s*useState\s*\(\s*(?:null|undefined)?\s*\)""")
-                useStateNullRegex.find(trimmed)?.let { match ->
+                USE_STATE_NULL_REGEX.find(trimmed)?.let { match ->
                     nullStateVars.add(match.groupValues[1])
                 }
 
                 // Detect let/var x = null
-                val varNullRegex = Regex("""(?:let|var)\s+(\w+)\s*(?::\s*\w+)?\s*=\s*(?:null|undefined)""")
-                varNullRegex.find(trimmed)?.let { match ->
+                VAR_NULL_REGEX.find(trimmed)?.let { match ->
                     nullStateVars.add(match.groupValues[1])
                 }
             }
@@ -45,7 +44,7 @@ class NullSafetyAnalyzer : Analyzer {
 
                 // Check for property access on known null vars without optional chaining
                 for (varName in nullStateVars) {
-                    val directAccessRegex = Regex("""(?<!\?)\b$varName\.([\w]+)""")
+                    val directAccessRegex = regexCache.getOrPut(varName) { Regex("""(?<!\?)\b$varName\.([\w]+)""") }
                     if (directAccessRegex.containsMatchIn(trimmed) && !trimmed.contains("if ($varName") && !trimmed.contains("if(!$varName")) {
                         // Check it's not inside a conditional
                         val hasNullCheck = lines.subList(maxOf(0, index - 5), index).any { prevLine ->
@@ -81,5 +80,10 @@ class NullSafetyAnalyzer : Analyzer {
         }
 
         return issues
+    }
+
+    companion object {
+        private val USE_STATE_NULL_REGEX = Regex("""const\s+\[(\w+),\s*set\w+\]\s*=\s*useState\s*\(\s*(?:null|undefined)?\s*\)""")
+        private val VAR_NULL_REGEX = Regex("""(?:let|var)\s+(\w+)\s*(?::\s*\w+)?\s*=\s*(?:null|undefined)""")
     }
 }

@@ -68,6 +68,11 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onGraphUpdate($graphJson)")
     }
 
+    fun sendIssuesForFile(filePath: String, issues: List<Issue>) {
+        val payload = json.encodeToString(mapOf("filePath" to filePath, "issues" to issues))
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onIssuesForFile($payload)")
+    }
+
     fun sendIssueExplanation(issueId: String, explanation: String) {
         val explanationEscaped = json.encodeToString(mapOf("issueId" to issueId, "explanation" to explanation))
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onExplanation($explanationEscaped)")

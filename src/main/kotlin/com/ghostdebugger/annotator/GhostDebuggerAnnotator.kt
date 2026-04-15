@@ -49,10 +49,7 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
         val normalizedPath = filePath.replace("\\", "/")
 
         // Filter issues belonging to this file
-        val fileIssues = service.currentIssues.filter { issue ->
-            val issuePath = issue.filePath.replace("\\", "/")
-            issuePath == normalizedPath || normalizedPath.endsWith(issuePath) || issuePath.endsWith(normalizedPath.substringAfterLast("/"))
-        }
+        val fileIssues = service.issuesByFile[normalizedPath] ?: emptyList()
 
         if (fileIssues.isEmpty()) return null
 

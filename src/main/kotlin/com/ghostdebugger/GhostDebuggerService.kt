@@ -48,10 +48,21 @@ class GhostDebuggerService(private val project: Project) {
 
     private var bridge: JcefBridge? = null
     private var currentGraph: ProjectGraph? = null
+    private var lastInMemoryGraph: com.ghostdebugger.graph.InMemoryGraph? = null
     var currentIssues: List<Issue> = emptyList()
         private set
+    @Volatile var issuesByFile: Map<String, List<Issue>> = emptyMap()
+        private set
+    @Volatile private var lastIssueFingerprints: Set<String> = emptySet()
+    @Volatile var suppressUntil: Long = 0L
+
     var isAnalyzing: Boolean = false
         private set
+
+    private fun updateIssues(newIssues: List<Issue>) {
+        currentIssues = newIssues
+        issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
+    }
     private var aiService: AIService? = null
     private var fileWatcherRegistered = false
     private var autoRefreshJob: Job? = null
@@ -87,16 +98,17 @@ class GhostDebuggerService(private val project: Project) {
             VirtualFileManager.VFS_CHANGES,
             object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
+                    if (System.currentTimeMillis() < suppressUntil) return
+                    
                     val projectBase = project.basePath ?: return
                     val fileIndex = ProjectFileIndex.getInstance(project)
-                    val ignoredDirs = setOf("node_modules", ".git", "build", ".gradle", ".idea", "target", "dist", "out")
                     
                     val hasRelevantChange = events.any { event ->
                         val file = event.file
                         val path = file?.path ?: ""
                         event is VFileContentChangeEvent &&
                         path.startsWith(projectBase) &&
-                        !ignoredDirs.any { path.contains("/$it/") } &&
+                        FileScanner.SUPPORTED_EXTENSIONS.contains(file?.extension) &&
                         !fileIndex.isExcluded(file!!)
                     }
                     if (hasRelevantChange && currentGraph != null) {
@@ -110,7 +122,7 @@ class GhostDebuggerService(private val project: Project) {
     private fun scheduleAutoRefresh() {
         autoRefreshJob?.cancel()
         autoRefreshJob = scope.launch {
-            delay(2000)
+            delay(7000)
             withContext(Dispatchers.Swing) {
                 bridge?.sendAutoRefreshStart()
             }
@@ -299,6 +311,7 @@ class GhostDebuggerService(private val project: Project) {
         synchronized(analysisLock) {
             activeAnalysisIndicator?.cancel()
         }
+        autoRefreshJob?.cancel()
     }
 
     private suspend fun performAnalysis(indicator: com.intellij.openapi.progress.ProgressIndicator) {
@@ -349,6 +362,7 @@ class GhostDebuggerService(private val project: Project) {
         
         val graphBuilder = GraphBuilder()
         val inMemoryGraph = graphBuilder.build(parsedFiles, dependencies)
+        lastInMemoryGraph = inMemoryGraph
 
         indicator.checkCanceled()
         indicator.fraction = 0.60
@@ -362,7 +376,12 @@ class GhostDebuggerService(private val project: Project) {
         )
         
         val analysisResult = AnalysisEngine(progress = indicator).analyze(analysisContext, indicator)
-        currentIssues = analysisResult.issues
+        val newIssues = analysisResult.issues
+        val newFingerprints = newIssues.map { it.fingerprint() }.toSet()
+        val issuesChanged = newFingerprints != lastIssueFingerprints
+        
+        lastIssueFingerprints = newFingerprints
+        updateIssues(newIssues)
 
         indicator.checkCanceled()
         indicator.fraction = 0.90
@@ -388,39 +407,21 @@ class GhostDebuggerService(private val project: Project) {
         indicator.fraction = 1.0
         withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Complete", 1.0) }
 
-        ApplicationManager.getApplication().invokeLater {
-            try {
-                DaemonCodeAnalyzer.getInstance(project).restart()
-            } catch (e: Exception) {
-                log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
-            }
-        }
-
-        val svc = resolveAiService()
-        if (svc != null) {
-            val criticalIssues = analysisResult.issues
-                .filter { it.severity == IssueSeverity.ERROR }
-                .take(3)
-
-            for (issue in criticalIssues) {
-                indicator.checkCanceled()
+        if (issuesChanged) {
+            ApplicationManager.getApplication().invokeLater {
                 try {
-                    val explanation = svc.explainIssue(issue, issue.codeSnippet)
-                    updateIssueExplanation(issue.id, explanation)
-                    withContext(Dispatchers.Swing) {
-                        bridge?.sendIssueExplanation(issue.id, explanation)
-                    }
+                    DaemonCodeAnalyzer.getInstance(project).restart()
                 } catch (e: Exception) {
-                    log.warn("Could not fetch explanation for issue ${issue.id}", e)
+                    log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
                 }
             }
         }
     }
 
     private fun updateIssueExplanation(issueId: String, explanation: String) {
-        currentIssues = currentIssues.map { 
+        updateIssues(currentIssues.map { 
             if (it.id == issueId) it.copy(explanation = explanation) else it
-        }
+        })
     }
 
     private fun handleNodeClicked(nodeId: String) {
@@ -586,6 +587,7 @@ class GhostDebuggerService(private val project: Project) {
             return
         }
 
+        suppressUntil = System.currentTimeMillis() + 3000
         scope.launch {
             val applied = fixApplicator.apply(fix, project)
             if (applied is com.ghostdebugger.fix.FixApplyResult.Success) {
@@ -606,7 +608,7 @@ class GhostDebuggerService(private val project: Project) {
         scope.launch {
             try {
                 log.info("Starting targeted re-analysis for $filePath")
-                val graph = currentGraph ?: run {
+                val inMemoryGraph = lastInMemoryGraph ?: run {
                     analyzeProject()
                     return@launch
                 }
@@ -621,30 +623,33 @@ class GhostDebuggerService(private val project: Project) {
                 val updatedFile = extractor.extract(parsedFile)
                 
                 val ctx = AnalysisContext(
-                    graph = com.ghostdebugger.graph.InMemoryGraph().apply {
-                        graph.nodes.forEach { addNode(it) }
-                        graph.edges.forEach { addEdge(it) }
-                    },
+                    graph = inMemoryGraph,
                     project = project,
                     parsedFiles = listOf(updatedFile)
                 )
                 
-                currentIssues = com.ghostdebugger.analysis.PartialReanalyzer().reanalyzeFile(project, filePath, currentIssues, ctx)
+                val engine = AnalysisEngine()
+                val analysisResult = engine.analyze(ctx)
+                
+                val newFileIssues = analysisResult.issues
+                updateIssues(currentIssues.filterNot { it.filePath == filePath } + newFileIssues)
                 
                 val graphBuilder = GraphBuilder()
-                val inMemoryGraph = com.ghostdebugger.graph.InMemoryGraph().apply {
-                    graph.nodes.forEach { addNode(it) }
-                    graph.edges.forEach { addEdge(it) }
+                val nodeId = graphBuilder.normalizeId(filePath)
+                val node = inMemoryGraph.getNode(nodeId)
+                if (node != null) {
+                    val status = when {
+                        newFileIssues.any { it.severity == IssueSeverity.ERROR } -> NodeStatus.ERROR
+                        newFileIssues.any { it.severity == IssueSeverity.WARNING } -> NodeStatus.WARNING
+                        else -> NodeStatus.HEALTHY
+                    }
+                    inMemoryGraph.updateNode(node.copy(issues = newFileIssues, status = status))
+                    
+                    withContext(Dispatchers.Swing) {
+                        bridge?.sendNodeUpdate(nodeId, status)
+                        bridge?.sendIssuesForFile(filePath, newFileIssues)
+                    }
                 }
-                graphBuilder.applyIssues(inMemoryGraph, currentIssues)
-                
-                val updatedGraph = inMemoryGraph.toProjectGraph(project.name)
-                currentGraph = updatedGraph
-                
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendGraphData(updatedGraph)
-                }
-                
             } catch (e: Exception) {
                 log.warn("Targeted re-analysis failed for $filePath", e)
                 analyzeProject()
@@ -682,11 +687,7 @@ class GhostDebuggerService(private val project: Project) {
     }
 
     private fun handleImpactRequested(nodeId: String) {
-        val graph = currentGraph ?: return
-        val inMemoryGraph = com.ghostdebugger.graph.InMemoryGraph()
-        graph.nodes.forEach { inMemoryGraph.addNode(it) }
-        graph.edges.forEach { inMemoryGraph.addEdge(it) }
-
+        val inMemoryGraph = lastInMemoryGraph ?: return
         val affectedNodes = inMemoryGraph.calculateImpact(nodeId)
         scope.launch(Dispatchers.Swing) {
             bridge?.sendImpactAnalysis(nodeId, affectedNodes)

@@ -25,10 +25,11 @@ class OpenAIService(
     private val baseUrl: String = "https://api.openai.com/v1",
     private val timeoutMs: Long = 60_000,
     cacheTtlSeconds: Long = 3600,
-    private val cacheEnabled: Boolean = true
+    private val cacheEnabled: Boolean = true,
+    cacheMaxEntries: Int = 256
 ) : AIService {
     private val log = logger<OpenAIService>()
-    private val cache = AICache(cacheTtlSeconds)
+    private val cache = AICache(cacheTtlSeconds, cacheMaxEntries)
     private val json = Json { ignoreUnknownKeys = true }
 
     private val httpClient = OkHttpClient.Builder()

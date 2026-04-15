@@ -23,7 +23,7 @@ class GraphBuilder {
                 name = File(file.path).name,
                 filePath = file.path,
                 lineStart = 1,
-                lineEnd = file.content.lines().size,
+                lineEnd = file.lines.size,
                 complexity = estimateComplexity(file.content),
                 status = NodeStatus.HEALTHY,
                 issues = emptyList(),
@@ -117,28 +117,30 @@ class GraphBuilder {
             else -> NodeType.MODULE
         }
     }
+private fun estimateComplexity(content: String): Int {
+    return 1 + COMPLEXITY_PATTERNS.sumOf { pattern ->
+        pattern.findAll(content).count()
+    }.coerceAtMost(20)
+}
 
-    private fun estimateComplexity(content: String): Int {
-        val patterns = listOf(
-            Regex("""\bif\b"""),
-            Regex("""\belse\b"""),
-            Regex("""\bfor\b"""),
-            Regex("""\bwhile\b"""),
-            Regex("""\bswitch\b"""),
-            Regex("""\bcatch\b"""),
-            Regex("""&&"""),
-            Regex("""\|\|"""),
-            Regex("""\?\."""),
-            Regex("""\?\.let"""),
-            Regex("""try\s*\{"""),
-            Regex("""\?\.also""")
-        )
-        return 1 + patterns.sumOf { pattern ->
-            pattern.findAll(content).count()
-        }.coerceAtMost(20)
-    }
+fun normalizeId(path: String): String {
+    return path.replace("\\", "/").replace(" ", "_")
+}
 
-    fun normalizeId(path: String): String {
-        return path.replace("\\", "/").replace(" ", "_")
-    }
+companion object {
+    private val COMPLEXITY_PATTERNS = listOf(
+        Regex("""\bif\b"""),
+        Regex("""\belse\b"""),
+        Regex("""\bfor\b"""),
+        Regex("""\bwhile\b"""),
+        Regex("""\bswitch\b"""),
+        Regex("""\bcatch\b"""),
+        Regex("""&&"""),
+        Regex("""\|\|"""),
+        Regex("""\?\."""),
+        Regex("""\?\.let"""),
+        Regex("""try\s*\{"""),
+        Regex("""\?\.also""")
+    )
+}
 }

@@ -22,7 +22,7 @@ class AIAnalyzer(
     suspend fun analyze(context: AnalysisContext): List<Issue> {
         val analyzableFiles = context.parsedFiles.filter {
             it.extension in setOf("ts", "tsx", "js", "jsx", "kt", "java") &&
-            it.content.lines().size < 2000
+            it.lines.size < 2000
         }
         val results = mutableListOf<Issue>()
         log.info("Starting AI Analysis on ${analyzableFiles.size} files with concurrency limit $concurrency...")

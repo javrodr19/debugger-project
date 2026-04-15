@@ -16,7 +16,7 @@ class AsyncFlowAnalyzer : Analyzer {
         for (file in context.parsedFiles) {
             if (file.extension !in setOf("ts", "tsx", "js", "jsx")) continue
 
-            val lines = file.content.lines()
+            val lines = file.lines
 
             lines.forEachIndexed { index, line ->
                 val trimmed = line.trim()
@@ -46,8 +46,6 @@ class AsyncFlowAnalyzer : Analyzer {
         issues: MutableList<Issue>
     ) {
         // Find .then() without .catch()
-        // Improved regex: matches .then( any content ) optionally followed by ;
-        // We look for .then( but NO .catch( in the same line or nearby
         if (line.contains(".then(") && !line.contains(".catch(")) {
             // Check if next line contains .catch (simple multi-line check)
             val nextLine = if (lineIndex + 1 < lines.size) lines[lineIndex + 1] else ""
@@ -80,8 +78,7 @@ class AsyncFlowAnalyzer : Analyzer {
         issues: MutableList<Issue>
     ) {
         // Detect: return response.json() or await fetch(...) without status check or try/catch
-        val fetchReturnPattern = Regex("""return\s+(?:await\s+)?(?:response|res)\.json\s*\(\s*\)""")
-        if (fetchReturnPattern.containsMatchIn(line)) {
+        if (FETCH_RETURN_PATTERN.containsMatchIn(line)) {
             // Check if there's a status check or try/catch in nearby lines
             val surroundingLines = lines.subList(maxOf(0, lineIndex - 10), lineIndex + 1)
             val hasStatusCheck = surroundingLines.any { it.contains("response.ok") || it.contains("res.ok") || it.contains(".status") }
@@ -116,8 +113,7 @@ class AsyncFlowAnalyzer : Analyzer {
         issues: MutableList<Issue>
     ) {
         // Find setInterval inside useEffect without cleanup
-        val setIntervalPattern = Regex("""(?:setInterval|setTimeout)\s*\(""")
-        if (setIntervalPattern.containsMatchIn(line)) {
+        if (SET_INTERVAL_PATTERN.containsMatchIn(line)) {
             // Look backwards for useEffect and forwards for return cleanup
             val blockStart = (lineIndex - 1 downTo maxOf(0, lineIndex - 15)).firstOrNull { i ->
                 lines[i].contains("useEffect")
@@ -147,5 +143,10 @@ class AsyncFlowAnalyzer : Analyzer {
                 }
             }
         }
+    }
+
+    companion object {
+        private val FETCH_RETURN_PATTERN = Regex("""return\s+(?:await\s+)?(?:response|res)\.json\s*\(\s*\)""")
+        private val SET_INTERVAL_PATTERN = Regex("""(?:setInterval|setTimeout)\s*\(""")
     }
 }

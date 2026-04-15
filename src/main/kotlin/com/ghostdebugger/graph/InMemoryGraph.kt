@@ -8,21 +8,25 @@ class InMemoryGraph {
     private val edges = ConcurrentHashMap<String, GraphEdge>()
     private val adjacencyList = ConcurrentHashMap<String, MutableSet<String>>()
     private val reverseAdjacencyList = ConcurrentHashMap<String, MutableSet<String>>()
+    @Volatile private var cachedCycles: List<List<String>>? = null
 
     fun addNode(node: GraphNode) {
         nodes[node.id] = node
         adjacencyList.getOrPut(node.id) { mutableSetOf() }
         reverseAdjacencyList.getOrPut(node.id) { mutableSetOf() }
+        cachedCycles = null
     }
 
     fun updateNode(node: GraphNode) {
         nodes[node.id] = node
+        cachedCycles = null
     }
 
     fun addEdge(edge: GraphEdge) {
         edges[edge.id] = edge
         adjacencyList.getOrPut(edge.source) { mutableSetOf() }.add(edge.target)
         reverseAdjacencyList.getOrPut(edge.target) { mutableSetOf() }.add(edge.source)
+        cachedCycles = null
     }
 
     fun getNode(id: String): GraphNode? = nodes[id]
@@ -40,6 +44,7 @@ class InMemoryGraph {
     }
 
     fun findCycles(): List<List<String>> {
+        cachedCycles?.let { return it }
         val cycles = mutableListOf<List<String>>()
         val visited = mutableSetOf<String>()
         val recursionStack = mutableSetOf<String>()
@@ -71,6 +76,7 @@ class InMemoryGraph {
             }
         }
 
+        cachedCycles = cycles
         return cycles
     }
 
@@ -173,5 +179,6 @@ class InMemoryGraph {
         edges.clear()
         adjacencyList.clear()
         reverseAdjacencyList.clear()
+        cachedCycles = null
     }
 }

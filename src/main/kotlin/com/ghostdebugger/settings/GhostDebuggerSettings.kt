@@ -21,15 +21,16 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         var openAiModel: String = "gpt-4o",
         var ollamaEndpoint: String = "http://localhost:11434",
         var ollamaModel: String = "llama3",
-        var maxFilesToAnalyze: Int = 500,
-        var maxAiFiles: Int = 100,
+        var maxFilesToAnalyze: Int = 300,
+        var maxAiFiles: Int = 40,
         var autoAnalyzeOnOpen: Boolean = false,
         var showInfoIssues: Boolean = true,
         var cacheEnabled: Boolean = true,
         var cacheTtlSeconds: Long = 3600,
         var aiTimeoutMs: Long = 30_000,
         var allowCloudUpload: Boolean = false,
-        var analyzeOnlyChangedFiles: Boolean = false
+        var analyzeOnlyChangedFiles: Boolean = false,
+        var aiCacheMaxEntries: Int = 256
     )
 
     private var myState = State()
@@ -47,13 +48,14 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
     }
 
     private fun State.validate(): State {
-        if (maxFilesToAnalyze <= 0) maxFilesToAnalyze = 500
+        if (maxFilesToAnalyze <= 0) maxFilesToAnalyze = 300
         if (maxAiFiles < 0) maxAiFiles = 0
         if (cacheTtlSeconds < 0) cacheTtlSeconds = 0
         if (aiTimeoutMs <= 0) aiTimeoutMs = 30_000
         if (ollamaEndpoint.isBlank()) ollamaEndpoint = "http://localhost:11434"
         if (ollamaModel.isBlank()) ollamaModel = "llama3"
         if (openAiModel.isBlank()) openAiModel = "gpt-4o"
+        if (aiCacheMaxEntries <= 0) aiCacheMaxEntries = 256
         return this
     }
 

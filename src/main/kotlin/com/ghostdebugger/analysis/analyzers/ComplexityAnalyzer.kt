@@ -16,7 +16,7 @@ class ComplexityAnalyzer : Analyzer {
 
         for (node in context.graph.getAllNodes()) {
             if (node.complexity > complexityThreshold) {
-                val file = context.parsedFiles.firstOrNull { it.path == node.filePath } ?: continue
+                val file = context.filesByPath[node.filePath] ?: continue
                 issues.add(
                     Issue(
                         id = UUID.randomUUID().toString(),
@@ -27,7 +27,7 @@ class ComplexityAnalyzer : Analyzer {
                                 "High complexity makes code harder to test, understand, and maintain.",
                         filePath = node.filePath,
                         line = 1,
-                        codeSnippet = file.content.lines().take(10).joinToString("\n"),
+                        codeSnippet = file.lines.take(10).joinToString("\n"),
                         affectedNodes = listOf(node.id)
                     )
                 )

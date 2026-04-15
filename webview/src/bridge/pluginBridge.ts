@@ -1,10 +1,11 @@
-import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus, DebugFrame, EngineStatusPayload, AnalysisProgressPayload } from '../types'
+import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus, DebugFrame, EngineStatusPayload, AnalysisProgressPayload, Issue } from '../types'
 import type { DebugSessionState } from '../stores/appStore'
 
 type EventHandler<T> = (data: T) => void
 
 interface AegisAPI {
   onGraphUpdate: (data: ProjectGraph) => void
+  onIssuesForFile: (data: { filePath: string; issues: Issue[] }) => void
   onExplanation: (data: { issueId: string; explanation: string }) => void
   onFixSuggestion: (fix: CodeFix) => void
   onNodeUpdate: (data: { nodeId: string; status: NodeStatus }) => void
@@ -32,6 +33,7 @@ declare global {
 
 class PluginBridge {
   private graphHandlers: EventHandler<ProjectGraph>[] = []
+  private issuesForFileHandlers: EventHandler<{ filePath: string; issues: Issue[] }>[] = []
   private explanationHandlers: EventHandler<{ issueId: string; explanation: string }>[] = []
   private fixHandlers: EventHandler<CodeFix>[] = []
   private nodeUpdateHandlers: EventHandler<{ nodeId: string; status: NodeStatus }>[] = []
@@ -55,6 +57,7 @@ class PluginBridge {
   private setupAPI() {
     window.__aegis_debug__ = {
       onGraphUpdate: (data) => this.graphHandlers.forEach(h => h(data)),
+      onIssuesForFile: (data) => this.issuesForFileHandlers.forEach(h => h(data)),
       onExplanation: (data) => this.explanationHandlers.forEach(h => h(data)),
       onFixSuggestion: (fix) => this.fixHandlers.forEach(h => h(fix)),
       onNodeUpdate: (data) => this.nodeUpdateHandlers.forEach(h => h(data)),
@@ -78,6 +81,10 @@ class PluginBridge {
   onGraphUpdate(handler: EventHandler<ProjectGraph>) {
     this.graphHandlers.push(handler)
     return () => { this.graphHandlers = this.graphHandlers.filter(h => h !== handler) }
+  }
+  onIssuesForFile(handler: EventHandler<{ filePath: string; issues: Issue[] }>) {
+    this.issuesForFileHandlers.push(handler)
+    return () => { this.issuesForFileHandlers = this.issuesForFileHandlers.filter(h => h !== handler) }
   }
   onExplanation(handler: EventHandler<{ issueId: string; explanation: string }>) {
     this.explanationHandlers.push(handler)

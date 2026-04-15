@@ -1,17 +1,24 @@
 package com.ghostdebugger.ai
 
 import java.security.MessageDigest
+import java.util.Collections
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 
-class AICache(private val ttlSeconds: Long = 3600) {
+class AICache(
+    private val ttlSeconds: Long = 3600,
+    private val maxEntries: Int = 256
+) {
 
     private data class CacheEntry(
         val response: String,
         val createdAt: Instant = Instant.now()
     )
 
-    private val cache = ConcurrentHashMap<String, CacheEntry>()
+    private val cache = Collections.synchronizedMap(object : LinkedHashMap<String, CacheEntry>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CacheEntry>?): Boolean {
+            return size > maxEntries
+        }
+    })
 
     fun get(key: String): String? {
         val entry = cache[key] ?: return null

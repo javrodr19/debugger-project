@@ -13,14 +13,19 @@ class FileScanner(private val project: Project) {
 
     private val log = logger<FileScanner>()
 
-    private val supportedExtensions = setOf(
-        "kt", "java",                       // JVM
-        "ts", "tsx", "js", "jsx"            // Web
-    )
+    val supportedExtensions: Set<String> get() = SUPPORTED_EXTENSIONS
+    
     private val ignoredDirs = setOf(
         "node_modules", ".git", "build", "dist", "out", ".gradle",
         "__pycache__", ".idea", "target", ".cache", "coverage"
     )
+
+    companion object {
+        internal val SUPPORTED_EXTENSIONS = setOf(
+            "kt", "java",                       // JVM
+            "ts", "tsx", "js", "jsx"            // Web
+        )
+    }
 
     fun scanFiles(): List<VirtualFile> {
         val files = mutableListOf<VirtualFile>()

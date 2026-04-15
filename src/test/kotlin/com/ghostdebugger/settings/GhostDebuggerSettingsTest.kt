@@ -14,8 +14,8 @@ class GhostDebuggerSettingsTest {
         assertEquals("gpt-4o", s.openAiModel)
         assertEquals("http://localhost:11434", s.ollamaEndpoint)
         assertEquals("llama3", s.ollamaModel)
-        assertEquals(500, s.maxFilesToAnalyze)
-        assertEquals(100, s.maxAiFiles)
+        assertEquals(300, s.maxFilesToAnalyze)
+        assertEquals(40, s.maxAiFiles)
         assertEquals(false, s.autoAnalyzeOnOpen)
         assertEquals(true, s.showInfoIssues)
         assertEquals(true, s.cacheEnabled)
@@ -23,6 +23,7 @@ class GhostDebuggerSettingsTest {
         assertEquals(30_000L, s.aiTimeoutMs)
         assertEquals(false, s.allowCloudUpload)
         assertEquals(false, s.analyzeOnlyChangedFiles)
+        assertEquals(256, s.aiCacheMaxEntries)
     }
 
     @Test
@@ -35,17 +36,19 @@ class GhostDebuggerSettingsTest {
             aiTimeoutMs = 0,
             ollamaEndpoint = "",
             ollamaModel = "",
-            openAiModel = ""
+            openAiModel = "",
+            aiCacheMaxEntries = -1
         )
         target.loadState(bad)
         val after = target.state
-        assertEquals(500, after.maxFilesToAnalyze)
+        assertEquals(300, after.maxFilesToAnalyze)
         assertEquals(0, after.maxAiFiles)
         assertEquals(0L, after.cacheTtlSeconds)
         assertEquals(30_000L, after.aiTimeoutMs)
         assertEquals("http://localhost:11434", after.ollamaEndpoint)
         assertEquals("llama3", after.ollamaModel)
         assertEquals("gpt-4o", after.openAiModel)
+        assertEquals(256, after.aiCacheMaxEntries)
     }
 
     @Test
@@ -54,7 +57,7 @@ class GhostDebuggerSettingsTest {
         val snap = target.snapshot()
         target.update { maxFilesToAnalyze = 123 }
         assertNotSame(snap, target.snapshot())
-        assertEquals(500, snap.maxFilesToAnalyze)
+        assertEquals(300, snap.maxFilesToAnalyze)
         assertEquals(123, target.snapshot().maxFilesToAnalyze)
     }
 
@@ -62,14 +65,14 @@ class GhostDebuggerSettingsTest {
     fun `update mutator runs validate on writes`() {
         val target = GhostDebuggerSettings()
         target.update { maxFilesToAnalyze = -99 }
-        assertEquals(500, target.snapshot().maxFilesToAnalyze)
+        assertEquals(300, target.snapshot().maxFilesToAnalyze)
     }
 
     @Test
     fun `legacy setters route through update and validate`() {
         val target = GhostDebuggerSettings()
         target.maxFilesToAnalyze = -1
-        assertEquals(500, target.maxFilesToAnalyze)
+        assertEquals(300, target.maxFilesToAnalyze)
         target.openAiModel = "gpt-4o-mini"
         assertEquals("gpt-4o-mini", target.openAiModel)
         target.autoAnalyzeOnOpen = true

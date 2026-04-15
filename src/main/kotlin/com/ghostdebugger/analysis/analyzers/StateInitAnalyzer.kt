@@ -16,7 +16,8 @@ class StateInitAnalyzer : Analyzer {
         for (file in context.parsedFiles) {
             if (file.extension !in setOf("ts", "tsx", "js", "jsx")) continue
 
-            val lines = file.content.lines()
+            val lines = file.lines
+            val regexCache = mutableMapOf<String, Regex>()
 
             // Find useState() without initial value (undefined)
             val uninitializedStates = mutableMapOf<String, Int>() // varName -> line number
@@ -25,8 +26,7 @@ class StateInitAnalyzer : Analyzer {
                 val trimmed = line.trim()
 
                 // Match: const [items, setItems] = useState()  (no argument = undefined)
-                val useStateNoArgRegex = Regex("""const\s+\[(\w+),\s*\w+\]\s*=\s*useState\s*\(\s*\)""")
-                useStateNoArgRegex.find(trimmed)?.let { match ->
+                USE_STATE_NO_ARG_REGEX.find(trimmed)?.let { match ->
                     uninitializedStates[match.groupValues[1]] = index + 1
                 }
             }
@@ -36,9 +36,11 @@ class StateInitAnalyzer : Analyzer {
                 val trimmed = line.trim()
                 if (trimmed.startsWith("//")) return@forEachIndexed
 
-                for ((varName, initLine) in uninitializedStates) {
+                for ((varName, _) in uninitializedStates) {
                     // Check for .map(), .filter(), .forEach(), .length on the var
-                    val iterationRegex = Regex("""\b$varName\.(map|filter|forEach|reduce|find|some|every|length|slice|join)\b""")
+                    val iterationRegex = regexCache.getOrPut(varName) { 
+                        Regex("""\b$varName\.(map|filter|forEach|reduce|find|some|every|length|slice|join)\b""") 
+                    }
                     val match = iterationRegex.find(trimmed)
                     if (match != null) {
                         val methodName = match.groupValues[1]
@@ -65,5 +67,9 @@ class StateInitAnalyzer : Analyzer {
         }
 
         return issues
+    }
+
+    companion object {
+        private val USE_STATE_NO_ARG_REGEX = Regex("""const\s+\[(\w+),\s*\w+\]\s*=\s*useState\s*\(\s*\)""")
     }
 }

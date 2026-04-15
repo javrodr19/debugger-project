@@ -8,20 +8,12 @@ import com.ghostdebugger.analysis.analyzers.CircularDependencyAnalyzer
 import com.ghostdebugger.analysis.analyzers.ComplexityAnalyzer
 import com.ghostdebugger.analysis.analyzers.NullSafetyAnalyzer
 import com.ghostdebugger.analysis.analyzers.StateInitAnalyzer
-import com.ghostdebugger.model.AnalysisContext
-import com.ghostdebugger.model.AnalysisResult
-import com.ghostdebugger.model.EngineProvider
-import com.ghostdebugger.model.EngineStatus
-import com.ghostdebugger.model.EngineStatusPayload
-import com.ghostdebugger.model.Issue
-import com.ghostdebugger.model.IssueSeverity
-import com.ghostdebugger.model.IssueSource
-import com.ghostdebugger.model.ProjectMetrics
-import com.ghostdebugger.model.RiskItem
+import com.ghostdebugger.model.*
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProgressIndicator
+import kotlinx.coroutines.*
 
 class AnalysisEngine(
     private val settingsProvider: () -> GhostDebuggerSettings.State =
@@ -61,6 +53,13 @@ class AnalysisEngine(
         
         val merged = mergeIssues(staticIssues + aiIssues)
 
+        // Drop file content to save RAM once analysis is done
+        limitedContext.parsedFiles.forEach { file ->
+            // Trigger lines computation before dropping content
+            val _lines = file.lines 
+            file.content = ""
+        }
+
         val metrics = ProjectMetrics(
             totalFiles = limitedContext.parsedFiles.size,
             totalIssues = merged.size,
@@ -90,7 +89,7 @@ class AnalysisEngine(
         )
     }
 
-    private fun runStaticPass(context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> {
+    private suspend fun runStaticPass(context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> {
         val collected = mutableListOf<Issue>()
         for (analyzer in analyzers) {
             indicator?.checkCanceled()
@@ -100,9 +99,9 @@ class AnalysisEngine(
                     issue.copy(
                         ruleId = issue.ruleId ?: analyzer.ruleId,
                         sources = if (issue.sources.isNotEmpty()) issue.sources
-                                  else listOf(IssueSource.STATIC),
+                        else listOf(IssueSource.STATIC),
                         providers = if (issue.providers.isNotEmpty()) issue.providers
-                                    else listOf(EngineProvider.STATIC),
+                        else listOf(EngineProvider.STATIC),
                         confidence = issue.confidence ?: 1.0
                     )
                 }
@@ -215,7 +214,8 @@ class AnalysisEngine(
             model           = settings.ollamaModel,
             timeoutMs       = settings.aiTimeoutMs,
             cacheTtlSeconds = settings.cacheTtlSeconds,
-            cacheEnabled    = settings.cacheEnabled
+            cacheEnabled    = settings.cacheEnabled,
+            cacheMaxEntries = settings.aiCacheMaxEntries
         )
         val started = System.currentTimeMillis()
         val result = runCatching {

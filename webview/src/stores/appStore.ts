@@ -50,6 +50,7 @@ export type AppAction =
   | { type: 'SET_AUTO_REFRESHING'; payload: boolean }
   | { type: 'SET_VIEW_MODE'; payload: ViewMode }
   | { type: 'SET_FOCUSED_NODE'; payload: string | null }
+  | { type: 'SET_ISSUES_FOR_FILE'; payload: { filePath: string; issues: Issue[] } }
 
 export const initialState: AppState = {
   graph: null,
@@ -181,6 +182,31 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_FOCUSED_NODE':
       return { ...state, focusedNodeId: action.payload }
+
+    case 'SET_ISSUES_FOR_FILE': {
+      if (!state.graph) return state
+      const { filePath, issues } = action.payload
+      const updatedNodes = state.graph.nodes.map(n =>
+        n.filePath === filePath ? { ...n, issues } : n
+      )
+      const isSelectedNodeMatched = state.selectedNode?.filePath === filePath
+      const updatedSelectedNode = isSelectedNodeMatched
+        ? { ...state.selectedNode!, issues }
+        : state.selectedNode
+      
+      let updatedSelectedIssue = state.selectedIssue
+      if (isSelectedNodeMatched) {
+        // If we updated the currently selected node, we might need to update the selected issue too
+        updatedSelectedIssue = issues.find(i => i.id === state.selectedIssue?.id) || issues[0] || null
+      }
+      
+      return { 
+        ...state, 
+        graph: { ...state.graph, nodes: updatedNodes },
+        selectedNode: updatedSelectedNode,
+        selectedIssue: updatedSelectedIssue
+      }
+    }
 
     default:
       return state

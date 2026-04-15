@@ -42,6 +42,10 @@ export default function App() {
     const unsubState    = bridge.onDebugStateChanged(s => dispatch({ type: 'SET_DEBUG_STATE', payload: s }))
     const unsubAuto     = bridge.onAutoRefreshStart(() => dispatch({ type: 'SET_AUTO_REFRESHING', payload: true }))
 
+    const unsubIssues   = bridge.onIssuesForFile(payload =>
+      dispatch({ type: 'SET_ISSUES_FOR_FILE', payload })
+    )
+
     const unsubEngineStatus = bridge.onEngineStatus(payload =>
       dispatch({ type: 'SET_ENGINE_STATUS', payload })
     )
@@ -54,7 +58,7 @@ export default function App() {
       unsubGraph(); unsubExpl(); unsubFix(); unsubNode();
       unsubStart(); unsubProg(); unsubComplete(); unsubError(); unsubSystem();
       unsubImpact(); unsubFrame(); unsubEnd(); unsubState(); unsubAuto();
-      unsubEngineStatus(); unsubFixApplied();
+      unsubIssues(); unsubEngineStatus(); unsubFixApplied();
     }
   }, [])
 

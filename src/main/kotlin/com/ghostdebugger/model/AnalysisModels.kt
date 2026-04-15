@@ -92,18 +92,22 @@ data class AnalysisContext(
     val graph: com.ghostdebugger.graph.InMemoryGraph,
     val project: com.intellij.openapi.project.Project,
     val parsedFiles: List<ParsedFile>
-)
+) {
+    val filesByPath: Map<String, ParsedFile> by lazy { parsedFiles.associateBy { it.path } }
+}
 
 data class ParsedFile(
     val virtualFile: com.intellij.openapi.vfs.VirtualFile,
     val path: String,
     val extension: String,
-    val content: String,
+    var content: String,
     val functions: List<FunctionSymbol> = emptyList(),
     val imports: List<ImportSymbol> = emptyList(),
     val exports: List<ExportSymbol> = emptyList(),
     val variables: List<VariableSymbol> = emptyList()
-)
+) {
+    val lines: List<String> by lazy { content.lines() }
+}
 
 data class FunctionSymbol(
     val name: String,
