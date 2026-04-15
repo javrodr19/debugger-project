@@ -5,6 +5,7 @@ import { NeuroMap } from './components/neuromap/NeuroMap'
 import { DetailPanel } from './components/detail-panel/DetailPanel'
 import { StatusBar } from './components/layout/StatusBar'
 import { PixelCity } from './components/pixelcity/PixelCity'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppContext, appReducer, initialState } from './stores/appStore'
 import { bridge } from './bridge/pluginBridge'
 
@@ -236,17 +237,19 @@ export default function App() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Canvas */}
           <div style={{ flex: 1, position: 'relative', minWidth: 0, flexGrow: 1 }}>
-            {state.graph ? (
-              state.viewMode === 'neuromap' ? (
-                <ReactFlowProvider>
-                  <NeuroMap graph={state.graph} />
-                </ReactFlowProvider>
+            <ErrorBoundary>
+              {state.graph ? (
+                state.viewMode === 'neuromap' ? (
+                  <ReactFlowProvider>
+                    <NeuroMap graph={state.graph} />
+                  </ReactFlowProvider>
+                ) : (
+                  <PixelCity graph={state.graph} />
+                )
               ) : (
-                <PixelCity graph={state.graph} />
-              )
-            ) : (
-              <EmptyState isAnalyzing={state.isAnalyzing} onAnalyze={handleAnalyze} />
-            )}
+                <EmptyState isAnalyzing={state.isAnalyzing} onAnalyze={handleAnalyze} />
+              )}
+            </ErrorBoundary>
           </div>
 
           {/* Detail panel */}

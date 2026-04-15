@@ -14,6 +14,8 @@ import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProgressIndicator
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class AnalysisEngine(
     private val settingsProvider: () -> GhostDebuggerSettings.State =
@@ -25,10 +27,7 @@ class AnalysisEngine(
         val service = com.ghostdebugger.ai.AIServiceFactory.create(settings, key)
             ?: return@AiPassRunner emptyList()
         AIAnalyzer(service, progress).analyze(ctx)
-    }
-) {
-    private val log = logger<AnalysisEngine>()
-
+    },
     private val analyzers: List<Analyzer> = listOf(
         NullSafetyAnalyzer(),
         StateInitAnalyzer(),
@@ -36,6 +35,8 @@ class AnalysisEngine(
         CircularDependencyAnalyzer(),
         ComplexityAnalyzer()
     )
+) {
+    private val log = logger<AnalysisEngine>()
 
     suspend fun analyze(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
         val settings = settingsProvider()
@@ -89,29 +90,35 @@ class AnalysisEngine(
         )
     }
 
-    private suspend fun runStaticPass(context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> {
-        val collected = mutableListOf<Issue>()
-        for (analyzer in analyzers) {
-            indicator?.checkCanceled()
-            indicator?.text2 = "Analyzer: ${analyzer.name}"
-            try {
-                val produced = analyzer.analyze(context).map { issue ->
-                    issue.copy(
-                        ruleId = issue.ruleId ?: analyzer.ruleId,
-                        sources = if (issue.sources.isNotEmpty()) issue.sources
-                        else listOf(IssueSource.STATIC),
-                        providers = if (issue.providers.isNotEmpty()) issue.providers
-                        else listOf(EngineProvider.STATIC),
-                        confidence = issue.confidence ?: 1.0
-                    )
+    private suspend fun runStaticPass(context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> =
+        coroutineScope {
+            analyzers.map { analyzer ->
+                async(Dispatchers.Default) {
+                    runOne(analyzer, context, indicator)
                 }
-                log.info("${analyzer.name}: produced ${produced.size} issues")
-                collected.addAll(produced)
-            } catch (e: Exception) {
-                log.warn("Analyzer ${analyzer.name} failed; continuing", e)
-            }
+            }.awaitAll().flatten()
         }
-        return collected
+
+    private fun runOne(analyzer: Analyzer, context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> {
+        indicator?.checkCanceled()
+        indicator?.text2 = "Analyzer: ${analyzer.name}"
+        return try {
+            val produced = analyzer.analyze(context).map { issue ->
+                issue.copy(
+                    ruleId = issue.ruleId ?: analyzer.ruleId,
+                    sources = if (issue.sources.isNotEmpty()) issue.sources
+                    else listOf(IssueSource.STATIC),
+                    providers = if (issue.providers.isNotEmpty()) issue.providers
+                    else listOf(EngineProvider.STATIC),
+                    confidence = issue.confidence ?: 1.0
+                )
+            }
+            log.info("${analyzer.name}: produced ${produced.size} issues")
+            produced
+        } catch (e: Exception) {
+            log.warn("Analyzer ${analyzer.name} failed; continuing", e)
+            emptyList()
+        }
     }
 
     private suspend fun runAiPass(
@@ -218,11 +225,18 @@ class AnalysisEngine(
             cacheMaxEntries = settings.aiCacheMaxEntries
         )
         val started = System.currentTimeMillis()
+        val semaphore = Semaphore(OLLAMA_CONCURRENCY)
         val result = runCatching {
-            aiContext.parsedFiles.flatMap { file ->
-                indicator?.checkCanceled()
-                indicator?.text2 = "Ollama: ${file.path.substringAfterLast('/')}"
-                ollamaService.detectIssues(file.path, file.content)
+            coroutineScope {
+                aiContext.parsedFiles.map { file ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            indicator?.checkCanceled()
+                            indicator?.text2 = "Ollama: ${file.path.substringAfterLast('/')}"
+                            ollamaService.detectIssues(file.path, file.content)
+                        }
+                    }
+                }.awaitAll().flatten()
             }
         }
         val latency = System.currentTimeMillis() - started
@@ -271,4 +285,9 @@ class AnalysisEngine(
         val warningPenalty = issues.count { it.severity == IssueSeverity.WARNING } * 5.0
         return (100.0 - errorPenalty - warningPenalty).coerceIn(0.0, 100.0)
     }
+
+    companion object {
+        private const val OLLAMA_CONCURRENCY = 4
+    }
 }
+

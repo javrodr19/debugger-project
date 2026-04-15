@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronRight, AlertCircle, AlertTriangle, Info,
   Eye, Wand2, Copy, Check, Loader2, FileCode, Activity, Layers
 } from 'lucide-react'
-import type { GraphNode, Issue, CodeFix, IssueSeverity, ProjectGraph, AnalysisMetrics } from '../../types'
+import type { GraphNode, Issue, CodeFix, IssueSeverity, ProjectGraph, AnalysisMetrics, IssueSource } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 import { bridge } from '../../bridge/pluginBridge'
 

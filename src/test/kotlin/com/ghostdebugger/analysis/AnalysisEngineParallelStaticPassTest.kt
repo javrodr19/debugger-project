@@ -1,53 +1,131 @@
 package com.ghostdebugger.analysis
 
-import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.ghostdebugger.model.*
-import com.ghostdebugger.analysis.analyzers.NullSafetyAnalyzer
-import com.ghostdebugger.analysis.analyzers.StateInitAnalyzer
 import com.ghostdebugger.graph.InMemoryGraph
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
-import io.mockk.every
-import io.mockk.mockk
+import com.ghostdebugger.settings.GhostDebuggerSettings
+import com.ghostdebugger.settings.AIProvider
+import com.ghostdebugger.testutil.FixtureFactory
+import com.intellij.openapi.progress.EmptyProgressIndicator
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
-import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.Collections
 
 class AnalysisEngineParallelStaticPassTest {
 
     @Test
-    fun testParallelStaticPassIsolation() = runBlocking {
-        val project = mockk<Project>(relaxed = true)
-        val vf = mockk<VirtualFile>(relaxed = true)
-        every { vf.path } returns "test.ts"
-        every { vf.extension } returns "ts"
+    fun `static analyzers run in parallel`() = runBlocking {
+        val latch = CountDownLatch(3)
+        val startTimes = Collections.synchronizedList(mutableListOf<Long>())
         
-        val parsedFile = ParsedFile(vf, "test.ts", "ts", "const [x, setX] = useState(); x.map(y => y);")
-        val graph = InMemoryGraph()
-        val context = AnalysisContext(graph, project, listOf(parsedFile))
-        
-        // AnalysisEngine uses a fixed list of analyzers. 
-        // We want to verify that if one fails, others still work.
-        // Since we can't easily inject mock analyzers into AnalysisEngine without refactoring it,
-        // we'll rely on the fact that we've parallelized it and use the real ones.
-        
-        val engine = AnalysisEngine(
-            settingsProvider = { 
-                GhostDebuggerSettings.State(maxFilesToAnalyze = 100, aiProvider = com.ghostdebugger.settings.AIProvider.NONE) 
+        val analyzer1 = object : Analyzer {
+            override val name = "A1"
+            override val ruleId = "R1"
+            override val defaultSeverity = IssueSeverity.INFO
+            override val description = "D1"
+            override fun analyze(context: AnalysisContext): List<Issue> {
+                startTimes.add(System.currentTimeMillis())
+                latch.countDown()
+                latch.await(5, TimeUnit.SECONDS)
+                return emptyList()
             }
+        }
+        
+        val analyzer2 = object : Analyzer {
+            override val name = "A2"
+            override val ruleId = "R2"
+            override val defaultSeverity = IssueSeverity.INFO
+            override val description = "D2"
+            override fun analyze(context: AnalysisContext): List<Issue> {
+                startTimes.add(System.currentTimeMillis())
+                latch.countDown()
+                latch.await(5, TimeUnit.SECONDS)
+                return emptyList()
+            }
+        }
+        
+        val analyzer3 = object : Analyzer {
+            override val name = "A3"
+            override val ruleId = "R3"
+            override val defaultSeverity = IssueSeverity.INFO
+            override val description = "D3"
+            override fun analyze(context: AnalysisContext): List<Issue> {
+                startTimes.add(System.currentTimeMillis())
+                latch.countDown()
+                latch.await(5, TimeUnit.SECONDS)
+                return emptyList()
+            }
+        }
+
+        val engine = AnalysisEngine(
+            settingsProvider = { GhostDebuggerSettings.State(aiProvider = AIProvider.NONE) },
+            apiKeyProvider = { null },
+            analyzers = listOf(analyzer1, analyzer2, analyzer3)
         )
         
-        val result = engine.analyze(context)
+        val parsedFiles = listOf(FixtureFactory.parsedFile("test.kt", "kt", "content"))
+        val context = AnalysisContext(
+            graph = InMemoryGraph(),
+            project = io.mockk.mockk(relaxed = true),
+            parsedFiles = parsedFiles
+        )
         
-        // Both NullSafety and StateInit should find issues in the snippet
-        // Actually NullSafety might not find anything if it doesn't match useState(null)
-        // StateInit should find one.
+        engine.analyze(context, null)
         
-        assertTrue(result.issues.isNotEmpty(), "Should find some issues")
-        log("Found ${result.issues.size} issues in parallel pass")
+        assertEquals(3, startTimes.size)
+        val minStart = startTimes.minOrNull() ?: 0L
+        val maxStart = startTimes.maxOrNull() ?: 0L
+        assertTrue(maxStart - minStart < 1000, "Analyzers did not run in parallel: diff=${maxStart - minStart}ms")
     }
-    
-    private fun log(msg: String) = println("Test Log: $msg")
+
+    @Test
+    fun `one analyzer throwing does not prevent others from producing results`() = runBlocking {
+        val analyzer1 = object : Analyzer {
+            override val name = "A1"
+            override val ruleId = "R1"
+            override val defaultSeverity = IssueSeverity.INFO
+            override val description = "D1"
+            override fun analyze(context: AnalysisContext): List<Issue> {
+                throw RuntimeException("Boom")
+            }
+        }
+        
+        val analyzer2 = object : Analyzer {
+            override val name = "A2"
+            override val ruleId = "R2"
+            override val defaultSeverity = IssueSeverity.INFO
+            override val description = "D2"
+            override fun analyze(context: AnalysisContext): List<Issue> {
+                return listOf(Issue(
+                    id = "i2",
+                    type = IssueType.NULL_SAFETY,
+                    title = "Issue 2",
+                    description = "D",
+                    severity = IssueSeverity.WARNING,
+                    filePath = "f2"
+                ))
+            }
+        }
+
+        val engine = AnalysisEngine(
+            settingsProvider = { GhostDebuggerSettings.State(aiProvider = AIProvider.NONE) },
+            apiKeyProvider = { null },
+            analyzers = listOf(analyzer1, analyzer2)
+        )
+        
+        val parsedFiles = listOf(FixtureFactory.parsedFile("test.kt", "kt", "content"))
+        val context = AnalysisContext(
+            graph = InMemoryGraph(),
+            project = io.mockk.mockk(relaxed = true),
+            parsedFiles = parsedFiles
+        )
+        
+        val result = engine.analyze(context, null)
+        
+        assertEquals(1, result.issues.size)
+        assertEquals("Issue 2", result.issues[0].title)
+    }
 }

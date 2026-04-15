@@ -42,7 +42,7 @@ export function NeuroMap({ graph }: NeuroMapProps) {
   const { setViewport, getViewport } = useReactFlow()
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildGroupedNodes(graph.nodes))
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildInitialNodes(graph.nodes))
   const [edges, setEdges] = useEdgesState<Edge>([])
 
   // Custom wheel handler — 2x zoom speed, zooms toward cursor
@@ -62,7 +62,7 @@ export function NeuroMap({ graph }: NeuroMapProps) {
 
   // Rebuild nodes when graph data changes, preserving drag positions
   useEffect(() => {
-    const grouped = buildGroupedNodes(graph.nodes)
+    const grouped = buildInitialNodes(graph.nodes)
     const groupedPosMap = new Map(grouped.map(n => [n.id, n.position]))
     setNodes(prev => {
       const dragPosMap = new Map(prev.map(n => [n.id, n.position]))

@@ -1,11 +1,11 @@
 import { memo, useState, useCallback, useEffect } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { GraphNode, NodeStatus, DebugVariable } from '../../types'
+import type { GraphNode, NodeStatus, DebugVariable, Issue } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 import { bridge } from '../../bridge/pluginBridge'
 
-// GitHub dark tokens
+// ... (C constants remain same)
 const C = {
   bg:       '#161b22',
   elevated: '#21262d',
@@ -23,13 +23,13 @@ const C = {
   cyanText: '#56d4dd',
 }
 
-const statusBorder: Record<NodeStatus, string> = {
+const statusBorder: Record<string, string> = {
   ERROR:   C.errorBdr,
   WARNING: C.warnBdr,
   HEALTHY: C.border,
 }
 
-const statusDot: Record<NodeStatus, string> = {
+const statusDot: Record<string, string> = {
   ERROR:   C.errorText,
   WARNING: C.warnText,
   HEALTHY: C.okText,
@@ -46,20 +46,22 @@ const typeColor: Record<string, string> = {
   MODULE: '#56d364', SERVICE: '#79c0ff',
 }
 
-interface CustomNodeData extends Record<string, unknown> {
+export type CustomNodeData = {
   node: GraphNode
   isSelected: boolean
   isHighlighted: boolean
   isDebugActive: boolean
 }
 
-function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
+type CustomNodeProps = NodeProps<Node<CustomNodeData, 'custom'>>
+
+function CustomNodeComponent({ data }: CustomNodeProps) {
   const { node, isSelected, isHighlighted, isDebugActive } = data
   const { state, dispatch } = useAppStore()
   const [expanded, setExpanded] = useState(false)
 
-  const errorCount = node.issues.filter(i => i.severity === 'ERROR').length
-  const warnCount  = node.issues.filter(i => i.severity === 'WARNING').length
+  const errorCount = node.issues.filter((i: Issue) => i.severity === 'ERROR').length
+  const warnCount  = node.issues.filter((i: Issue) => i.severity === 'WARNING').length
   const hasSymbols = node.functions.length > 0 || node.variables.length > 0
 
   const bpKey = (line: number) => `${node.filePath}:${line}`
@@ -86,7 +88,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
         dispatch({ type: 'SET_FOCUSED_NODE', payload: null })
       }
     }
-  }, [expanded, node.id, dispatch])
+  }, [expanded, node.id, dispatch, state.focusedNodeId])
 
   const borderColor = isDebugActive
     ? C.cyanText
@@ -94,7 +96,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
     ? '#388bfd'
     : isSelected
     ? '#388bfd'
-    : statusBorder[node.status]
+    : (statusBorder[node.status] || C.border)
 
   const outline = isDebugActive
     ? `0 0 0 2px ${C.cyanText}, 0 0 12px rgba(86,212,221,0.4)`
@@ -107,7 +109,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
 
   // Build a map of variable name → debug value for quick lookup
   const debugValueMap = new Map<string, DebugVariable>()
-  debugVars.forEach(v => debugValueMap.set(v.name, v))
+  debugVars.forEach((v: DebugVariable) => debugValueMap.set(v.name, v))
 
   return (
     <div
@@ -155,7 +157,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
         </span>
         <div style={{
           width: 5, height: 5, borderRadius: '50%',
-          background: isDebugActive ? C.cyanText : statusDot[node.status],
+          background: isDebugActive ? C.cyanText : (statusDot[node.status] || C.okText),
           flexShrink: 0,
           animation: isDebugActive ? 'pulse-glow-cyan 1s ease-in-out infinite' : undefined,
         }} />
@@ -228,7 +230,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
         {hasSymbols && (
           <button
             onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
+            onClick={e => { e.stopPropagation(); setExpanded((v: boolean) => !v) }}
             style={{
               marginTop: 6, width: '100%', display: 'flex',
               alignItems: 'center', justifyContent: 'space-between',
@@ -264,7 +266,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
             <div style={{ maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
               {node.functions.length > 0 && (
                 <SymbolGroup label="Functions" color="#d2a8ff">
-                  {node.functions.map(fn => {
+                  {node.functions.map((fn: any) => {
                     const debugVal = debugValueMap.get(fn.name)
                     return (
                       <SymbolRow
@@ -274,7 +276,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
                         badge={fn.isAsync ? 'async' : 'fn'}
                         badgeColor="#d2a8ff"
                         hasBp={hasBp(fn.line)}
-                        onToggle={e => toggleBp(fn.line, e)}
+                        onToggle={(e: React.MouseEvent) => toggleBp(fn.line, e)}
                         debugValue={debugVal?.value}
                         debugType={debugVal?.type}
                       />
@@ -284,7 +286,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
               )}
               {node.variables.length > 0 && (
                 <SymbolGroup label="Variables" color="#56d364">
-                  {node.variables.map(v => {
+                  {node.variables.map((v: any) => {
                     const debugVal = debugValueMap.get(v.name)
                     return (
                       <SymbolRow
@@ -294,7 +296,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
                         badge={v.kind}
                         badgeColor="#56d364"
                         hasBp={hasBp(v.line)}
-                        onToggle={e => toggleBp(v.line, e)}
+                        onToggle={(e: React.MouseEvent) => toggleBp(v.line, e)}
                         debugValue={debugVal?.value}
                         debugType={debugVal?.type}
                       />
@@ -324,7 +326,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
               <div style={{ color: C.cyanText, fontSize: 7, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>
                 Variables
               </div>
-              {debugVars.slice(0, 6).map((v, i) => (
+              {debugVars.slice(0, 6).map((v: DebugVariable, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '1px 0', fontSize: 8 }}>
                   <span style={{ color: C.cyanText, fontFamily: 'monospace', minWidth: 50 }}>{v.name}</span>
                   <span style={{ color: C.text3 }}>=</span>
@@ -377,12 +379,12 @@ function SymbolRow({
         padding: '2px 8px',
         flexWrap: debugValue ? 'wrap' : undefined,
       }}
-      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = C.elevated}
-      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+      onMouseEnter={(e: React.MouseEvent) => (e.currentTarget as HTMLElement).style.background = C.elevated}
+      onMouseLeave={(e: React.MouseEvent) => (e.currentTarget as HTMLElement).style.background = 'transparent'}
     >
       {/* Breakpoint dot */}
       <button
-        onMouseDown={e => e.stopPropagation()}
+        onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
         onClick={onToggle}
         style={{
           width: 9, height: 9, borderRadius: '50%', flexShrink: 0,

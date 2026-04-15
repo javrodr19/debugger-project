@@ -32,16 +32,22 @@ import com.intellij.xdebugger.XDebugSession
 import com.intellij.xdebugger.XDebugSessionListener
 import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.XDebuggerManagerListener
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import com.intellij.xdebugger.frame.XStackFrame
 import kotlinx.coroutines.*
 import kotlinx.coroutines.swing.Swing
 import java.io.File
 
 @Service(Service.Level.PROJECT)
-class GhostDebuggerService(private val project: Project) {
+class GhostDebuggerService(private val project: Project) : Disposable {
 
     private val log = logger<GhostDebuggerService>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    init {
+        Disposer.register(project, this)
+    }
 
     private val analysisLock = Object()
     @Volatile private var activeAnalysisIndicator: com.intellij.openapi.progress.ProgressIndicator? = null
@@ -94,7 +100,7 @@ class GhostDebuggerService(private val project: Project) {
         if (fileWatcherRegistered) return
         fileWatcherRegistered = true
 
-        project.messageBus.connect().subscribe(
+        project.messageBus.connect(this).subscribe(
             VirtualFileManager.VFS_CHANGES,
             object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
@@ -136,7 +142,7 @@ class GhostDebuggerService(private val project: Project) {
     private fun registerDebugSessionListener() {
         try {
             val debuggerManager = XDebuggerManager.getInstance(project)
-            project.messageBus.connect().subscribe(
+            project.messageBus.connect(this).subscribe(
                 XDebuggerManager.TOPIC,
                 object : XDebuggerManagerListener {
                     override fun processStarted(debugProcess: XDebugProcess) {
@@ -708,8 +714,10 @@ class GhostDebuggerService(private val project: Project) {
                 val reportGenerator = ReportGenerator()
                 val htmlContent = reportGenerator.generateHTMLReport(graph)
 
-                val basePath = project.basePath ?: return@launch
-                val reportFile = File(basePath, "aegis-debug-report.html")
+                val reportFile = File(
+                    System.getProperty("java.io.tmpdir"),
+                    "aegis-debug-${sanitizeFilename(project.name)}-${System.currentTimeMillis()}.html"
+                )
                 reportFile.writeText(htmlContent)
 
                 try {
@@ -719,7 +727,7 @@ class GhostDebuggerService(private val project: Project) {
                 }
 
                 withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Report exported to: ${reportFile.name}")
+                    bridge?.sendError("Report exported to: ${reportFile.absolutePath}")
                 }
             } catch (e: Exception) {
                 log.error("Failed to export report", e)
@@ -729,6 +737,9 @@ class GhostDebuggerService(private val project: Project) {
             }
         }
     }
+
+    private fun sanitizeFilename(name: String): String =
+        name.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
     private fun buildLocalSystemSummary(graph: ProjectGraph): String {
         val errorFiles = graph.nodes.count { it.status == NodeStatus.ERROR }
@@ -748,7 +759,7 @@ class GhostDebuggerService(private val project: Project) {
         """.trimIndent()
     }
 
-    fun dispose() {
+    override fun dispose() {
         autoRefreshJob?.cancel()
         scope.cancel()
     }
