@@ -14,7 +14,7 @@ class GhostDebuggerSettingsTest {
         assertEquals("gpt-4o", s.openAiModel)
         assertEquals("http://localhost:11434", s.ollamaEndpoint)
         assertEquals("llama3", s.ollamaModel)
-        assertEquals(300, s.maxFilesToAnalyze)
+        assertEquals(500, s.maxFilesToAnalyze)
         assertEquals(40, s.maxAiFiles)
         assertEquals(false, s.autoAnalyzeOnOpen)
         assertEquals(true, s.showInfoIssues)
@@ -41,7 +41,7 @@ class GhostDebuggerSettingsTest {
         )
         target.loadState(bad)
         val after = target.state
-        assertEquals(300, after.maxFilesToAnalyze)
+        assertEquals(500, after.maxFilesToAnalyze)
         assertEquals(0, after.maxAiFiles)
         assertEquals(0L, after.cacheTtlSeconds)
         assertEquals(30_000L, after.aiTimeoutMs)
@@ -57,7 +57,7 @@ class GhostDebuggerSettingsTest {
         val snap = target.snapshot()
         target.update { maxFilesToAnalyze = 123 }
         assertNotSame(snap, target.snapshot())
-        assertEquals(300, snap.maxFilesToAnalyze)
+        assertEquals(500, snap.maxFilesToAnalyze)
         assertEquals(123, target.snapshot().maxFilesToAnalyze)
     }
 
@@ -65,14 +65,14 @@ class GhostDebuggerSettingsTest {
     fun `update mutator runs validate on writes`() {
         val target = GhostDebuggerSettings()
         target.update { maxFilesToAnalyze = -99 }
-        assertEquals(300, target.snapshot().maxFilesToAnalyze)
+        assertEquals(500, target.snapshot().maxFilesToAnalyze)
     }
 
     @Test
     fun `legacy setters route through update and validate`() {
         val target = GhostDebuggerSettings()
         target.maxFilesToAnalyze = -1
-        assertEquals(300, target.maxFilesToAnalyze)
+        assertEquals(500, target.maxFilesToAnalyze)
         target.openAiModel = "gpt-4o-mini"
         assertEquals("gpt-4o-mini", target.openAiModel)
         target.autoAnalyzeOnOpen = true

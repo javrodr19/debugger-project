@@ -5,7 +5,13 @@
       "Bash(ls aegis_debug_*.md)",
       "Bash(ls -la *.md)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run *)",
+      "Bash(./gradlew buildPlugin)",
+      "Bash(head -20 echo \"---\" ls /home/jvv/debugger-project/src/main/resources/META-INF/ echo \"---\" ls /home/jvv/debugger-project/src/main/resources/pluginIcon*)",
+      "Bash(unzip -l build/distributions/ghostdebugger-1.0.0.zip)",
+      "Bash(python3 *)",
+      "Bash(./gradlew test *)"
     ]
   }
 }

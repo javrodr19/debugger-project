@@ -4,7 +4,7 @@
     <version>1.0.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
-    <idea-version since-build="232.0" until-build="243.*"/>
+    <idea-version since-build="232.0" until-build="261.*"/>
 
     <description><![CDATA[
     <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>
@@ -20,9 +20,9 @@
 
     <h3>What's inside</h3>
     <ul>
+        <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
         <li><strong>Five deterministic analyzers</strong> —
-            null safety, state-before-init, async flow, circular dependencies, complexity.
-            (TypeScript and JavaScript primary; Kotlin and Java graph-based analysis).</li>
+            null safety, state-before-init, async flow, circular dependencies, complexity.</li>
         <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
         <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
         <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>

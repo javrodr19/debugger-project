@@ -69,9 +69,9 @@ intellijPlatform {
 
             <h3>What's inside</h3>
             <ul>
+                <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
                 <li><strong>Five deterministic analyzers</strong> —
-                    null safety, state-before-init, async flow, circular dependencies, complexity.
-                    (TypeScript and JavaScript primary; Kotlin and Java graph-based analysis).</li>
+                    null safety, state-before-init, async flow, circular dependencies, complexity.</li>
                 <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
                 <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
                 <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
@@ -89,13 +89,22 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = "232.0"
-            untilBuild = "243.*"
+            untilBuild = "261.*"
         }
 
         vendor {
             name = "Aegis Debug"
             email = "team@aegisdebug.dev"
             url = "https://aegisdebug.dev"
+        }
+    }
+
+    pluginVerification {
+        ides {
+            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2023.2.6")
+            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2024.1.6")
+            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2024.3.2.2")
+            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2025.1")
         }
     }
 }
