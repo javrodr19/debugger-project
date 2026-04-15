@@ -1,28 +1,58 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>0.1.0</version>
-    <vendor email="team@ghostdebugger.dev">Aegis Debug</vendor>
+    <version>1.0.0</version>
+    <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
+
+    <idea-version since-build="232.0" until-build="243.*"/>
 
     <description><![CDATA[
-    <h2>Aegis Debug — privacy-first code debugging for IntelliJ</h2>
+    <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>
+
+    <p><strong>Static-first analysis. Deterministic fixes. Optional local or cloud AI.</strong></p>
+
     <p>
-        Static analysis first. Deterministic fixes where possible.
-        Optional local or cloud AI for deeper reasoning — off by default.
+        Aegis Debug finds real bugs in your TypeScript and JavaScript code without sending
+        anything to the cloud by default. Every finding is labeled with its
+        source — engine-verified, local AI, or cloud AI — so you always know
+        what you are trusting.
     </p>
+
+    <h3>What's inside</h3>
     <ul>
-        <li><strong>NeuroMap</strong> — visual project graph with issue overlay</li>
-        <li><strong>Static-first analysis</strong> — null safety, state init, async flow, cycles, complexity</li>
-        <li><strong>Optional AI</strong> — Ollama (local) or OpenAI (cloud)</li>
-        <li><strong>Trust signals</strong> — engine-verified vs AI-suggested, always clearly labeled</li>
-        <li><strong>Privacy</strong> — local-first; cloud requires explicit opt-in</li>
+        <li><strong>Five deterministic analyzers</strong> —
+            null safety, state-before-init, async flow, circular dependencies, complexity.
+            (TypeScript and JavaScript primary; Kotlin and Java graph-based analysis).</li>
+        <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
+        <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
+        <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
+        <li><strong>Ollama (local)</strong> or <strong>OpenAI (cloud)</strong> — both optional, both off by default.</li>
+        <li><strong>Secure key storage</strong> via IntelliJ PasswordSafe.</li>
+    </ul>
+
+    <h3>Privacy by default</h3>
+    <ul>
+        <li>No telemetry.</li>
+        <li>No cloud uploads unless you configure them explicitly.</li>
+        <li>Local mode works offline.</li>
     </ul>
 ]]></description>
+
+    <change-notes><![CDATA[
+    <h3>1.0.0 — V1 GA (2026-04-15)</h3>
+    <ul>
+        <li>Initial public release.</li>
+        <li>Five static analyzers with documented rule IDs.</li>
+        <li>Deterministic fixes with PSI-validity safety check.</li>
+        <li>Ollama and OpenAI backends with fallback-to-static on failure.</li>
+        <li>Cancellable analysis with progress indicator.</li>
+    </ul>
+]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Tool Window para el NeuroMap -->
+        <!-- ID kept as GhostDebugger for backward compatibility with pinned user layouts; display name is Aegis Debug -->
         <toolWindow id="GhostDebugger"
                     secondary="true"
                     anchor="right"

@@ -20,8 +20,8 @@ data class Issue(
     val column: Int = 0,
     val codeSnippet: String = "",
     val affectedNodes: List<String> = emptyList(),
-    var explanation: String? = null,
-    var suggestedFix: CodeFix? = null,
+    val explanation: String? = null,
+    val suggestedFix: CodeFix? = null,
     val sources: List<IssueSource> = listOf(IssueSource.STATIC),
     val providers: List<EngineProvider> = listOf(EngineProvider.STATIC),
     val confidence: Double? = null,
@@ -35,7 +35,6 @@ data class Issue(
 enum class IssueType {
     NULL_SAFETY,
     CIRCULAR_DEPENDENCY,
-    ASYNC_FLOW,
     UNHANDLED_PROMISE,
     STATE_BEFORE_INIT,
     HIGH_COMPLEXITY,
@@ -128,23 +127,4 @@ data class ImportSymbol(
 data class ExportSymbol(
     val name: String,
     val line: Int
-)
-
-/**
- * Represents a cluster of connected nodes that are all in an error state.
- */
-data class BrokenNeighborhood(
-    val primaryNodeId: String,
-    val neighbors: List<String>, // IDs (paths) of connected broken nodes
-    val healthyContextNodes: List<String> // IDs of connected healthy nodes for type/context info
-)
-
-/**
- * Represents a logical fix that spans multiple files.
- */
-@Serializable
-data class MultiFileFix(
-    val id: String,
-    val explanation: String,
-    val fileFixes: List<CodeFix>
 )

@@ -39,7 +39,9 @@ class StateInitAnalyzer : Analyzer {
                 for ((varName, initLine) in uninitializedStates) {
                     // Check for .map(), .filter(), .forEach(), .length on the var
                     val iterationRegex = Regex("""\b$varName\.(map|filter|forEach|reduce|find|some|every|length|slice|join)\b""")
-                    if (iterationRegex.containsMatchIn(trimmed)) {
+                    val match = iterationRegex.find(trimmed)
+                    if (match != null) {
+                        val methodName = match.groupValues[1]
                         val snippet = lines.subList(maxOf(0, index - 1), minOf(lines.size, index + 2))
                             .joinToString("\n")
                         issues.add(
@@ -49,7 +51,7 @@ class StateInitAnalyzer : Analyzer {
                                 severity = IssueSeverity.ERROR,
                                 title = "Uninitialized state used: $varName",
                                 description = "'$varName' is declared with useState() (no initial value = undefined) " +
-                                        "but is called with .${"array method"} on line ${index + 1}. " +
+                                        "but is called with .$methodName on line ${index + 1}. " +
                                         "This will throw 'Cannot read properties of undefined'.",
                                 filePath = file.path,
                                 line = index + 1,

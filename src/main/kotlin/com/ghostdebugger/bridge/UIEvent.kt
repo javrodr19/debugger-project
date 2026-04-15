@@ -22,6 +22,7 @@ sealed class UIEvent {
     data class ImpactRequested(val nodeId: String) : UIEvent()
     object ExplainSystemRequested : UIEvent()
     object AnalyzeRequested : UIEvent()
+    object CancelAnalysisRequested : UIEvent()
     data class BreakpointSet(val filePath: String, val line: Int) : UIEvent()
     data class BreakpointRemoved(val filePath: String, val line: Int) : UIEvent()
     object ExportReportRequested : UIEvent()
@@ -63,6 +64,7 @@ object UIEventParser {
                 )
                 "EXPLAIN_SYSTEM" -> UIEvent.ExplainSystemRequested
                 "ANALYZE" -> UIEvent.AnalyzeRequested
+                "CANCEL_ANALYSIS" -> UIEvent.CancelAnalysisRequested
                 "BREAKPOINT_SET" -> UIEvent.BreakpointSet(
                     filePath = envelope.payload?.get("filePath")?.jsonPrimitive?.content ?: "",
                     line = envelope.payload?.get("line")?.jsonPrimitive?.int ?: 1

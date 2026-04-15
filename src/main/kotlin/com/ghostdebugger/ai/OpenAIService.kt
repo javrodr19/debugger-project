@@ -11,7 +11,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -23,24 +22,32 @@ import java.util.concurrent.TimeUnit
 class OpenAIService(
     private val apiKey: String,
     private val model: String = "gpt-4o",
-    private val baseUrl: String = "https://api.openai.com/v1"
-) {
+    private val baseUrl: String = "https://api.openai.com/v1",
+    private val timeoutMs: Long = 60_000,
+    cacheTtlSeconds: Long = 3600,
+    private val cacheEnabled: Boolean = true
+) : AIService {
     private val log = logger<OpenAIService>()
-    private val cache = AICache()
+    private val cache = AICache(cacheTtlSeconds)
     private val json = Json { ignoreUnknownKeys = true }
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+        .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+        .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .build()
 
-    suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
+    override suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
         val prompt = PromptTemplates.detectIssues(filePath, fileContent)
         val rawResponse = callOpenAI(prompt, SystemPrompts.DEBUGGER, jsonMode = true)
         
         return try {
-            val element = json.parseToJsonElement(rawResponse)
+            val jsonString = if (rawResponse.contains("[")) {
+                "[" + rawResponse.substringAfter("[").substringBeforeLast("]") + "]"
+            } else {
+                rawResponse
+            }
+            val element = json.parseToJsonElement(jsonString)
             val jsonArray = when (element) {
                 is kotlinx.serialization.json.JsonObject -> {
                     when {
@@ -96,24 +103,32 @@ class OpenAIService(
         return lines.subList(start, end).joinToString("\n")
     }
 
-    suspend fun explainIssue(issue: Issue, codeSnippet: String): String {
-        val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "explain")
-        cache.get(cacheKey)?.let { return it }
+    override suspend fun explainIssue(issue: Issue, codeSnippet: String): String {
+        val cacheKey = if (cacheEnabled) cache.computeKey(codeSnippet + issue.type.name, "explain") else null
+        if (cacheKey != null) {
+            cache.get(cacheKey)?.let { return it }
+        }
 
         val prompt = PromptTemplates.explainIssue(issue, codeSnippet)
         val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
-        cache.put(cacheKey, response)
+        if (cacheKey != null) {
+            cache.put(cacheKey, response)
+        }
         return response
     }
 
-    suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
-        val cacheKey = cache.computeKey(codeSnippet + issue.type.name, "fix")
-        cache.get(cacheKey)?.let {
-            return parseFixResponse(it, issue, codeSnippet)
+    override suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
+        val cacheKey = if (cacheEnabled) cache.computeKey(codeSnippet + issue.type.name, "fix") else null
+        if (cacheKey != null) {
+            cache.get(cacheKey)?.let {
+                return parseFixResponse(it, issue, codeSnippet)
+            }
         }
         val prompt = PromptTemplates.suggestFix(issue, codeSnippet)
         val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
-        cache.put(cacheKey, response)
+        if (cacheKey != null) {
+            cache.put(cacheKey, response)
+        }
         return parseFixResponse(response, issue, codeSnippet)
     }
 
@@ -135,17 +150,23 @@ class OpenAIService(
             fixedCode = fixedCode,
             filePath = issue.filePath,
             lineStart = issue.line,
-            lineEnd = issue.line + originalSnippet.lines().size
+            lineEnd = issue.line + originalSnippet.lines().size,
+            isDeterministic = false,
+            confidence = 0.7
         )
     }
 
-    suspend fun explainSystem(graph: ProjectGraph): String {
-        val cacheKey = cache.computeKey(graph.metadata.projectName + graph.nodes.size, "system")
-        cache.get(cacheKey)?.let { return it }
+    override suspend fun explainSystem(graph: ProjectGraph): String {
+        val cacheKey = if (cacheEnabled) cache.computeKey(graph.metadata.projectName + graph.nodes.size, "system") else null
+        if (cacheKey != null) {
+            cache.get(cacheKey)?.let { return it }
+        }
 
         val prompt = PromptTemplates.explainSystem(graph)
         val response = callOpenAI(prompt, SystemPrompts.DEBUGGER)
-        cache.put(cacheKey, response)
+        if (cacheKey != null) {
+            cache.put(cacheKey, response)
+        }
         return response
     }
 
@@ -192,5 +213,4 @@ class OpenAIService(
             completionResponse.choices.firstOrNull()?.message?.content
                 ?: throw RuntimeException("No content in OpenAI response")
         }
-
 }

@@ -1113,19 +1113,36 @@ Make sure the fix:
 Respond with the final corrected code and a brief explanation of any additional improvements you made.`
 }
 
-function ProvenanceBadge({ source }: { source: 'STATIC' | 'AI_CLOUD' }) {
-  const isStatic = source === 'STATIC'
+function ProvenanceBadge({ source }: { source: IssueSource }) {
+  let label = 'AI'
+  let textColor = 'var(--badge-ai-text)'
+  let bgColor = 'var(--badge-ai-bg)'
+
+  if (source === 'STATIC') {
+    label = 'STATIC'
+    textColor = 'var(--badge-static-text)'
+    bgColor = 'var(--badge-static-bg)'
+  } else if (source === 'AI_CLOUD') {
+    label = 'CLOUD'
+    textColor = '#C084FC' // Purple
+    bgColor = 'rgba(192, 132, 252, 0.15)'
+  } else if (source === 'AI_LOCAL') {
+    label = 'LOCAL'
+    textColor = '#3DB566' // Green
+    bgColor = 'rgba(61, 181, 102, 0.15)'
+  }
+
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
-      color:      isStatic ? 'var(--badge-static-text)' : 'var(--badge-ai-text)',
-      background: isStatic ? 'var(--badge-static-bg)'   : 'var(--badge-ai-bg)',
+      color: textColor,
+      background: bgColor,
       fontSize: 8, fontWeight: 700,
       padding: '1px 5px', borderRadius: 3,
       letterSpacing: '0.06em',
       flexShrink: 0,
     }}>
-      {isStatic ? 'STATIC' : 'AI'}
+      {label}
     </span>
   )
 }

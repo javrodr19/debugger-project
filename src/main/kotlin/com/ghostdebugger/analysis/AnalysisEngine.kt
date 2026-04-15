@@ -1,6 +1,7 @@
 package com.ghostdebugger.analysis
 
 import com.ghostdebugger.ai.ApiKeyManager
+import com.ghostdebugger.ai.OllamaService
 import com.ghostdebugger.analysis.analyzers.AIAnalyzer
 import com.ghostdebugger.analysis.analyzers.AsyncFlowAnalyzer
 import com.ghostdebugger.analysis.analyzers.CircularDependencyAnalyzer
@@ -20,13 +21,18 @@ import com.ghostdebugger.model.RiskItem
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProgressIndicator
 
 class AnalysisEngine(
     private val settingsProvider: () -> GhostDebuggerSettings.State =
         { GhostDebuggerSettings.getInstance().snapshot() },
     private val apiKeyProvider: () -> String? = { ApiKeyManager.getApiKey() },
+    private val progress: ProgressIndicator? = null,
     private val aiPassRunner: AiPassRunner = AiPassRunner { ctx, key ->
-        AIAnalyzer(key).analyze(ctx)
+        val settings = settingsProvider()
+        val service = com.ghostdebugger.ai.AIServiceFactory.create(settings, key)
+            ?: return@AiPassRunner emptyList()
+        AIAnalyzer(service, progress).analyze(ctx)
     }
 ) {
     private val log = logger<AnalysisEngine>()
@@ -39,12 +45,20 @@ class AnalysisEngine(
         ComplexityAnalyzer()
     )
 
-    suspend fun analyze(context: AnalysisContext): AnalysisResult {
+    suspend fun analyze(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
         val settings = settingsProvider()
         val limitedContext = context.limitTo(settings.maxFilesToAnalyze)
 
-        val staticIssues = runStaticPass(limitedContext)
-        val (aiIssues, engineStatus) = runAiPass(limitedContext, settings)
+        indicator?.text = "Running static analysis..."
+        val staticIssues = runStaticPass(limitedContext, indicator)
+        
+        indicator?.checkCanceled()
+        
+        indicator?.text = "Running AI analysis..."
+        val (aiIssues, engineStatus) = runAiPass(limitedContext, settings, indicator)
+        
+        indicator?.checkCanceled()
+        
         val merged = mergeIssues(staticIssues + aiIssues)
 
         val metrics = ProjectMetrics(
@@ -76,9 +90,11 @@ class AnalysisEngine(
         )
     }
 
-    private fun runStaticPass(context: AnalysisContext): List<Issue> {
+    private fun runStaticPass(context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> {
         val collected = mutableListOf<Issue>()
         for (analyzer in analyzers) {
+            indicator?.checkCanceled()
+            indicator?.text2 = "Analyzer: ${analyzer.name}"
             try {
                 val produced = analyzer.analyze(context).map { issue ->
                     issue.copy(
@@ -101,7 +117,8 @@ class AnalysisEngine(
 
     private suspend fun runAiPass(
         context: AnalysisContext,
-        settings: GhostDebuggerSettings.State
+        settings: GhostDebuggerSettings.State,
+        indicator: ProgressIndicator?
     ): Pair<List<Issue>, EngineStatusPayload> {
         return when (settings.aiProvider) {
             AIProvider.NONE -> emptyList<Issue>() to EngineStatusPayload(
@@ -109,18 +126,15 @@ class AnalysisEngine(
                 status = EngineStatus.DISABLED,
                 message = "AI provider disabled; static-only run."
             )
-            AIProvider.OLLAMA -> emptyList<Issue>() to EngineStatusPayload(
-                provider = "OLLAMA",
-                status = EngineStatus.FALLBACK_TO_STATIC,
-                message = "Ollama integration not yet available; continuing with static-only results."
-            )
-            AIProvider.OPENAI -> runOpenAiPass(context, settings)
+            AIProvider.OLLAMA -> runOllamaPass(context, settings, indicator)
+            AIProvider.OPENAI -> runOpenAiPass(context, settings, indicator)
         }
     }
 
     private suspend fun runOpenAiPass(
         context: AnalysisContext,
-        settings: GhostDebuggerSettings.State
+        settings: GhostDebuggerSettings.State,
+        indicator: ProgressIndicator?
     ): Pair<List<Issue>, EngineStatusPayload> {
         if (!settings.allowCloudUpload) {
             return emptyList<Issue>() to EngineStatusPayload(
@@ -145,6 +159,7 @@ class AnalysisEngine(
             )
         }
 
+        indicator?.checkCanceled()
         val aiContext = context.limitAiFilesTo(settings.maxAiFiles)
         val started = System.currentTimeMillis()
         val result = runCatching { aiPassRunner.run(aiContext, apiKey) }
@@ -173,7 +188,67 @@ class AnalysisEngine(
                 emptyList<Issue>() to EngineStatusPayload(
                     provider = "OPENAI",
                     status = EngineStatus.FALLBACK_TO_STATIC,
-                    message = "OpenAI unreachable (${e.javaClass.simpleName}); static results returned.",
+                    message = "Cannot reach OpenAI. Check your network or switch to Ollama in Settings.",
+                    latencyMs = latency
+                )
+            }
+        )
+    }
+
+    private suspend fun runOllamaPass(
+        context: AnalysisContext,
+        settings: GhostDebuggerSettings.State,
+        indicator: ProgressIndicator?
+    ): Pair<List<Issue>, EngineStatusPayload> {
+        if (settings.maxAiFiles <= 0) {
+            return emptyList<Issue>() to EngineStatusPayload(
+                provider = "OLLAMA",
+                status   = EngineStatus.DISABLED,
+                message  = "AI analysis is limited to 0 files in settings."
+            )
+        }
+
+        indicator?.checkCanceled()
+        val aiContext = context.limitAiFilesTo(settings.maxAiFiles)
+        val ollamaService = OllamaService(
+            endpoint        = settings.ollamaEndpoint,
+            model           = settings.ollamaModel,
+            timeoutMs       = settings.aiTimeoutMs,
+            cacheTtlSeconds = settings.cacheTtlSeconds,
+            cacheEnabled    = settings.cacheEnabled
+        )
+        val started = System.currentTimeMillis()
+        val result = runCatching {
+            aiContext.parsedFiles.flatMap { file ->
+                indicator?.checkCanceled()
+                indicator?.text2 = "Ollama: ${file.path.substringAfterLast('/')}"
+                ollamaService.detectIssues(file.path, file.content)
+            }
+        }
+        val latency = System.currentTimeMillis() - started
+
+        return result.fold(
+            onSuccess = { issues ->
+                val tagged = issues.map { it.copy(
+                    sources   = if (it.sources.isNotEmpty() && it.sources != listOf(IssueSource.STATIC))
+                                    it.sources else listOf(IssueSource.AI_LOCAL),
+                    providers = if (it.providers.isNotEmpty() && it.providers != listOf(EngineProvider.STATIC))
+                                    it.providers else listOf(EngineProvider.OLLAMA),
+                    confidence = it.confidence ?: 0.7
+                ) }
+                tagged to EngineStatusPayload(
+                    provider  = "OLLAMA",
+                    status    = EngineStatus.ONLINE,
+                    message   = "Ollama analysis complete (${tagged.size} issues).",
+                    latencyMs = latency
+                )
+            },
+            onFailure = { e ->
+                log.warn("Ollama pass failed; static results will ship", e)
+                emptyList<Issue>() to EngineStatusPayload(
+                    provider  = "OLLAMA",
+                    status    = EngineStatus.FALLBACK_TO_STATIC,
+                    message   = "Ollama unreachable. Ensure the Ollama server is running locally.",
                     latencyMs = latency
                 )
             }

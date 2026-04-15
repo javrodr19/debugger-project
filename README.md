@@ -1,95 +1,33 @@
-# Aegis Debug
+# Aegis Debug — privacy-first debugging for IntelliJ
 
-> **Temporary README** — the project is currently under active **V1 development**.
+**Static-first analysis. Deterministic fixes. Optional local or cloud AI.**
 
-**Aegis Debug** is a privacy-first IntelliJ plugin for visual code debugging and issue remediation. The product is being built around a simple trust model: **static analysis first**, **deterministic PSI-based fixes where possible**, and **optional local/cloud AI** as a secondary layer for contextual reasoning and explanation. The current product direction prioritizes trust, clarity, and explicit provenance over flashy automation. 
+Aegis Debug is an IntelliJ IDEA plugin that finds real bugs in your TypeScript and JavaScript code without sending anything to the cloud by default. Every finding is labeled with its source — engine-verified, local AI, or cloud AI — so you always know what you are trusting.
 
-## Current Status
+## Key Features
 
-Aegis Debug is **not production-ready yet**. This repository is currently being used to build the first real V1 of the product.
+- **🧠 NeuroMap** — A visual project graph that highlights hotspots and dependency cycles.
+- **🛡️ Static-First Analysis** — Five deterministic analyzers for null safety, state initialization, async flow, circular dependencies, and complexity.
+- **⚡ Deterministic Fixers** — One-click fixes for common issues with diff preview and native IDE undo.
+- **🤖 Optional AI Augmentation** — Connect to **Ollama** for local, privacy-first reasoning or **OpenAI** for cloud-powered deep analysis.
+- **📉 Provenance Tracking** — Clear visual badges distinguish between engine-verified and AI-suggested results.
+- **🔒 Privacy by Default** — No telemetry. No cloud uploads without explicit configuration. API keys stored securely in IntelliJ PasswordSafe.
 
-At the moment, the focus is on shipping a reliable foundation with:
-- a **static-first analysis pipeline**
-- a **limited set of deterministic fixes**
-- **optional Ollama / OpenAI support**
-- **engine status + graceful fallback UX**
-- **clear trust badges** that distinguish deterministic engine actions from AI suggestions
+## Supported Languages
 
-## V1 Focus
+- **TypeScript and JavaScript** — Full static analysis and deterministic fixers.
+- **Kotlin and Java** — Project graph, complexity analysis, and circular dependency detection.
 
-The V1 is being developed around the following core principles:
+## Getting Started
 
-- **Static analysis is the foundation**
-- **AI is the amplifier**
-- **Trust is the product**
+1. Install "Aegis Debug" from the JetBrains Marketplace.
+2. Open the **Aegis Debug** tool window on the right side of your IDE.
+3. Click **Analyze Project** to build your NeuroMap.
+4. (Optional) Configure an AI provider in **Settings → Tools → Aegis Debug**.
 
-This means V1 is intentionally focused on:
-- deterministic issue detection first
-- safe PSI-based fixes for a limited set of issue classes
-- optional AI-assisted explanations and missed-issue discovery
-- privacy-first behavior with explicit provider control
-- visible provenance for findings and fixes
+## Privacy & Security
 
-## Planned V1 Capabilities
-
-The current V1 target includes:
-
-- **Static-first analysis** with explicit provider modes:
-  - `NONE`
-  - `OLLAMA`
-  - `OPENAI`
-- **Deterministic fix workflow** with diff preview and undo-safe application
-- **Issue provenance tracking** (`source`, `provider`, optional `confidence`)
-- **Engine status communication** in the UI
-- **Enterprise-grade UI refresh** with a Dark Navy + Cream design system
-- **Aegis Debug branding rollout** replacing the previous GhostDebugger identity
-
-## Not in Scope for V1
-
-The following ideas are intentionally deferred until after V1:
-
-- freeform in-plugin chat
-- autonomous large-scale code rewrites
-- multi-step agentic refactoring workflows
-- broad language/framework coverage without validated analyzer + fixer support
-
-## Supported Direction for V1
-
-The current recommended V1 scope is:
-- **Primary language:** Kotlin
-- **Secondary language:** Java (only where explicitly validated)
-- **Platform:** IntelliJ-based IDEs
-
-## Product Philosophy
-
-Aegis Debug is being designed to help developers understand and fix issues with a workflow that is:
-- fast
-- privacy-conscious
-- visually understandable
-- explicit about confidence and provenance
-
-The long-term vision is to create a debugging experience where deterministic analysis handles the baseline, and AI adds value only where it improves context rather than replacing trust.
-
-## Branding Note
-
-This project was previously developed under the working name **GhostDebugger**. As part of the V1 direction, the product is being renamed to **Aegis Debug** to better reflect its enterprise-grade, privacy-first positioning.
-
-## Repository Note
-
-Because the product is still in active V1 development, this README is intentionally temporary. It will be replaced with a fuller public README once:
-- the initial analyzer set is stable
-- deterministic fix flows are validated
-- provider fallback behavior is hardened
-- the V1 release surface is finalized
-
-## Internal Docs
-
-The canonical internal build direction currently lives in the V1 product specification document.
-
-## License / Contribution
-
-License, contribution guidelines, setup instructions, and public installation steps will be documented as the V1 foundation stabilizes.
+We believe your code is your business. Aegis Debug is designed to work entirely locally. If you choose to enable cloud AI, only the specific code snippets required for analysis are transmitted, and only when you explicitly opt-in.
 
 ---
-
-**Working tagline:** *Enterprise-grade debugging. Zero privacy compromises.*
+© 2026 Aegis Debug Team. All rights reserved.

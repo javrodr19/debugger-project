@@ -46,8 +46,13 @@ class AsyncFlowAnalyzer : Analyzer {
         issues: MutableList<Issue>
     ) {
         // Find .then() without .catch()
-        val thenWithoutCatch = Regex("""\.then\s*\([^)]*\)\s*;""")
-        if (thenWithoutCatch.containsMatchIn(line)) {
+        // Improved regex: matches .then( any content ) optionally followed by ;
+        // We look for .then( but NO .catch( in the same line or nearby
+        if (line.contains(".then(") && !line.contains(".catch(")) {
+            // Check if next line contains .catch (simple multi-line check)
+            val nextLine = if (lineIndex + 1 < lines.size) lines[lineIndex + 1] else ""
+            if (nextLine.contains(".catch(")) return
+
             val snippet = lines.subList(maxOf(0, lineIndex - 1), minOf(lines.size, lineIndex + 3))
                 .joinToString("\n")
             issues.add(

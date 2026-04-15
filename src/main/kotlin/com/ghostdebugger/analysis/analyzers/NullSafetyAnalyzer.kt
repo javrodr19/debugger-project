@@ -10,19 +10,6 @@ class NullSafetyAnalyzer : Analyzer {
     override val defaultSeverity = IssueSeverity.ERROR
     override val description = "Detects property access on variables initialized as null/undefined without a guarding null check."
 
-    // Patterns that indicate null/undefined access risk
-    private val nullStatePatterns = listOf(
-        // useState(null) or useState(undefined) then accessing .property
-        Regex("""useState\s*\(\s*(?:null|undefined)\s*\)"""),
-        // Variable accessed without null check after async
-        Regex("""\.then\s*\([^)]*=>\s*\w+\s*\(\s*\w+\s*\)""")
-    )
-
-    private val dangerousAccessPatterns = listOf(
-        // Direct property access on potentially null value
-        Regex("""(?<!\?)\.(?:name|id|value|data|result|user|item|response)\b(?!\s*[?=])""")
-    )
-
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()
 
@@ -74,40 +61,17 @@ class NullSafetyAnalyzer : Analyzer {
                                     id = UUID.randomUUID().toString(),
                                     type = IssueType.NULL_SAFETY,
                                     severity = IssueSeverity.ERROR,
-                                    title = "Null reference: $varName.${"may be null"}",
+                                    title = "Null reference: $varName may be null",
                                     description = "Variable '$varName' may be null or undefined when accessing property. " +
                                             "This is initialized as null and accessed without a null check.",
                                     filePath = file.path,
                                     line = index + 1,
                                     codeSnippet = snippet,
-                                    affectedNodes = listOf(file.path)
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // Detect items.map() where items might not be initialized
-                val stateMapRegex = Regex("""const\s+\[(\w+),\s*\w+\]\s*=\s*useState\s*\(\s*\)""")
-                if (lines.take(index + 1).any { stateMapRegex.containsMatchIn(it) }) {
-                    val mapAccessRegex = Regex("""(\w+)\.map\s*\(""")
-                    mapAccessRegex.find(trimmed)?.let { match ->
-                        val varName2 = match.groupValues[1]
-                        if (lines.take(index + 1).any { stateMapRegex.find(it)?.groupValues?.get(1) == varName2 }) {
-                            val snippet = lines.subList(maxOf(0, index - 1), minOf(lines.size, index + 2))
-                                .joinToString("\n")
-                            issues.add(
-                                Issue(
-                                    id = UUID.randomUUID().toString(),
-                                    type = IssueType.STATE_BEFORE_INIT,
-                                    severity = IssueSeverity.ERROR,
-                                    title = "State used before initialization: $varName2",
-                                    description = "State '$varName2' is called .map() but was initialized without a default value (undefined). " +
-                                            "This will throw 'Cannot read properties of undefined'.",
-                                    filePath = file.path,
-                                    line = index + 1,
-                                    codeSnippet = snippet,
-                                    affectedNodes = listOf(file.path)
+                                    affectedNodes = listOf(file.path),
+                                    ruleId = ruleId,
+                                    sources = listOf(IssueSource.STATIC),
+                                    providers = listOf(EngineProvider.STATIC),
+                                    confidence = 1.0
                                 )
                             )
                         }

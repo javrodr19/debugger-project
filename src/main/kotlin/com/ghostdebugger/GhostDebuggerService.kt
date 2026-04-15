@@ -1,7 +1,8 @@
 package com.ghostdebugger
 
 import com.ghostdebugger.ai.ApiKeyManager
-import com.ghostdebugger.ai.OpenAIService
+import com.ghostdebugger.ai.AIService
+import com.ghostdebugger.ai.AIServiceFactory
 import com.ghostdebugger.analysis.AnalysisEngine
 import com.ghostdebugger.bridge.JcefBridge
 import com.ghostdebugger.bridge.UIEvent
@@ -12,6 +13,8 @@ import com.ghostdebugger.model.*
 import com.ghostdebugger.parser.DependencyResolver
 import com.ghostdebugger.parser.FileScanner
 import com.ghostdebugger.parser.SymbolExtractor
+import com.ghostdebugger.settings.AIProvider
+import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
@@ -23,7 +26,6 @@ import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
-import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.xdebugger.XDebugProcess
 import com.intellij.xdebugger.XDebugSession
@@ -31,8 +33,6 @@ import com.intellij.xdebugger.XDebugSessionListener
 import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.XDebuggerManagerListener
 import com.intellij.xdebugger.frame.XStackFrame
-import com.intellij.xdebugger.frame.XNamedValue
-import com.intellij.xdebugger.frame.XValueChildrenList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.swing.Swing
 import java.io.File
@@ -43,15 +43,26 @@ class GhostDebuggerService(private val project: Project) {
     private val log = logger<GhostDebuggerService>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
+    private val analysisLock = Object()
+    @Volatile private var activeAnalysisIndicator: com.intellij.openapi.progress.ProgressIndicator? = null
+
     private var bridge: JcefBridge? = null
     private var currentGraph: ProjectGraph? = null
     var currentIssues: List<Issue> = emptyList()
         private set
-    private var openAIService: OpenAIService? = null
+    var isAnalyzing: Boolean = false
+        private set
+    private var aiService: AIService? = null
     private var fileWatcherRegistered = false
     private var autoRefreshJob: Job? = null
     private var debugSessionListener: XDebugSessionListener? = null
     private val fixApplicator = FixApplicator()
+
+    private fun resolveAiService(): AIService? {
+        val settings = GhostDebuggerSettings.getInstance().snapshot()
+        val apiKey = if (settings.aiProvider == AIProvider.OPENAI) ApiKeyManager.getApiKey() else null
+        return AIServiceFactory.create(settings, apiKey)?.also { aiService = it }
+    }
 
     companion object {
         fun getInstance(project: Project): GhostDebuggerService =
@@ -109,8 +120,6 @@ class GhostDebuggerService(private val project: Project) {
 
     /**
      * Hooks into the IDE's debug sessions to provide visual debug overlays.
-     * When the user starts debugging normally (Run → Debug), Aegis Debug
-     * listens for frame changes and sends debug frame data to the webview.
      */
     private fun registerDebugSessionListener() {
         try {
@@ -173,9 +182,8 @@ class GhostDebuggerService(private val project: Project) {
                 val frame = session.currentStackFrame ?: return@launch
                 val sourcePosition = frame.sourcePosition ?: return@launch
                 val filePath = sourcePosition.file.path.replace("\\", "/")
-                val line = sourcePosition.line + 1 // 0-indexed to 1-indexed
+                val line = sourcePosition.line + 1
 
-                // Find the matching graph node
                 val graph = currentGraph
                 val nodeId = if (graph != null) {
                     graph.nodes.firstOrNull { node ->
@@ -186,13 +194,8 @@ class GhostDebuggerService(private val project: Project) {
                     filePath
                 }
 
-                // Extract variable values from the stack frame
                 val variables = mutableListOf<DebugVariable>()
                 try {
-                    // Use evaluator to get local variables — this is a simplified approach
-                    // The full implementation would walk the XValueContainer children
-                    val evaluator = frame.evaluator
-                    // We'll send what we can — the frame itself is the main value
                     variables.add(DebugVariable(
                         name = "frame",
                         value = frame.toString().take(60),
@@ -222,6 +225,7 @@ class GhostDebuggerService(private val project: Project) {
             is UIEvent.ImpactRequested -> handleImpactRequested(event.nodeId)
             is UIEvent.ExplainSystemRequested -> handleExplainSystem()
             is UIEvent.AnalyzeRequested -> analyzeProject()
+            is UIEvent.CancelAnalysisRequested -> cancelAnalysis()
             is UIEvent.BreakpointSet -> handleBreakpointSet(event.filePath, event.line)
             is UIEvent.BreakpointRemoved -> handleBreakpointRemoved(event.filePath, event.line)
             is UIEvent.ExportReportRequested -> handleExportReportRequested()
@@ -234,9 +238,6 @@ class GhostDebuggerService(private val project: Project) {
         }
     }
 
-    /**
-     * Executes an action on the current debug session if one exists.
-     */
     private fun handleDebugAction(action: (XDebugSession) -> Unit) {
         ApplicationManager.getApplication().invokeLater {
             try {
@@ -258,103 +259,167 @@ class GhostDebuggerService(private val project: Project) {
     }
 
     fun analyzeProject() {
-        scope.launch {
-            try {
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendAnalysisStart()
-                }
+        synchronized(analysisLock) {
+            activeAnalysisIndicator?.cancel()
+        }
 
-                log.info("Starting project analysis...")
+        val task = object : com.intellij.openapi.progress.Task.Backgroundable(project, "Aegis Debug: Analyzing project", true) {
+            override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
+                synchronized(analysisLock) { activeAnalysisIndicator = indicator }
+                isAnalyzing = true
+                indicator.isIndeterminate = false
+                indicator.fraction = 0.0
 
-                // 1. Scan files
-                val virtualFiles = ApplicationManager.getApplication().runReadAction<List<com.intellij.openapi.vfs.VirtualFile>> {
-                    FileScanner(project).scanFiles()
-                }
-
-                log.info("Found ${virtualFiles.size} files")
-
-                // 2. Parse files
-                val rawFiles = ApplicationManager.getApplication().runReadAction<List<ParsedFile>> {
-                    FileScanner(project).parsedFiles(virtualFiles)
-                }
-
-                // 3. Extract symbols
-                val extractor = SymbolExtractor()
-                val parsedFiles = rawFiles.map { extractor.extract(it) }
-
-                // 4. Resolve dependencies
-                val resolver = DependencyResolver(project.basePath ?: "")
-                val dependencies = resolver.resolve(parsedFiles)
-
-                // 5. Build graph
-                val graphBuilder = GraphBuilder()
-                val inMemoryGraph = graphBuilder.build(parsedFiles, dependencies)
-
-                // 6. Run analysis
-                val analysisContext = AnalysisContext(
-                    graph = inMemoryGraph,
-                    project = project,
-                    parsedFiles = parsedFiles
-                )
-                val analysisResult = AnalysisEngine().analyze(analysisContext)
-                currentIssues = analysisResult.issues
-
-                // 7. Apply issues to graph
-                graphBuilder.applyIssues(inMemoryGraph, analysisResult.issues)
-
-                // 8. Build serializable graph
-                val projectGraph = inMemoryGraph.toProjectGraph(project.name)
-                currentGraph = projectGraph
-
-                log.info("Analysis complete: ${analysisResult.issues.size} issues found")
-
-                // 9. Send to UI
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendGraphData(projectGraph)
-                    bridge?.sendAnalysisComplete(
-                        analysisResult.metrics.errorCount,
-                        analysisResult.metrics.warningCount,
-                        analysisResult.metrics.healthScore
-                    )
-                    bridge?.sendEngineStatus(analysisResult.engineStatus)
-                }
-
-                // 10. Refresh annotator
-                ApplicationManager.getApplication().invokeLater {
-                    try {
-                        DaemonCodeAnalyzer.getInstance(project).restart()
-                    } catch (e: Exception) {
-                        log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
+                try {
+                    runBlocking {
+                        performAnalysis(indicator)
                     }
-                }
-
-                // 11. Pre-fetch AI explanations for critical issues
-                val apiKey = ApiKeyManager.getApiKey()
-                if (!apiKey.isNullOrBlank()) {
-                    val aiService = OpenAIService(apiKey).also { openAIService = it }
-                    val criticalIssues = analysisResult.issues
-                        .filter { it.severity == IssueSeverity.ERROR }
-                        .take(3)
-
-                    for (issue in criticalIssues) {
-                        try {
-                            val explanation = aiService.explainIssue(issue, issue.codeSnippet)
-                            issue.explanation = explanation
-                            withContext(Dispatchers.Swing) {
-                                bridge?.sendIssueExplanation(issue.id, explanation)
-                            }
-                        } catch (e: Exception) {
-                            log.warn("Could not fetch explanation for issue ${issue.id}", e)
-                        }
+                } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+                    log.info("Analysis canceled by user")
+                    scope.launch(Dispatchers.Swing) {
+                        bridge?.sendError("Analysis canceled.")
                     }
-                }
-
-            } catch (t: Throwable) {
-                log.error("Analysis failed with Throwable", t)
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Analysis failed: ${t.message ?: t.javaClass.simpleName}")
+                } catch (t: Throwable) {
+                    log.error("Analysis failed", t)
+                    scope.launch(Dispatchers.Swing) {
+                        bridge?.sendError("Analysis failed: ${t.message ?: t.javaClass.simpleName}")
+                    }
+                } finally {
+                    isAnalyzing = false
+                    synchronized(analysisLock) {
+                        if (activeAnalysisIndicator === indicator) activeAnalysisIndicator = null
+                    }
                 }
             }
+        }
+        com.intellij.openapi.progress.ProgressManager.getInstance().run(task)
+    }
+
+    fun cancelAnalysis() {
+        synchronized(analysisLock) {
+            activeAnalysisIndicator?.cancel()
+        }
+    }
+
+    private suspend fun performAnalysis(indicator: com.intellij.openapi.progress.ProgressIndicator) {
+        withContext(Dispatchers.Swing) {
+            bridge?.sendAnalysisStart()
+        }
+
+        log.info("Starting project analysis...")
+        indicator.text = "Scanning files..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Scanning files...", 0.0) }
+
+        val virtualFiles = ApplicationManager.getApplication().runReadAction<List<com.intellij.openapi.vfs.VirtualFile>> {
+            FileScanner(project).scanFiles()
+        }
+
+        indicator.checkCanceled()
+        indicator.fraction = 0.10
+        log.info("Found ${virtualFiles.size} files")
+        indicator.text = "Parsing files..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Parsing files...", 0.10) }
+
+        val rawFiles = ApplicationManager.getApplication().runReadAction<List<ParsedFile>> {
+            FileScanner(project).parsedFiles(virtualFiles)
+        }
+
+        indicator.checkCanceled()
+        indicator.fraction = 0.25
+        indicator.text = "Extracting symbols..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Extracting symbols...", 0.25) }
+
+        val extractor = SymbolExtractor()
+        val parsedFiles = rawFiles.map { 
+            indicator.checkCanceled()
+            extractor.extract(it) 
+        }
+
+        indicator.fraction = 0.40
+        indicator.text = "Resolving dependencies..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Resolving dependencies...", 0.40) }
+        
+        val resolver = DependencyResolver(project.basePath ?: "")
+        val dependencies = resolver.resolve(parsedFiles)
+
+        indicator.checkCanceled()
+        indicator.fraction = 0.50
+        indicator.text = "Building graph..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Building graph...", 0.50) }
+        
+        val graphBuilder = GraphBuilder()
+        val inMemoryGraph = graphBuilder.build(parsedFiles, dependencies)
+
+        indicator.checkCanceled()
+        indicator.fraction = 0.60
+        indicator.text = "Running analyzers..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Running analyzers...", 0.60) }
+
+        val analysisContext = AnalysisContext(
+            graph = inMemoryGraph,
+            project = project,
+            parsedFiles = parsedFiles
+        )
+        
+        val analysisResult = AnalysisEngine(progress = indicator).analyze(analysisContext, indicator)
+        currentIssues = analysisResult.issues
+
+        indicator.checkCanceled()
+        indicator.fraction = 0.90
+        indicator.text = "Publishing results..."
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Publishing results...", 0.90) }
+
+        graphBuilder.applyIssues(inMemoryGraph, analysisResult.issues)
+
+        val projectGraph = inMemoryGraph.toProjectGraph(project.name)
+        currentGraph = projectGraph
+
+        log.info("Analysis complete: ${analysisResult.issues.size} issues found")
+
+        withContext(Dispatchers.Swing) {
+            bridge?.sendGraphData(projectGraph)
+            bridge?.sendAnalysisComplete(
+                analysisResult.metrics.errorCount,
+                analysisResult.metrics.warningCount,
+                analysisResult.metrics.healthScore
+            )
+            bridge?.sendEngineStatus(analysisResult.engineStatus)
+        }
+        indicator.fraction = 1.0
+        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Complete", 1.0) }
+
+        ApplicationManager.getApplication().invokeLater {
+            try {
+                DaemonCodeAnalyzer.getInstance(project).restart()
+            } catch (e: Exception) {
+                log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
+            }
+        }
+
+        val svc = resolveAiService()
+        if (svc != null) {
+            val criticalIssues = analysisResult.issues
+                .filter { it.severity == IssueSeverity.ERROR }
+                .take(3)
+
+            for (issue in criticalIssues) {
+                indicator.checkCanceled()
+                try {
+                    val explanation = svc.explainIssue(issue, issue.codeSnippet)
+                    updateIssueExplanation(issue.id, explanation)
+                    withContext(Dispatchers.Swing) {
+                        bridge?.sendIssueExplanation(issue.id, explanation)
+                    }
+                } catch (e: Exception) {
+                    log.warn("Could not fetch explanation for issue ${issue.id}", e)
+                }
+            }
+        }
+    }
+
+    private fun updateIssueExplanation(issueId: String, explanation: String) {
+        currentIssues = currentIssues.map { 
+            if (it.id == issueId) it.copy(explanation = explanation) else it
         }
     }
 
@@ -373,10 +438,9 @@ class GhostDebuggerService(private val project: Project) {
 
             scope.launch {
                 try {
-                    val apiKey = ApiKeyManager.getApiKey() ?: return@launch
-                    val aiService = openAIService ?: OpenAIService(apiKey).also { openAIService = it }
-                    val explanation = aiService.explainIssue(issue, issue.codeSnippet)
-                    issue.explanation = explanation
+                    val svc = aiService ?: resolveAiService() ?: return@launch
+                    val explanation = svc.explainIssue(issue, issue.codeSnippet)
+                    updateIssueExplanation(issue.id, explanation)
                     withContext(Dispatchers.Swing) {
                         bridge?.sendIssueExplanation(issue.id, explanation)
                     }
@@ -385,7 +449,7 @@ class GhostDebuggerService(private val project: Project) {
                     withContext(Dispatchers.Swing) {
                         bridge?.sendIssueExplanation(
                             issue.id,
-                            "Error al obtener explicación: ${e.message}"
+                            "Error fetching explanation: ${e.message}"
                         )
                     }
                 }
@@ -441,7 +505,6 @@ class GhostDebuggerService(private val project: Project) {
             ?: currentIssues.firstOrNull { nodeId.contains(it.filePath.substringAfterLast("/")) }
             ?: return
 
-        // 1. Try deterministic fixer first.
         val fixer = FixerRegistry.forIssue(issue)
         if (fixer != null) {
             val fileContent = try {
@@ -455,21 +518,35 @@ class GhostDebuggerService(private val project: Project) {
                 scope.launch(Dispatchers.Swing) {
                     bridge?.sendFixSuggestion(deterministicFix)
                 }
+                
+                val settings = GhostDebuggerSettings.getInstance().snapshot()
+                if (settings.aiProvider != AIProvider.NONE) {
+                    scope.launch {
+                        try {
+                            val svc = aiService ?: resolveAiService() ?: return@launch
+                            val explanation = svc.explainIssue(issue, issue.codeSnippet)
+                            updateIssueExplanation(issue.id, explanation)
+                            withContext(Dispatchers.Swing) {
+                                bridge?.sendIssueExplanation(issue.id, explanation)
+                            }
+                        } catch (e: Exception) {
+                            log.warn("AI explanation enrichment failed for issue ${issue.id}", e)
+                        }
+                    }
+                }
                 return
             }
         }
 
-        // 2. Fall back to AI.
         scope.launch {
             try {
-                val apiKey = ApiKeyManager.getApiKey() ?: run {
+                val svc = aiService ?: resolveAiService() ?: run {
                     withContext(Dispatchers.Swing) {
-                        bridge?.sendError("OpenAI API key not configured. Go to Settings → Tools → Aegis Debug")
+                        bridge?.sendError("AI provider not configured. Go to Settings → Tools → Aegis Debug")
                     }
                     return@launch
                 }
-                val aiService = openAIService ?: OpenAIService(apiKey).also { openAIService = it }
-                val fix = aiService.suggestFix(issue, issue.codeSnippet)
+                val fix = svc.suggestFix(issue, issue.codeSnippet)
                 withContext(Dispatchers.Swing) {
                     bridge?.sendFixSuggestion(fix)
                 }
@@ -488,7 +565,6 @@ class GhostDebuggerService(private val project: Project) {
             return
         }
 
-        // Rebuild the deterministic fix on-the-fly from current file content.
         val fixer = FixerRegistry.forIssue(issue)
         val fix = if (fixer != null) {
             try {
@@ -512,39 +588,87 @@ class GhostDebuggerService(private val project: Project) {
 
         scope.launch {
             val applied = fixApplicator.apply(fix, project)
-            if (applied) {
+            if (applied is com.ghostdebugger.fix.FixApplyResult.Success) {
                 withContext(Dispatchers.Swing) {
                     bridge?.sendFixApplied(issueId)
                 }
-                analyzeProject()
+                reanalyzeFile(issue.filePath)
             } else {
+                val msg = if (applied is com.ghostdebugger.fix.FixApplyResult.Rejected) applied.reason else "Fix application failed for issue $issueId."
                 withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Fix application failed for issue $issueId.")
+                    bridge?.sendError(msg)
                 }
             }
         }
     }
 
-
+    private fun reanalyzeFile(filePath: String) {
+        scope.launch {
+            try {
+                log.info("Starting targeted re-analysis for $filePath")
+                val graph = currentGraph ?: run {
+                    analyzeProject()
+                    return@launch
+                }
+                
+                val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath) ?: return@launch
+                
+                val parsedFile = ApplicationManager.getApplication().runReadAction<ParsedFile?> {
+                    FileScanner(project).parsedFiles(listOf(virtualFile)).firstOrNull()
+                } ?: return@launch
+                
+                val extractor = SymbolExtractor()
+                val updatedFile = extractor.extract(parsedFile)
+                
+                val ctx = AnalysisContext(
+                    graph = com.ghostdebugger.graph.InMemoryGraph().apply {
+                        graph.nodes.forEach { addNode(it) }
+                        graph.edges.forEach { addEdge(it) }
+                    },
+                    project = project,
+                    parsedFiles = listOf(updatedFile)
+                )
+                
+                currentIssues = com.ghostdebugger.analysis.PartialReanalyzer().reanalyzeFile(project, filePath, currentIssues, ctx)
+                
+                val graphBuilder = GraphBuilder()
+                val inMemoryGraph = com.ghostdebugger.graph.InMemoryGraph().apply {
+                    graph.nodes.forEach { addNode(it) }
+                    graph.edges.forEach { addEdge(it) }
+                }
+                graphBuilder.applyIssues(inMemoryGraph, currentIssues)
+                
+                val updatedGraph = inMemoryGraph.toProjectGraph(project.name)
+                currentGraph = updatedGraph
+                
+                withContext(Dispatchers.Swing) {
+                    bridge?.sendGraphData(updatedGraph)
+                }
+                
+            } catch (e: Exception) {
+                log.warn("Targeted re-analysis failed for $filePath", e)
+                analyzeProject()
+            }
+        }
+    }
 
     private fun handleExplainSystem() {
         val graph = currentGraph ?: run {
             scope.launch(Dispatchers.Swing) {
-                bridge?.sendSystemExplanation("Por favor, analiza el proyecto primero con 'Analyze Project'.")
+                bridge?.sendSystemExplanation("Please analyze the project first with 'Analyze Project'.")
             }
             return
         }
 
         scope.launch {
             try {
-                val apiKey = ApiKeyManager.getApiKey() ?: run {
+                val svc = aiService ?: resolveAiService() ?: run {
                     withContext(Dispatchers.Swing) {
                         bridge?.sendSystemExplanation(buildLocalSystemSummary(graph))
                     }
                     return@launch
                 }
-                val aiService = openAIService ?: OpenAIService(apiKey).also { openAIService = it }
-                val summary = aiService.explainSystem(graph)
+                val summary = svc.explainSystem(graph)
                 withContext(Dispatchers.Swing) {
                     bridge?.sendSystemExplanation(summary)
                 }
@@ -580,15 +704,12 @@ class GhostDebuggerService(private val project: Project) {
 
         scope.launch {
             try {
-                log.info("Generating HTML report...")
                 val reportGenerator = ReportGenerator()
                 val htmlContent = reportGenerator.generateHTMLReport(graph)
 
                 val basePath = project.basePath ?: return@launch
                 val reportFile = File(basePath, "aegis-debug-report.html")
                 reportFile.writeText(htmlContent)
-
-                log.info("Report saved to: ${reportFile.absolutePath}")
 
                 try {
                     java.awt.Desktop.getDesktop().browse(reportFile.toURI())
@@ -613,16 +734,16 @@ class GhostDebuggerService(private val project: Project) {
         val warningFiles = graph.nodes.count { it.status == NodeStatus.WARNING }
         val totalIssues = graph.nodes.sumOf { it.issues.size }
         return """
-            Resumen del Proyecto: ${graph.metadata.projectName}
+            Project Overview: ${graph.metadata.projectName}
 
-            • Módulos analizados: ${graph.nodes.size}
-            • Archivos con errores: $errorFiles
-            • Archivos con advertencias: $warningFiles
-            • Issues totales: $totalIssues
-            • Dependencias: ${graph.edges.size}
-            • Salud del proyecto: ${graph.metadata.healthScore.toInt()}%
+            • Analyzed modules: ${graph.nodes.size}
+            • Files with errors: $errorFiles
+            • Files with warnings: $warningFiles
+            • Total issues: $totalIssues
+            • Dependencies: ${graph.edges.size}
+            • Project health: ${graph.metadata.healthScore.toInt()}%
 
-            Configura tu API key de OpenAI en Settings → Tools → Aegis Debug para obtener análisis detallados con IA.
+            Configure an AI provider in Settings → Tools → Aegis Debug for deeper analysis.
         """.trimIndent()
     }
 

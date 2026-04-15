@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { ProjectGraph, GraphNode, Issue, CodeFix, AnalysisMetrics, NodeStatus, DebugFrame, ViewMode, EngineStatusPayload } from '../types'
+import type { ProjectGraph, GraphNode, Issue, CodeFix, AnalysisMetrics, NodeStatus, DebugFrame, ViewMode, EngineStatusPayload, AnalysisProgressPayload } from '../types'
 
 export type DebugSessionState = 'idle' | 'running' | 'paused'
 
@@ -11,6 +11,7 @@ export interface AppState {
   loadingFix: string | null              // issueId currently being fetched
   applyingFix:  string | null            // issueId currently being applied; null when idle
   isAnalyzing: boolean
+  analysisProgress: AnalysisProgressPayload | null
   metrics: AnalysisMetrics | null
   engineStatus: EngineStatusPayload | null
   systemExplanation: string | null
@@ -34,6 +35,7 @@ export type AppAction =
   | { type: 'SET_APPLYING_FIX';  payload: string | null }
   | { type: 'FIX_APPLIED';       payload: string }          // payload is issueId
   | { type: 'ANALYSIS_START' }
+  | { type: 'SET_ANALYSIS_PROGRESS'; payload: AnalysisProgressPayload }
   | { type: 'ANALYSIS_COMPLETE'; payload: AnalysisMetrics }
   | { type: 'SET_ENGINE_STATUS'; payload: EngineStatusPayload }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -57,6 +59,7 @@ export const initialState: AppState = {
   loadingFix: null,
   applyingFix: null,
   isAnalyzing: false,
+  analysisProgress: null,
   metrics: null,
   engineStatus: null,
   systemExplanation: null,
@@ -74,7 +77,7 @@ export const initialState: AppState = {
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_GRAPH':
-      return { ...state, graph: action.payload, isAnalyzing: false, isAutoRefreshing: false }
+      return { ...state, graph: action.payload, isAnalyzing: false, analysisProgress: null, isAutoRefreshing: false }
 
     case 'SELECT_NODE': {
       const node = action.payload
@@ -107,16 +110,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'ANALYSIS_START':
-      return { ...state, isAnalyzing: true, error: null }
+      return { ...state, isAnalyzing: true, analysisProgress: null, error: null }
+
+    case 'SET_ANALYSIS_PROGRESS':
+      return { ...state, analysisProgress: action.payload }
 
     case 'ANALYSIS_COMPLETE':
-      return { ...state, isAnalyzing: false, metrics: action.payload, isAutoRefreshing: false }
+      return { ...state, isAnalyzing: false, analysisProgress: null, metrics: action.payload, isAutoRefreshing: false }
 
     case 'SET_ENGINE_STATUS':
       return { ...state, engineStatus: action.payload }
 
     case 'SET_ERROR':
-      return { ...state, error: action.payload, isAnalyzing: false }
+      return { ...state, error: action.payload, isAnalyzing: false, analysisProgress: null }
 
     case 'SET_SYSTEM_EXPLANATION':
       return { ...state, systemExplanation: action.payload }

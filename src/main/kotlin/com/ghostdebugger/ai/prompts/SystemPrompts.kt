@@ -10,7 +10,7 @@ Guidelines:
 - Use clear, non-technical language when possible
 - Always explain the WHY, not just the WHAT
 - Suggest minimal, targeted fixes (don't over-engineer)
-- Respond in Spanish unless specifically asked otherwise
+- Respond in English unless specifically asked otherwise
 - Be encouraging and constructive, not judgmental
 """
 

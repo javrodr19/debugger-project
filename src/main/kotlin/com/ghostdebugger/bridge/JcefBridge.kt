@@ -98,6 +98,12 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAnalysisComplete($payload)")
     }
 
+    fun sendAnalysisProgress(text: String, fraction: Double) {
+        val escaped = text.replace("\\", "\\\\").replace("\"", "\\\"")
+        val payload = """{"text":"$escaped","fraction":$fraction}"""
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAnalysisProgress($payload)")
+    }
+
     fun sendError(message: String) {
         val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"")
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onError(\"$escaped\")")

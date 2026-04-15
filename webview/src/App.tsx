@@ -21,6 +21,7 @@ export default function App() {
       dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } })
     )
     const unsubStart    = bridge.onAnalysisStart(() => dispatch({ type: 'ANALYSIS_START' }))
+    const unsubProg     = bridge.onAnalysisProgress(payload => dispatch({ type: 'SET_ANALYSIS_PROGRESS', payload }))
     const unsubComplete = bridge.onAnalysisComplete(metrics => dispatch({ type: 'ANALYSIS_COMPLETE', payload: metrics }))
     
     const unsubError    = bridge.onError(message => {
@@ -51,7 +52,7 @@ export default function App() {
 
     return () => {
       unsubGraph(); unsubExpl(); unsubFix(); unsubNode();
-      unsubStart(); unsubComplete(); unsubError(); unsubSystem();
+      unsubStart(); unsubProg(); unsubComplete(); unsubError(); unsubSystem();
       unsubImpact(); unsubFrame(); unsubEnd(); unsubState(); unsubAuto();
       unsubEngineStatus(); unsubFixApplied();
     }
@@ -82,6 +83,7 @@ export default function App() {
 
         <StatusBar
           isAnalyzing={state.isAnalyzing}
+          analysisProgress={state.analysisProgress}
           metrics={state.metrics}
           projectName={state.graph?.metadata.projectName}
           totalNodes={state.graph?.nodes.length}

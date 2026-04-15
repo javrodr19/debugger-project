@@ -1,3 +1,6 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.0.21"
@@ -6,7 +9,7 @@ plugins {
 }
 
 group = "com.ghostdebugger"
-version = "0.1.0"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -21,6 +24,7 @@ dependencies {
         intellijIdeaCommunity("2024.3.2")
         pluginVerifier()
         zipSigner()
+        testFramework(TestFrameworkType.Platform)
     }
 
     // Kotlin Coroutines
@@ -52,25 +56,46 @@ intellijPlatform {
         name = "Aegis Debug"
         version = project.version.toString()
         description = """
-            Aegis Debug — privacy-first code debugging for IntelliJ.
-            Static analysis first. Deterministic PSI-based fixes where possible.
-            Optional local (Ollama) or cloud (OpenAI) AI reasoning, off by default.
+            <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>
 
-            Features:
-            - Static-first project analysis with visual NeuroMap
-            - Deterministic issue detection (null safety, state init, async flow, cycles, complexity)
-            - Optional AI-assisted explanation and missed-issue discovery
-            - Clear provenance: engine-verified vs AI-suggested
-            - Local-first; cloud upload requires explicit opt-in
+            <p><strong>Static-first analysis. Deterministic fixes. Optional local or cloud AI.</strong></p>
+
+            <p>
+                Aegis Debug finds real bugs in your TypeScript and JavaScript code without sending
+                anything to the cloud by default. Every finding is labeled with its
+                source — engine-verified, local AI, or cloud AI — so you always know
+                what you are trusting.
+            </p>
+
+            <h3>What's inside</h3>
+            <ul>
+                <li><strong>Five deterministic analyzers</strong> —
+                    null safety, state-before-init, async flow, circular dependencies, complexity.
+                    (TypeScript and JavaScript primary; Kotlin and Java graph-based analysis).</li>
+                <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
+                <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
+                <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
+                <li><strong>Ollama (local)</strong> or <strong>OpenAI (cloud)</strong> — both optional, both off by default.</li>
+                <li><strong>Secure key storage</strong> via IntelliJ PasswordSafe.</li>
+            </ul>
+
+            <h3>Privacy by default</h3>
+            <ul>
+                <li>No telemetry.</li>
+                <li>No cloud uploads unless you configure them explicitly.</li>
+                <li>Local mode works offline.</li>
+            </ul>
         """.trimIndent()
 
         ideaVersion {
-            sinceBuild = "243"
-            untilBuild = "251.*"
+            sinceBuild = "232.0"
+            untilBuild = "243.*"
         }
 
         vendor {
             name = "Aegis Debug"
+            email = "team@aegisdebug.dev"
+            url = "https://aegisdebug.dev"
         }
     }
 }

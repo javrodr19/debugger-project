@@ -119,12 +119,22 @@ class GraphBuilder {
     }
 
     private fun estimateComplexity(content: String): Int {
-        val complexityKeywords = listOf(
-            "if ", "else ", "for ", "while ", "switch ", "catch ",
-            "&&", "||", "?.", "?.let", "try {", "?.also"
+        val patterns = listOf(
+            Regex("""\bif\b"""),
+            Regex("""\belse\b"""),
+            Regex("""\bfor\b"""),
+            Regex("""\bwhile\b"""),
+            Regex("""\bswitch\b"""),
+            Regex("""\bcatch\b"""),
+            Regex("""&&"""),
+            Regex("""\|\|"""),
+            Regex("""\?\."""),
+            Regex("""\?\.let"""),
+            Regex("""try\s*\{"""),
+            Regex("""\?\.also""")
         )
-        return 1 + complexityKeywords.sumOf { keyword ->
-            content.split(keyword).size - 1
+        return 1 + patterns.sumOf { pattern ->
+            pattern.findAll(content).count()
         }.coerceAtMost(20)
     }
 

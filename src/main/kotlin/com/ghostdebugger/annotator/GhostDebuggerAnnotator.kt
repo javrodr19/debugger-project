@@ -65,6 +65,7 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
         val lineCount = collectedInfo.document.lineCount
 
         return collectedInfo.issues.mapNotNull { issue ->
+            com.intellij.openapi.progress.ProgressManager.checkCanceled()
             val line = issue.line.coerceIn(1, lineCount)
             val severity = when (issue.severity) {
                 IssueSeverity.ERROR -> HighlightSeverity.ERROR

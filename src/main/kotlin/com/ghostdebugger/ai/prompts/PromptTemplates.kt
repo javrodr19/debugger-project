@@ -22,7 +22,7 @@ object PromptTemplates {
           "type": "<a string from the following exact list: NULL_SAFETY, CIRCULAR_DEPENDENCY, ASYNC_FLOW, UNHANDLED_PROMISE, STATE_BEFORE_INIT, HIGH_COMPLEXITY, MISSING_ERROR_HANDLING, DEAD_CODE, RESOURCE_LEAK, MEMORY_LEAK, ARCHITECTURE>",
           "severity": "<either ERROR or WARNING>",
           "title": "<A concise title for the issue in English>",
-          "description": "<A detailed explanation of the problem, max 2 sentences in Spanish>",
+          "description": "<A detailed explanation of the problem, max 2 sentences in English>",
           "line": <Integer, the 1-indexed line number where the issue exists>
         }
         
@@ -52,7 +52,7 @@ object PromptTemplates {
         3. WHEN it manifests (in which scenario it breaks)
         4. IMPACT (what parts of the app are affected)
 
-        Respond in Spanish. Be concise (max 150 words). Use simple language, no jargon.
+        Respond in English. Be concise (max 150 words). Use simple language, no jargon.
     """.trimIndent()
 
     fun suggestFix(issue: Issue, codeSnippet: String, impactContext: String = ""): String = """
@@ -71,7 +71,7 @@ object PromptTemplates {
 
         Return EXACTLY this format — nothing else:
 
-        EXPLANATION: <1-2 sentences in Spanish describing what you changed and why>
+        EXPLANATION: <1-2 sentences in English describing what you changed and why>
 
         FIXED_CODE:
         ```
@@ -96,7 +96,7 @@ object PromptTemplates {
         ## Key Modules
         ${graph.nodes.take(15).joinToString("\n") { "- ${it.name} (${it.type}, ${it.status})" }}
 
-        Provide a concise project overview in Spanish (max 200 words):
+        Provide a concise project overview in English (max 200 words):
         1. What this project seems to do
         2. Main components and their purpose
         3. Key architectural concerns
@@ -120,7 +120,7 @@ object PromptTemplates {
         ## Question from the developer
         "$question"
 
-        Answer this question as a CTO in Spanish. Be direct, specific, and actionable.
+        Answer this question as a CTO in English. Be direct, specific, and actionable.
         Max 200 words. Focus on technical risks and concrete recommendations.
     """.trimIndent()
     fun jointFix(issue: Issue, brokenFiles: Map<String, String>, healthyContext: Map<String, String>): String = """
@@ -145,7 +145,7 @@ object PromptTemplates {
         Your goal is to fix the issues while ensuring compatibility between all involved files.
         Return ONLY a JSON object with this exact structure:
         {
-          "explanation": "<1-2 sentences in Spanish explaining the global fix>",
+          "explanation": "<1-2 sentences in English explaining the global fix>",
           "fixes": [
             {
               "filePath": "<full path of the file>",

@@ -1,7 +1,9 @@
-import type { AnalysisMetrics, EngineStatusPayload } from '../../types'
+import type { AnalysisMetrics, EngineStatusPayload, AnalysisProgressPayload } from '../../types'
+import { bridge } from '../../bridge/pluginBridge'
 
 interface StatusBarProps {
   isAnalyzing: boolean
+  analysisProgress: AnalysisProgressPayload | null
   metrics: AnalysisMetrics | null
   projectName?: string
   totalNodes?: number
@@ -9,7 +11,7 @@ interface StatusBarProps {
   engineStatus?: EngineStatusPayload | null
 }
 
-export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAutoRefreshing, engineStatus }: StatusBarProps) {
+export function StatusBar({ isAnalyzing, analysisProgress, metrics, projectName, totalNodes, isAutoRefreshing, engineStatus }: StatusBarProps) {
   const health = metrics?.healthScore ?? null
   const hColor = health == null ? 'var(--fg-muted)'
     : health >= 80 ? 'var(--ok-text)'
@@ -58,9 +60,16 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
       )}
 
       {/* Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px', flex: 1 }}>
         {isAnalyzing ? (
-          <span style={{ color: 'var(--accent)' }}>⟳ Analyzing…</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--accent)' }}>⟳ {analysisProgress ? analysisProgress.text : 'Analyzing…'}</span>
+            {analysisProgress && (
+              <span style={{ color: 'var(--fg-muted)', fontSize: 9 }}>
+                {Math.round(analysisProgress.fraction * 100)}%
+              </span>
+            )}
+          </div>
         ) : metrics ? (
           <>
             {metrics.errorCount > 0 && (
@@ -80,9 +89,29 @@ export function StatusBar({ isAnalyzing, metrics, projectName, totalNodes, isAut
         ) : null}
       </div>
 
-      <div style={{ flex: 1 }} />
+      {/* Cancel button */}
+      {isAnalyzing && (
+        <div style={{ padding: '0 8px', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border)' }}>
+          <button
+            type="button"
+            onClick={() => bridge.cancelAnalysis()}
+            style={{
+              fontSize: 9,
+              padding: '2px 8px',
+              border: '1px solid var(--border-fg)',
+              background: 'transparent',
+              color: 'var(--fg-secondary)',
+              borderRadius: 3,
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Auto-refresh indicator */}
+
       {isAutoRefreshing && (
         <div style={{
           padding: '0 10px', height: '100%',

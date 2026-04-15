@@ -1,4 +1,4 @@
-import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus, DebugFrame, EngineStatusPayload } from '../types'
+import type { ProjectGraph, CodeFix, AnalysisMetrics, ImpactAnalysis, NodeStatus, DebugFrame, EngineStatusPayload, AnalysisProgressPayload } from '../types'
 import type { DebugSessionState } from '../stores/appStore'
 
 type EventHandler<T> = (data: T) => void
@@ -9,6 +9,7 @@ interface AegisAPI {
   onFixSuggestion: (fix: CodeFix) => void
   onNodeUpdate: (data: { nodeId: string; status: NodeStatus }) => void
   onAnalysisStart: () => void
+  onAnalysisProgress: (data: AnalysisProgressPayload) => void
   onAnalysisComplete: (metrics: AnalysisMetrics) => void
   onError: (message: string) => void
   onSystemExplanation: (explanation: string) => void
@@ -35,6 +36,7 @@ class PluginBridge {
   private fixHandlers: EventHandler<CodeFix>[] = []
   private nodeUpdateHandlers: EventHandler<{ nodeId: string; status: NodeStatus }>[] = []
   private analysisStartHandlers: EventHandler<void>[] = []
+  private analysisProgressHandlers: EventHandler<AnalysisProgressPayload>[] = []
   private analysisCompleteHandlers: EventHandler<AnalysisMetrics>[] = []
   private errorHandlers: EventHandler<string>[] = []
   private systemExplanationHandlers: EventHandler<string>[] = []
@@ -57,6 +59,7 @@ class PluginBridge {
       onFixSuggestion: (fix) => this.fixHandlers.forEach(h => h(fix)),
       onNodeUpdate: (data) => this.nodeUpdateHandlers.forEach(h => h(data)),
       onAnalysisStart: () => this.analysisStartHandlers.forEach(h => h()),
+      onAnalysisProgress: (data) => this.analysisProgressHandlers.forEach(h => h(data)),
       onAnalysisComplete: (metrics) => this.analysisCompleteHandlers.forEach(h => h(metrics)),
       onError: (msg) => this.errorHandlers.forEach(h => h(msg)),
       onSystemExplanation: (exp) => this.systemExplanationHandlers.forEach(h => h(exp)),
@@ -91,6 +94,10 @@ class PluginBridge {
   onAnalysisStart(handler: EventHandler<void>) {
     this.analysisStartHandlers.push(handler)
     return () => { this.analysisStartHandlers = this.analysisStartHandlers.filter(h => h !== handler) }
+  }
+  onAnalysisProgress(handler: EventHandler<AnalysisProgressPayload>) {
+    this.analysisProgressHandlers.push(handler)
+    return () => { this.analysisProgressHandlers = this.analysisProgressHandlers.filter(h => h !== handler) }
   }
   onAnalysisComplete(handler: EventHandler<AnalysisMetrics>) {
     this.analysisCompleteHandlers.push(handler)
@@ -149,6 +156,7 @@ class PluginBridge {
   requestImpact(nodeId: string) { this.sendEvent('IMPACT_REQUESTED', { nodeId }) }
   requestSystemExplanation() { this.sendEvent('EXPLAIN_SYSTEM') }
   requestAnalysis() { this.sendEvent('ANALYZE') }
+  cancelAnalysis() { this.sendEvent('CANCEL_ANALYSIS') }
   requestExport() { this.sendEvent('EXPORT_REPORT') }
   setBreakpoint(filePath: string, line: number) { this.sendEvent('BREAKPOINT_SET', { filePath, line }) }
   removeBreakpoint(filePath: string, line: number) { this.sendEvent('BREAKPOINT_REMOVED', { filePath, line }) }

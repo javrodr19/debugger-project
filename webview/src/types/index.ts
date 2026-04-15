@@ -16,7 +16,7 @@ export type IssueType =
   | 'ARCHITECTURE'
 
 // ── Phase 2 provenance types ──────────────────────────────────────────────────
-export type IssueSource    = 'STATIC' | 'AI_CLOUD'
+export type IssueSource    = 'STATIC' | 'AI_CLOUD' | 'AI_LOCAL'
 export type EngineProvider = 'STATIC' | 'OPENAI' | 'OLLAMA'
 export type EngineStatus   = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'FALLBACK_TO_STATIC' | 'DISABLED'
 
@@ -25,6 +25,11 @@ export interface EngineStatusPayload {
   status:    EngineStatus
   message?:  string
   latencyMs?: number
+}
+
+export interface AnalysisProgressPayload {
+  text: string
+  fraction: number
 }
 
 export interface Issue {

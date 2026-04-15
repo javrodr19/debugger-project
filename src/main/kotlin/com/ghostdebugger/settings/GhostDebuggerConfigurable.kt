@@ -15,10 +15,17 @@ class GhostDebuggerConfigurable : Configurable {
     private var apiKeyField: JPasswordField? = null
     private var modelCombo: JComboBox<String>? = null
     private var maxFilesSpinner: JSpinner? = null
+    private var maxAiFilesSpinner: JSpinner? = null
     private var providerCombo: JComboBox<String>? = null
     private var ollamaEndpointField: JTextField? = null
     private var ollamaModelField: JTextField? = null
     private var allowCloudUploadBox: JCheckBox? = null
+    private var cacheEnabledBox: JCheckBox? = null
+    private var cacheTtlSpinner: JSpinner? = null
+    private var aiTimeoutSpinner: JSpinner? = null
+    private var autoAnalyzeOnOpenBox: JCheckBox? = null
+    private var showInfoIssuesBox: JCheckBox? = null
+    private var analyzeOnlyChangedFilesBox: JCheckBox? = null
 
     override fun getDisplayName(): String = "Aegis Debug"
 
@@ -48,20 +55,6 @@ class GhostDebuggerConfigurable : Configurable {
         val apiKeyPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
             add(JLabel("OpenAI API Key:"))
             add(field)
-            val testButton = JButton("Test Connection").apply {
-                addActionListener {
-                    val key = String(field.password)
-                    if (key.isBlank()) {
-                        Messages.showWarningDialog("Please enter an API key first.", "Aegis Debug")
-                    } else {
-                        Messages.showInfoMessage(
-                            "API key saved. Connection will be tested on first analysis.",
-                            "Aegis Debug"
-                        )
-                    }
-                }
-            }
-            add(testButton)
         }
 
         // Model
@@ -100,22 +93,70 @@ class GhostDebuggerConfigurable : Configurable {
             add(spinner)
         }
 
+        // Max AI files
+        val aiFilesSpinner = JSpinner(SpinnerNumberModel(settings.maxAiFiles, 0, 500, 5)).apply {
+            preferredSize = Dimension(80, 28)
+        }
+        maxAiFilesSpinner = aiFilesSpinner
+        val maxAiFilesPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("Max AI files per pass:"))
+            add(aiFilesSpinner)
+        }
+
+        // AI Timeout
+        val timeoutSpinner = JSpinner(SpinnerNumberModel(settings.aiTimeoutMs.toInt(), 5000, 300000, 5000)).apply {
+            preferredSize = Dimension(100, 28)
+        }
+        aiTimeoutSpinner = timeoutSpinner
+        val timeoutPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("AI Timeout (ms):"))
+            add(timeoutSpinner)
+        }
+
+        // Cache
+        val cacheBox = JCheckBox("Enable AI response cache", settings.cacheEnabled)
+        this.cacheEnabledBox = cacheBox
+        val ttlSpinner = JSpinner(SpinnerNumberModel(settings.cacheTtlSeconds.toInt(), 60, 86400, 300)).apply {
+            preferredSize = Dimension(100, 28)
+        }
+        cacheTtlSpinner = ttlSpinner
+        val cachePanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(cacheBox)
+            add(Box.createHorizontalStrut(20))
+            add(JLabel("Cache TTL (s):"))
+            add(ttlSpinner)
+        }
+
         // Allow cloud upload
         val allowCloudBox = JCheckBox("Allow cloud upload (OpenAI)", settings.allowCloudUpload)
         this.allowCloudUploadBox = allowCloudBox
 
+        // Other options
+        val autoAnalyzeBox = JCheckBox("Auto-analyze project on open", settings.autoAnalyzeOnOpen)
+        this.autoAnalyzeOnOpenBox = autoAnalyzeBox
+        
+        val showInfoBox = JCheckBox("Show INFO level issues", settings.showInfoIssues)
+        this.showInfoIssuesBox = showInfoBox
+        
+        val changedFilesOnlyBox = JCheckBox("Only analyze changed files", settings.analyzeOnlyChangedFiles)
+        this.analyzeOnlyChangedFilesBox = changedFilesOnlyBox
+
         formPanel.add(Box.createVerticalStrut(10))
         formPanel.add(JLabel("<html><b>Aegis Debug Configuration</b></html>"))
         formPanel.add(Box.createVerticalStrut(15))
-        formPanel.add(JLabel("<html>Static-first analysis. AI is optional and off by default.</html>"))
-        formPanel.add(Box.createVerticalStrut(10))
         formPanel.add(providerPanel)
         formPanel.add(apiKeyPanel)
         formPanel.add(modelPanel)
         formPanel.add(ollamaEndpointPanel)
         formPanel.add(ollamaModelPanel)
         formPanel.add(maxFilesPanel)
+        formPanel.add(maxAiFilesPanel)
+        formPanel.add(timeoutPanel)
+        formPanel.add(cachePanel)
         formPanel.add(allowCloudBox)
+        formPanel.add(autoAnalyzeBox)
+        formPanel.add(showInfoBox)
+        formPanel.add(changedFilesOnlyBox)
 
         mainPanel.add(formPanel, BorderLayout.NORTH)
         panel = mainPanel
@@ -132,7 +173,14 @@ class GhostDebuggerConfigurable : Configurable {
             || s.ollamaEndpoint != ollamaEndpointField?.text
             || s.ollamaModel != ollamaModelField?.text
             || s.maxFilesToAnalyze != maxFilesSpinner?.value
+            || s.maxAiFiles != maxAiFilesSpinner?.value
+            || s.aiTimeoutMs != (aiTimeoutSpinner?.value as? Int)?.toLong()
+            || s.cacheEnabled != cacheEnabledBox?.isSelected
+            || s.cacheTtlSeconds != (cacheTtlSpinner?.value as? Int)?.toLong()
             || s.allowCloudUpload != allowCloudUploadBox?.isSelected
+            || s.autoAnalyzeOnOpen != autoAnalyzeOnOpenBox?.isSelected
+            || s.showInfoIssues != showInfoIssuesBox?.isSelected
+            || s.analyzeOnlyChangedFiles != analyzeOnlyChangedFilesBox?.isSelected
     }
 
     override fun apply() {
@@ -145,7 +193,14 @@ class GhostDebuggerConfigurable : Configurable {
             (ollamaEndpointField?.text)?.let { ollamaEndpoint = it }
             (ollamaModelField?.text)?.let { ollamaModel = it }
             (maxFilesSpinner?.value as? Int)?.let { maxFilesToAnalyze = it }
+            (maxAiFilesSpinner?.value as? Int)?.let { maxAiFiles = it }
+            (aiTimeoutSpinner?.value as? Int)?.let { aiTimeoutMs = it.toLong() }
+            cacheEnabled = cacheEnabledBox?.isSelected ?: true
+            (cacheTtlSpinner?.value as? Int)?.let { cacheTtlSeconds = it.toLong() }
             allowCloudUpload = allowCloudUploadBox?.isSelected ?: false
+            autoAnalyzeOnOpen = autoAnalyzeOnOpenBox?.isSelected ?: false
+            showInfoIssues = showInfoIssuesBox?.isSelected ?: true
+            analyzeOnlyChangedFiles = analyzeOnlyChangedFilesBox?.isSelected ?: false
         }
     }
 
@@ -157,6 +212,13 @@ class GhostDebuggerConfigurable : Configurable {
         ollamaEndpointField?.text = s.ollamaEndpoint
         ollamaModelField?.text = s.ollamaModel
         maxFilesSpinner?.value = s.maxFilesToAnalyze
+        maxAiFilesSpinner?.value = s.maxAiFiles
+        aiTimeoutSpinner?.value = s.aiTimeoutMs.toInt()
+        cacheEnabledBox?.isSelected = s.cacheEnabled
+        cacheTtlSpinner?.value = s.cacheTtlSeconds.toInt()
         allowCloudUploadBox?.isSelected = s.allowCloudUpload
+        autoAnalyzeOnOpenBox?.isSelected = s.autoAnalyzeOnOpen
+        showInfoIssuesBox?.isSelected = s.showInfoIssues
+        analyzeOnlyChangedFilesBox?.isSelected = s.analyzeOnlyChangedFiles
     }
 }

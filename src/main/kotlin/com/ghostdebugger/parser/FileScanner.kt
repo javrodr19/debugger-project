@@ -15,14 +15,7 @@ class FileScanner(private val project: Project) {
 
     private val supportedExtensions = setOf(
         "kt", "java",                       // JVM
-        "ts", "tsx", "js", "jsx",           // Web
-        "py",                               // Python
-        "go",                               // Go
-        "rs",                               // Rust
-        "cs",                               // C#
-        "rb",                               // Ruby
-        "swift",                            // Swift
-        "php"                               // PHP
+        "ts", "tsx", "js", "jsx"            // Web
     )
     private val ignoredDirs = setOf(
         "node_modules", ".git", "build", "dist", "out", ".gradle",
