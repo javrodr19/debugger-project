@@ -163,7 +163,7 @@ export default function App() {
                   background: 'rgba(86,212,221,0.1)',
                   border: '1px solid rgba(86,212,221,0.25)',
                   padding: '3px 8px',
-                  borderRadius: 5,
+                  borderRadius: 0,
                   marginRight: 4,
                 }}>
                   <div style={{
@@ -215,7 +215,7 @@ export default function App() {
                         background: 'rgba(86,212,221,0.1)',
                         border: '1px solid rgba(86,212,221,0.2)',
                         padding: '1px 5px',
-                        borderRadius: 3,
+                        borderRadius: 0,
                         fontSize: 8,
                       }}>
                         {state.debugFrame.variables.length} vars
@@ -273,7 +273,7 @@ export default function App() {
                 border: '1px solid var(--error-text)',
                 color: 'var(--error-text)',
                 fontSize: 10, padding: '8px 16px',
-                borderRadius: 8, maxWidth: 320,
+                borderRadius: 0, maxWidth: 320,
                 textAlign: 'center',
                 zIndex: 9999,
                 fontFamily: 'inherit',
@@ -304,14 +304,26 @@ function ToolbarButton({
         display: 'flex', alignItems: 'center', gap: 5,
         padding: '5px 12px',
         background: primary ? 'var(--ok-text)' : 'var(--bg-elevated)',
-        border: `1px solid ${primary ? 'var(--ok-border)' : 'var(--border)'}`,
+        border: `1px solid ${primary ? 'var(--ok-border)' : 'var(--border-fg)'}`,
         color: primary ? '#ffffff' : 'var(--fg-secondary)',
         fontSize: 10, fontWeight: 600,
-        borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer',
+        borderRadius: 0, cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
-        letterSpacing: '0.03em',
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase' as const,
         fontFamily: 'inherit',
-        transition: 'opacity 0.1s',
+        transition: 'background 0.1s, color 0.1s, border-color 0.1s',
+      }}
+      onMouseEnter={e => {
+        if (disabled) return
+        const el = e.currentTarget as HTMLElement
+        el.style.background = primary ? '#2da34d' : 'var(--border-fg)'
+        el.style.color = '#fff'
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.background = primary ? 'var(--ok-text)' : 'var(--bg-elevated)'
+        el.style.color = primary ? '#fff' : 'var(--fg-secondary)'
       }}
     >
       {children}
@@ -337,11 +349,13 @@ function DebugButton({
         display: 'flex', alignItems: 'center', gap: 4,
         padding: '4px 10px',
         background: highlight ? 'rgba(86,212,221,0.12)' : 'var(--bg-elevated)',
-        border: `1px solid ${highlight ? 'rgba(86,212,221,0.3)' : 'var(--border)'}`,
+        border: `1px solid ${highlight ? 'rgba(86,212,221,0.3)' : 'var(--border-fg)'}`,
         color: highlight ? '#56d4dd' : 'var(--fg-secondary)',
         fontSize: 9, fontWeight: 600,
-        borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer',
+        borderRadius: 0, cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase' as const,
         fontFamily: 'inherit',
         transition: 'all 0.1s',
       }}
@@ -369,13 +383,13 @@ function EmptyState({ isAnalyzing, onAnalyze }: { isAnalyzing: boolean; onAnalyz
       background: 'var(--bg-base)',
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: 14,
+        width: 56, height: 56, borderRadius: 0,
         background: 'var(--bg-surface)', border: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 28,
       }}>
         <div style={{
-          width: 32, height: 32, borderRadius: 6,
+          width: 32, height: 32, borderRadius: 0,
           border: '2px solid var(--fg-primary)',
           position: 'relative'
         }}>
@@ -402,7 +416,7 @@ function EmptyState({ isAnalyzing, onAnalyze }: { isAnalyzing: boolean; onAnalyz
             padding: '8px 24px',
             background: 'var(--ok-text)', border: '1px solid var(--ok-border)',
             color: '#fff', fontSize: 11, fontWeight: 700,
-            borderRadius: 8, cursor: 'pointer',
+            borderRadius: 0, cursor: 'pointer',
             fontFamily: 'inherit',
           }}
         >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -6,6 +6,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   BackgroundVariant,
@@ -38,21 +39,37 @@ function buildInitialNodes(graphNodes: ProjectGraph['nodes']): Node[] {
 
 export function NeuroMap({ graph }: NeuroMapProps) {
   const { state, dispatch } = useAppStore()
+  const { setViewport, getViewport } = useReactFlow()
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildInitialNodes(graph.nodes))
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildGroupedNodes(graph.nodes))
   const [edges, setEdges] = useEdgesState<Edge>([])
+
+  // Custom wheel handler — 2x zoom speed, zooms toward cursor
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault()
+    const { x, y, zoom } = getViewport()
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    const scaleFactor = e.deltaY < 0 ? 1.35 : 0.74   // ~2x speed vs default
+    const newZoom = Math.max(0.03, Math.min(4, zoom * scaleFactor))
+    const newX = mouseX + (x - mouseX) * (newZoom / zoom)
+    const newY = mouseY + (y - mouseY) * (newZoom / zoom)
+    setViewport({ x: newX, y: newY, zoom: newZoom }, { duration: 0 })
+  }, [getViewport, setViewport])
 
   // Rebuild nodes when graph data changes, preserving drag positions
   useEffect(() => {
+    const grouped = buildGroupedNodes(graph.nodes)
+    const groupedPosMap = new Map(grouped.map(n => [n.id, n.position]))
     setNodes(prev => {
-      const posMap = new Map(prev.map(n => [n.id, n.position]))
-      return graph.nodes.map((gn, idx) => ({
+      const dragPosMap = new Map(prev.map(n => [n.id, n.position]))
+      return graph.nodes.map(gn => ({
         id: gn.id,
         type: 'custom',
-        position: posMap.get(gn.id) ?? gn.position ?? {
-          x: (idx % 5) * 230 + 40,
-          y: Math.floor(idx / 5) * 190 + 40,
-        },
+        position: dragPosMap.get(gn.id) ?? groupedPosMap.get(gn.id) ?? { x: 40, y: 40 },
         data: { node: gn, isSelected: false, isHighlighted: false, isDebugActive: false },
         zIndex: 0,
       }))
@@ -96,9 +113,9 @@ export function NeuroMap({ graph }: NeuroMapProps) {
         const hl = state.highlightedNodes.includes(e.source)
         const isCycle = e.isCycle === true
 
-        let strokeColor = '#30363d'
-        if (hl && !isCycle) strokeColor = '#00f0ff' // Neon Blue
-        else if (isCycle) strokeColor = '#f0883e'
+        let strokeColor = 'rgba(48,54,61,0.45)'   // default: 55% más sutil
+        if (hl && !isCycle) strokeColor = 'rgba(0,240,255,0.75)'
+        else if (isCycle)   strokeColor = 'rgba(240,136,62,0.65)'
 
         return {
           id: e.id,
@@ -107,9 +124,9 @@ export function NeuroMap({ graph }: NeuroMapProps) {
           animated: e.animated || hl || isCycle,
           style: {
             stroke: strokeColor,
-            strokeWidth: hl ? 3 : isCycle ? 1.3 : 1,
+            strokeWidth: hl ? 2 : isCycle ? 1 : 0.8,
             strokeDasharray: isCycle ? '5 3' : undefined,
-            filter: hl ? 'drop-shadow(0 0 5px #00f0ff)' : undefined,
+            filter: hl ? 'drop-shadow(0 0 4px rgba(0,240,255,0.5))' : undefined,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -143,7 +160,11 @@ export function NeuroMap({ graph }: NeuroMapProps) {
   }, [graph.nodes])
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#0d1117' }}>
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', background: '#0d1117' }}
+      onWheel={onWheel}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -152,22 +173,28 @@ export function NeuroMap({ graph }: NeuroMapProps) {
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.05}
-        maxZoom={3}
+        fitViewOptions={{ padding: 0.25 }}
+        minZoom={0.03}
+        maxZoom={4}
+        panOnDrag
+        panOnScroll={false}
+        zoomOnScroll={false}
+        zoomOnPinch
+        zoomOnDoubleClick={false}
+        selectNodesOnDrag={false}
         proOptions={{ hideAttribution: true }}
         style={{ background: '#0d1117' }}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#21262d" />
         <Controls
           showInteractive={false}
-          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 7 }}
+          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 0 }}
         />
         <MiniMap
-          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8 }}
+          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 0 }}
           nodeColor={miniMapNodeColor}
           maskColor="rgba(0,0,0,0.5)"
-          nodeBorderRadius={4}
+          nodeBorderRadius={0}
         />
       </ReactFlow>
     </div>

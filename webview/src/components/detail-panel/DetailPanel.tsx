@@ -147,23 +147,41 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div style={{ borderBottom: `1px solid ${C.border}` }}>
+    <div style={{
+      borderBottom: `1px solid ${C.border}`,
+      borderLeft: isOpen ? `2px solid ${C.accent}` : '2px solid transparent',
+    }}>
       <button
         onClick={() => onToggle(id)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors"
-        style={{ background: isOpen ? C.surface : 'transparent' }}
+        className="w-full flex items-center gap-2 text-left"
+        style={{
+          background: isOpen ? C.surface : 'transparent',
+          borderRadius: 0,
+          border: 'none',
+          padding: '8px 12px',
+          cursor: 'pointer',
+          width: '100%',
+          transition: 'background 0.12s',
+        }}
         onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = C.elevated }}
         onMouseLeave={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
       >
-        <span style={{ color: C.text3, flexShrink: 0 }}>
+        <span style={{ color: isOpen ? C.accent : C.text3, flexShrink: 0, transition: 'color 0.12s' }}>
           {isOpen
-            ? <ChevronDown size={12} />
-            : <ChevronRight size={12} />
+            ? <ChevronDown size={11} />
+            : <ChevronRight size={11} />
           }
         </span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span style={{ color: C.text1, fontSize: 11, fontWeight: 600 }} className="truncate">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              color: isOpen ? C.text1 : C.text2,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              transition: 'color 0.12s',
+            }} className="truncate">
               {title}
             </span>
             {badge && (
@@ -171,18 +189,20 @@ function Section({
                 style={{
                   color: badge.color,
                   background: badge.bg,
+                  border: `1px solid ${badge.color}22`,
                   fontSize: 9,
                   fontWeight: 700,
                   padding: '1px 5px',
-                  borderRadius: 4,
+                  borderRadius: 0,
                   flexShrink: 0,
+                  letterSpacing: '0.04em',
                 }}
               >
                 {badge.count}
               </span>
             )}
           </div>
-          <span style={{ color: C.text3, fontSize: 9, display: 'block', marginTop: 1 }} className="truncate">
+          <span style={{ color: C.text3, fontSize: 9, display: 'block', marginTop: 2 }} className="truncate">
             {subtitle}
           </span>
         </div>
@@ -233,7 +253,7 @@ function NodeInfoContent({ node }: { node: GraphNode }) {
           border: `1px solid ${C.blueBdr}`,
           fontSize: 9,
           padding: '1px 6px',
-          borderRadius: 4,
+          borderRadius: 0,
           fontWeight: 600,
           letterSpacing: '0.06em',
         }}>
@@ -247,7 +267,7 @@ function NodeInfoContent({ node }: { node: GraphNode }) {
         style={{
           background: C.elevated,
           border: `1px solid ${C.border}`,
-          borderRadius: 6,
+          borderRadius: 0,
           padding: '5px 8px',
           marginBottom: 10,
         }}
@@ -290,7 +310,7 @@ function NodeInfoContent({ node }: { node: GraphNode }) {
           fontSize: 10,
           fontWeight: 600,
           padding: '6px 0',
-          borderRadius: 6,
+          borderRadius: 0,
           cursor: 'pointer',
           letterSpacing: '0.04em',
         }}
@@ -329,7 +349,7 @@ function IssuesContent({
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
           background: C.okBg, border: `1px solid ${C.okBdr}`,
-          borderRadius: 6, padding: '7px 10px',
+          borderRadius: 0, padding: '7px 10px',
         }}>
           <span style={{ color: C.okText, fontSize: 10 }}>No issues detected in this module</span>
         </div>
@@ -373,7 +393,7 @@ function IssueRow({
     <div
       style={{
         border: `1px solid ${isSelected ? bdr : C.border}`,
-        borderRadius: 7,
+        borderRadius: 0,
         marginBottom: isLast ? 0 : 6,
         background: isSelected ? bg : C.surface,
         cursor: 'pointer',
@@ -399,7 +419,7 @@ function IssueRow({
               <span style={{
                 color: C.text3, background: C.elevated,
                 border: `1px solid ${C.border}`,
-                fontSize: 8, padding: '1px 5px', borderRadius: 3,
+                fontSize: 8, padding: '1px 5px', borderRadius: 0,
                 fontFamily: 'var(--font-code)',
               }}>
                 L{issue.line}
@@ -491,7 +511,7 @@ function SolutionsContent({
       <div style={{ padding: '12px', background: C.bg }}>
         <div style={{
           background: C.surface, border: `1px solid ${C.border}`,
-          borderRadius: 6, padding: '10px 12px', textAlign: 'center',
+          borderRadius: 0, padding: '10px 12px', textAlign: 'center',
         }}>
           <span style={{ color: C.text3, fontSize: 10 }}>
             Select an issue in section 2 to generate a fix suggestion
@@ -529,7 +549,7 @@ function SolutionsContent({
       {/* Issue reference */}
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: 6, padding: '6px 10px', marginBottom: 10,
+        borderRadius: 0, padding: '6px 10px', marginBottom: 10,
         display: 'flex', alignItems: 'center', gap: 6,
       }}>
         <SeverityIcon severity={selectedIssue.severity} />
@@ -549,7 +569,7 @@ function SolutionsContent({
             color: 'var(--fg-primary)',
             fontSize: 10, fontWeight: 700,
             padding: '8px 0',
-            borderRadius: 6,
+            borderRadius: 0,
             cursor: 'pointer',
             border: 'none',
             letterSpacing: '0.04em',
@@ -566,7 +586,7 @@ function SolutionsContent({
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           padding: '12px', background: C.surface,
-          border: `1px solid ${C.border}`, borderRadius: 6,
+          border: `1px solid ${C.border}`, borderRadius: 0,
           color: C.text2, fontSize: 10,
         }}>
           <Loader2 size={12} className="animate-spin" style={{ color: C.accent }} />
@@ -580,7 +600,7 @@ function SolutionsContent({
           {fix.description && (
             <div style={{
               background: C.surface, border: `1px solid ${C.border}`,
-              borderRadius: 6, padding: '8px 10px', marginBottom: 10,
+              borderRadius: 0, padding: '8px 10px', marginBottom: 10,
             }}>
               <div style={{ color: C.text3, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
                 What changed
@@ -608,7 +628,7 @@ function SolutionsContent({
               color: applyingFix === selectedIssue.id ? 'var(--fg-muted)' : 'var(--fg-primary)',
               fontSize: 10, fontWeight: 700,
               padding: '8px 0',
-              borderRadius: 6,
+              borderRadius: 0,
               cursor: applyingFix === selectedIssue.id ? 'not-allowed' : 'pointer',
               border: 'none',
               letterSpacing: '0.04em',
@@ -635,7 +655,7 @@ function SolutionsContent({
                 color: copied ? C.okText : C.text1,
                 fontSize: 10, fontWeight: 600,
                 padding: '7px 0',
-                borderRadius: 6,
+                borderRadius: 0,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
@@ -649,7 +669,7 @@ function SolutionsContent({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: C.elevated, border: `1px solid ${C.border}`,
                 color: C.text3, fontSize: 9,
-                padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                padding: '7px 10px', borderRadius: 0, cursor: 'pointer',
               }}
               title="Regenerate"
             >
@@ -667,7 +687,7 @@ function SolutionsContent({
 function CodeDiff({ original, fixed, filePath }: { original: string; fixed: string; filePath: string }) {
   const lang = detectLang(filePath)
   return (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 0, overflow: 'hidden' }}>
       {/* Original */}
       <div>
         <div style={{
@@ -750,7 +770,7 @@ function OverviewPanel({
         padding: 24, textAlign: 'center', background: C.bg,
       }}>
         <div style={{
-          width: 40, height: 40, borderRadius: 10,
+          width: 40, height: 40, borderRadius: 0,
           background: C.surface, border: `1px solid ${C.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 20, marginBottom: 12,
@@ -804,7 +824,7 @@ function OverviewPanel({
       {/* Health */}
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: 8, padding: '10px 12px', marginBottom: 10,
+        borderRadius: 0, padding: '10px 12px', marginBottom: 10,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -855,7 +875,7 @@ function OverviewPanel({
           <div style={{
             background: 'var(--warn-bg)',
             border: '1px solid var(--warn-border)',
-            borderRadius: 7,
+            borderRadius: 0,
             padding: '8px 10px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
@@ -881,7 +901,7 @@ function OverviewPanel({
             return (
               <div key={node.id} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '5px 8px', borderRadius: 5, marginBottom: 3,
+                padding: '5px 8px', borderRadius: 0, marginBottom: 3,
                 background: C.surface, border: `1px solid ${C.border}`,
               }}>
                 <div style={{
@@ -940,7 +960,7 @@ function OverviewPanel({
                       justifyContent: 'center', gap: 6,
                       background: C.elevated, border: `1px solid ${C.border}`,
                       color: C.text1, fontSize: 10, fontWeight: 600,
-                      padding: '8px 0', borderRadius: 6, cursor: 'pointer',
+                      padding: '8px 0', borderRadius: 0, cursor: 'pointer',
                     }}
                   >
                     <Wand2 size={11} />
@@ -952,7 +972,7 @@ function OverviewPanel({
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     padding: '10px', background: C.surface,
-                    border: `1px solid ${C.border}`, borderRadius: 6,
+                    border: `1px solid ${C.border}`, borderRadius: 0,
                     color: C.text2, fontSize: 10,
                   }}>
                     <Loader2 size={12} className="animate-spin" style={{ color: C.accent }} />
@@ -964,7 +984,7 @@ function OverviewPanel({
                   <div>
                     <div style={{
                       background: C.surface, border: `1px solid ${C.border}`,
-                      borderRadius: 6, padding: '8px 10px', marginBottom: 6,
+                      borderRadius: 0, padding: '8px 10px', marginBottom: 6,
                     }}>
                       <p style={{ color: C.text2, fontSize: 10, lineHeight: 1.65, margin: 0 }}>
                         {systemExplanation}
@@ -976,7 +996,7 @@ function OverviewPanel({
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                         background: 'transparent', border: `1px solid ${C.border}`,
                         color: C.text3, fontSize: 9,
-                        padding: '5px 10px', borderRadius: 5, cursor: 'pointer',
+                        padding: '5px 10px', borderRadius: 0, cursor: 'pointer',
                         width: '100%',
                       }}
                     >
@@ -1009,7 +1029,7 @@ function SummaryGroup({ title, children }: { title: string; children: React.Reac
 function SummaryTile({ count, label, color, bg, bdr }: { count: number; label: string; color: string; bg: string; bdr: string }) {
   return (
     <div style={{
-      background: bg, border: `1px solid ${bdr}`, borderRadius: 7,
+      background: bg, border: `1px solid ${bdr}`, borderRadius: 0,
       padding: '8px 6px', textAlign: 'center',
     }}>
       <div style={{ color, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-code)', lineHeight: 1 }}>{count}</div>
@@ -1021,7 +1041,7 @@ function SummaryTile({ count, label, color, bg, bdr }: { count: number; label: s
 function MetricBox({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div style={{
-      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
+      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 0,
       padding: '6px 8px', textAlign: 'center',
     }}>
       <div style={{ color: color ?? C.text1, fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-code)', lineHeight: 1 }}>{value}</div>
@@ -1040,7 +1060,7 @@ function StatusPill({ status }: { status: string }) {
   return (
     <span style={{
       color: s.color, background: s.bg, border: `1px solid ${s.bdr}`,
-      fontSize: 9, padding: '1px 6px', borderRadius: 4, fontWeight: 600,
+      fontSize: 9, padding: '1px 6px', borderRadius: 0, fontWeight: 600,
     }}>
       {s.label}
     </span>
@@ -1057,7 +1077,7 @@ function Badge({ text, color, bg }: { text: string; color: string; bg: string })
   return (
     <span style={{
       color, background: bg,
-      fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3,
+      fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 0,
     }}>
       {text}
     </span>
@@ -1138,7 +1158,7 @@ function ProvenanceBadge({ source }: { source: IssueSource }) {
       color: textColor,
       background: bgColor,
       fontSize: 8, fontWeight: 700,
-      padding: '1px 5px', borderRadius: 3,
+      padding: '1px 5px', borderRadius: 0,
       letterSpacing: '0.06em',
       flexShrink: 0,
     }}>
@@ -1156,7 +1176,7 @@ function TrustBadge({ isDeterministic }: { isDeterministic?: boolean }) {
       background: det ? 'var(--ok-bg)'         : 'var(--badge-ai-bg)',
       border: `1px solid ${det ? 'var(--ok-border)' : 'rgba(192,132,252,0.28)'}`,
       fontSize: 8, fontWeight: 700,
-      padding: '2px 7px', borderRadius: 4,
+      padding: '2px 7px', borderRadius: 0,
       letterSpacing: '0.05em',
     }}>
       {det ? 'Deterministic' : 'AI-Generated'}

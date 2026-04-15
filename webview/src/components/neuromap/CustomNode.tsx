@@ -114,7 +114,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
       style={{
         background: C.bg,
         border: `1px solid ${borderColor}`,
-        borderRadius: 8,
+        borderRadius: 0,
         minWidth: 160,
         maxWidth: expanded ? 280 : 200,
         boxShadow: outline,
@@ -165,7 +165,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
             color: C.cyanText, background: 'rgba(86,212,221,0.12)',
             border: '1px solid rgba(86,212,221,0.3)',
             fontSize: 7, fontWeight: 700,
-            padding: '1px 4px', borderRadius: 3,
+            padding: '1px 4px', borderRadius: 0,
           }}>
             DEBUG
           </span>
@@ -175,7 +175,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
             color: C.errorText, background: 'rgba(248,81,73,0.12)',
             border: '1px solid rgba(248,81,73,0.3)',
             fontSize: 8, fontWeight: 700,
-            padding: '1px 4px', borderRadius: 3,
+            padding: '1px 4px', borderRadius: 0,
           }}>
             {errorCount}E
           </span>
@@ -185,7 +185,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
             color: C.warnText, background: 'rgba(210,153,34,0.12)',
             border: '1px solid rgba(210,153,34,0.3)',
             fontSize: 8, fontWeight: 700,
-            padding: '1px 4px', borderRadius: 3,
+            padding: '1px 4px', borderRadius: 0,
           }}>
             {warnCount}W
           </span>
@@ -234,7 +234,7 @@ function CustomNodeComponent({ data }: NodeProps<CustomNodeData>) {
               alignItems: 'center', justifyContent: 'space-between',
               background: expanded ? 'rgba(56,139,253,0.08)' : 'transparent',
               border: expanded ? '1px solid rgba(56,139,253,0.2)' : '1px solid transparent',
-              borderRadius: 4,
+              borderRadius: 0,
               cursor: 'pointer',
               padding: '3px 4px',
               transition: 'all 0.1s',
@@ -422,7 +422,7 @@ function SymbolRow({
             background: 'rgba(63,185,80,0.08)',
             border: '1px solid rgba(63,185,80,0.15)',
             padding: '0 4px',
-            borderRadius: 3,
+            borderRadius: 0,
             maxWidth: 140,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
