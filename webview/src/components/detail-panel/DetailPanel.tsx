@@ -532,10 +532,12 @@ function SolutionsContent({
   const handleCopyForAI = () => {
     const lang = detectLang(selectedIssue.filePath)
     const prompt = buildAIPrompt(selectedIssue, fix!, lang)
-    navigator.clipboard.writeText(prompt).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+    navigator.clipboard.writeText(prompt)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(err => console.error('Clipboard write failed', err))
   }
 
   const handleApplyFix = () => {
