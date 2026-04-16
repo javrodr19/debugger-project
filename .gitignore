@@ -33,3 +33,6 @@ Thumbs.db
 # Misc
 .cache/
 tmp/
+
+.gemini/
+gha-creds-*.json
