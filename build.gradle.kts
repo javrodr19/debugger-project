@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.ghostdebugger"
-version = "1.0.0"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -39,6 +39,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Testing
+    testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
@@ -70,8 +71,8 @@ intellijPlatform {
             <h3>What's inside</h3>
             <ul>
                 <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
-                <li><strong>Five deterministic analyzers</strong> —
-                    null safety, state-before-init, async flow, circular dependencies, complexity.</li>
+                <li><strong>Seven deterministic analyzers</strong> —
+                    syntax, compilation, null safety, state-before-init, async flow, circular dependencies, complexity.</li>
                 <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
                 <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
                 <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>

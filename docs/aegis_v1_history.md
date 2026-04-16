@@ -26,7 +26,18 @@ Aegis Debug was built in eight distinct phases to transition from a conceptual "
 
 ---
 
-## 2. JetBrains Marketplace Deployment Instructions
+## 2. V1.1 Amendment: Syntax & Compilation (2026-04-16)
+
+Post-V1 launch, the "Syntax Gap" was identified: a file with invalid syntax could slip through the pattern-based analyzers unflagged. V1.1 closed this gap with:
+
+- **Early-pass Analyzers**: `PsiSyntaxAnalyzer` (AEG-SYNTAX-001) and `CompilationErrorAnalyzer` (AEG-COMPILE-001) now run before all other rules.
+- **Two-Phase Engine**: The engine partitions analyzers into `early` and `late` sets.
+- **Broken-File Skip**: Any file flagged in the early pass is excluded from pattern-based and AI analysis to prevent false-positive cascades.
+- **Daemon Harvesting**: Integration with `DaemonCodeAnalyzerImpl` to surface real-time IDE compilation errors.
+
+---
+
+## 3. JetBrains Marketplace Deployment Instructions
 
 To ship a new version of Aegis Debug to the marketplace, follow these steps:
 

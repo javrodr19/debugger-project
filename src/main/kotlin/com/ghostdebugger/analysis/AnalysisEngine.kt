@@ -2,12 +2,7 @@ package com.ghostdebugger.analysis
 
 import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.ai.OllamaService
-import com.ghostdebugger.analysis.analyzers.AIAnalyzer
-import com.ghostdebugger.analysis.analyzers.AsyncFlowAnalyzer
-import com.ghostdebugger.analysis.analyzers.CircularDependencyAnalyzer
-import com.ghostdebugger.analysis.analyzers.ComplexityAnalyzer
-import com.ghostdebugger.analysis.analyzers.NullSafetyAnalyzer
-import com.ghostdebugger.analysis.analyzers.StateInitAnalyzer
+import com.ghostdebugger.analysis.analyzers.*
 import com.ghostdebugger.model.*
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
@@ -29,6 +24,8 @@ class AnalysisEngine(
         AIAnalyzer(service, progress).analyze(ctx)
     },
     private val analyzers: List<Analyzer> = listOf(
+        PsiSyntaxAnalyzer(),
+        CompilationErrorAnalyzer(),
         NullSafetyAnalyzer(),
         StateInitAnalyzer(),
         AsyncFlowAnalyzer(),
@@ -42,17 +39,33 @@ class AnalysisEngine(
         val settings = settingsProvider()
         val limitedContext = context.limitTo(settings.maxFilesToAnalyze)
 
+        indicator?.text = "Checking for syntax and compilation errors..."
+        val earlyAnalyzers = analyzers.filterIsInstance<EarlyAnalyzer>()
+        val earlyIssues = runStaticPass(earlyAnalyzers, limitedContext, indicator)
+        
+        indicator?.checkCanceled()
+
+        // Compute broken files
+        val brokenFilePaths = earlyIssues.map { it.filePath.replace("\\", "/") }.toSet()
+        
+        // Filter context for downstream passes
+        val filteredFiles = limitedContext.parsedFiles.filterNot { 
+            it.path.replace("\\", "/") in brokenFilePaths 
+        }
+        val filteredContext = limitedContext.copy(parsedFiles = filteredFiles)
+
         indicator?.text = "Running static analysis..."
-        val staticIssues = runStaticPass(limitedContext, indicator)
+        val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
+        val lateIssues = runStaticPass(lateAnalyzers, filteredContext, indicator)
         
         indicator?.checkCanceled()
         
         indicator?.text = "Running AI analysis..."
-        val (aiIssues, engineStatus) = runAiPass(limitedContext, settings, indicator)
+        val (aiIssues, engineStatus) = runAiPass(filteredContext, settings, indicator)
         
         indicator?.checkCanceled()
         
-        val merged = mergeIssues(staticIssues + aiIssues)
+        val merged = mergeIssues(earlyIssues + lateIssues + aiIssues)
 
         // Drop file content to save RAM once analysis is done
         limitedContext.parsedFiles.forEach { file ->
@@ -90,9 +103,13 @@ class AnalysisEngine(
         )
     }
 
-    private suspend fun runStaticPass(context: AnalysisContext, indicator: ProgressIndicator?): List<Issue> =
+    private suspend fun runStaticPass(
+        analyzersToRun: List<Analyzer>,
+        context: AnalysisContext,
+        indicator: ProgressIndicator?
+    ): List<Issue> =
         coroutineScope {
-            analyzers.map { analyzer ->
+            analyzersToRun.map { analyzer ->
                 async(Dispatchers.Default) {
                     runOne(analyzer, context, indicator)
                 }

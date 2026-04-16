@@ -1,10 +1,6 @@
 package com.ghostdebugger.analysis
 
-import com.ghostdebugger.analysis.analyzers.AsyncFlowAnalyzer
-import com.ghostdebugger.analysis.analyzers.CircularDependencyAnalyzer
-import com.ghostdebugger.analysis.analyzers.ComplexityAnalyzer
-import com.ghostdebugger.analysis.analyzers.NullSafetyAnalyzer
-import com.ghostdebugger.analysis.analyzers.StateInitAnalyzer
+import com.ghostdebugger.analysis.analyzers.*
 import com.ghostdebugger.model.IssueSeverity
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -12,6 +8,8 @@ import kotlin.test.assertTrue
 class AnalyzerContractTest {
 
     private val analyzers: List<Analyzer> = listOf(
+        PsiSyntaxAnalyzer(),
+        CompilationErrorAnalyzer(),
         NullSafetyAnalyzer(),
         StateInitAnalyzer(),
         AsyncFlowAnalyzer(),

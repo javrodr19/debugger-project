@@ -33,6 +33,8 @@ data class Issue(
 
 @Serializable
 enum class IssueType {
+    SYNTAX_ERROR,
+    COMPILATION_ERROR,
     NULL_SAFETY,
     CIRCULAR_DEPENDENCY,
     UNHANDLED_PROMISE,

@@ -7,6 +7,10 @@
 
 ---
 
+> **V1.1 Amendment (2026-04-15):** Syntax and compilation error detection added. See [V1.1 Design](./superpowers/specs/2026-04-15-aegis-v1.1-syntax-detection-design.md) for details on the two-phase analysis engine and broken-file skip mechanism.
+
+---
+
 ## 0. Executive Summary
 
 **Aegis Debug** is a privacy-first IntelliJ plugin for visual code debugging and issue remediation. Its V1 architecture is based on a simple trust hierarchy:

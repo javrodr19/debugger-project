@@ -19,3 +19,8 @@ interface Analyzer {
 
     fun analyze(context: AnalysisContext): List<Issue>
 }
+
+/** Marker for analyzers that must run before all others so the engine can
+ *  compute the set of broken files and skip downstream analyzers on them. */
+interface EarlyAnalyzer : Analyzer
+

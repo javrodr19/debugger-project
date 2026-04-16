@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="232.0" until-build="261.*"/>
@@ -21,8 +21,8 @@
     <h3>What's inside</h3>
     <ul>
         <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
-        <li><strong>Five deterministic analyzers</strong> —
-            null safety, state-before-init, async flow, circular dependencies, complexity.</li>
+        <li><strong>Seven deterministic analyzers</strong> —
+            syntax, compilation, null safety, state-before-init, async flow, circular dependencies, complexity.</li>
         <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
         <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
         <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
@@ -39,6 +39,13 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>1.1.0 — Syntax & Compilation Error Detection (2026-04-16)</h3>
+    <ul>
+        <li>Added <strong>AEG-SYNTAX-001</strong>: detects parse-level syntax errors across Kotlin, Java, TS, JS.</li>
+        <li>Added <strong>AEG-COMPILE-001</strong>: surfaces IDE-reported compilation errors (unresolved references, type mismatches).</li>
+        <li><strong>Broken-file skip</strong>: downstream static and AI analyzers now skip files with syntax/compilation errors to prevent false positives.</li>
+        <li>Two-phase analysis engine: early (syntax/compile) and late (pattern) passes.</li>
+    </ul>
     <h3>1.0.0 — V1 GA (2026-04-15)</h3>
     <ul>
         <li>Initial public release.</li>

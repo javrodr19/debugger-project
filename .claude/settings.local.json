@@ -11,7 +11,9 @@
       "Bash(head -20 echo \"---\" ls /home/jvv/debugger-project/src/main/resources/META-INF/ echo \"---\" ls /home/jvv/debugger-project/src/main/resources/pluginIcon*)",
       "Bash(unzip -l build/distributions/ghostdebugger-1.0.0.zip)",
       "Bash(python3 *)",
-      "Bash(./gradlew test *)"
+      "Bash(./gradlew test *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
