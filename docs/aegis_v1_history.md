@@ -37,7 +37,17 @@ Post-V1 launch, the "Syntax Gap" was identified: a file with invalid syntax coul
 
 ---
 
-## 3. JetBrains Marketplace Deployment Instructions
+## 3. V1.1.1 Amendment: Stale-Content Fix (2026-04-17)
+
+A critical correctness bug was identified in V1.1: analyzers in the `late` and AI passes operated on disk bytes (`VirtualFile.contentsToByteArray()`), which remained stale after an editor edit until the user manually saved. This caused "phantom" errors where an issue would remain flagged even after being corrected in the editor. V1.1.1 resolved this with:
+
+- **Document-First Reading**: `FileScanner.parsedFiles()` now prefers the live IDE `Document` text, falling back to disk bytes only when no document exists.
+- **PSI-Sync Guarantee**: `PsiDocumentManager.commitAllDocuments()` is called at the start of every analysis run to ensure the PSI tree (used by early analyzers) perfectly mirrors the Document state.
+- **Regression Tests**: Added `FileScannerDocumentReadTest` and `AnalysisEnginePostEditRerunTest` to ensure future analyzers inherit this live-text behavior.
+
+---
+
+## 4. JetBrains Marketplace Deployment Instructions
 
 To ship a new version of Aegis Debug to the marketplace, follow these steps:
 

@@ -1,0 +1,29 @@
+> Task :cleanTest
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :compileKotlin UP-TO-DATE
+> Task :initializeIntellijPlatformPlugin
+> Task :patchPluginXml UP-TO-DATE
+> Task :verifyPluginProjectConfiguration UP-TO-DATE
+> Task :compileJava NO-SOURCE
+> Task :npmInstallWebview UP-TO-DATE
+> Task :buildWebview UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :generateManifest UP-TO-DATE
+> Task :instrumentCode SKIPPED
+> Task :jar UP-TO-DATE
+> Task :compileTestKotlin UP-TO-DATE
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :instrumentTestCode UP-TO-DATE
+> Task :instrumentedJar UP-TO-DATE
+> Task :composedJar UP-TO-DATE
+> Task :prepareTestSandbox UP-TO-DATE
+> Task :prepareTest
+
+> Task :test
+[0.005s][warning][cds] Archived non-system classes are disabled because the java.system.class.loader property is specified (value = "com.intellij.util.lang.PathClassLoader"). To use archived non-system classes, this property must not be set
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+Se está abriendo en una sesión de navegador existente.

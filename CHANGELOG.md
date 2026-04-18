@@ -2,6 +2,14 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## [1.1.1] — 2026-04-17 — Stale-content bug fix on re-analysis
+
+### Fixed
+- Re-analysis now reflects unsaved editor edits for every analyzer, not just PSI-based syntax and compilation checks. Previously, correcting an issue from `NullSafetyAnalyzer`, `StateInitAnalyzer`, `AsyncFlowAnalyzer`, `CircularDependencyAnalyzer`, `ComplexityAnalyzer`, or the AI pass and re-running analysis would continue to flag the issue until the file was saved to disk. File text is now sourced from the live IDE `Document` when available, matching the behavior already used by `AEG-SYNTAX-001` and `AEG-COMPILE-001`.
+
+### Internal
+- `PsiDocumentManager.commitAllDocuments()` is invoked once at the start of each analysis run to guarantee PSI is in sync with recent Document edits before the early pass reads the tree.
+
 ## [1.1.0] — 2026-04-16 — Syntax & compilation error detection
 
 ### Added

@@ -2,6 +2,7 @@ package com.ghostdebugger.parser
 
 import com.ghostdebugger.model.ParsedFile
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.roots.ProjectRootManager
@@ -62,9 +63,11 @@ class FileScanner(private val project: Project) {
     }
 
     fun parsedFiles(virtualFiles: List<VirtualFile>): List<ParsedFile> {
+        val fdm = FileDocumentManager.getInstance()
         return virtualFiles.mapNotNull { vf ->
             try {
-                val content = String(vf.contentsToByteArray(), Charsets.UTF_8)
+                val document = fdm.getCachedDocument(vf) ?: fdm.getDocument(vf)
+                val content = document?.text ?: String(vf.contentsToByteArray(), Charsets.UTF_8)
                 ParsedFile(
                     virtualFile = vf,
                     path = vf.path,

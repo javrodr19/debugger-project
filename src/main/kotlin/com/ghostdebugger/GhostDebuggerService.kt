@@ -323,6 +323,8 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     private suspend fun performAnalysis(indicator: com.intellij.openapi.progress.ProgressIndicator) {
         withContext(Dispatchers.Swing) {
             bridge?.sendAnalysisStart()
+            // Commit all documents before starting analysis to sync PSI
+            com.intellij.psi.PsiDocumentManager.getInstance(project).commitAllDocuments()
         }
 
         log.info("Starting project analysis...")
@@ -614,6 +616,12 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         scope.launch {
             try {
                 log.info("Starting targeted re-analysis for $filePath")
+                
+                // Commit documents on EDT before starting
+                withContext(Dispatchers.Swing) {
+                    com.intellij.psi.PsiDocumentManager.getInstance(project).commitAllDocuments()
+                }
+
                 val inMemoryGraph = lastInMemoryGraph ?: run {
                     analyzeProject()
                     return@launch

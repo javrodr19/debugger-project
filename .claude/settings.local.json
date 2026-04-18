@@ -13,7 +13,16 @@
       "Bash(python3 *)",
       "Bash(./gradlew test *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(./gradlew dependencies *)",
+      "Bash(ps -p 14647 -o pid,etime,state)",
+      "Bash(awk '{print $2, $4, $10}')",
+      "Bash(awk '{print $2, $4, $5}')",
+      "Bash(jstack 15480)",
+      "Bash(kill -TERM 14647)",
+      "Bash(kill -9 14647 15480)",
+      "Bash(ps -p 14647 -o pid,state)",
+      "Bash(ps -p 15480 -o pid,state)"
     ]
   }
 }
