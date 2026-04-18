@@ -47,7 +47,23 @@ A critical correctness bug was identified in V1.1: analyzers in the `late` and A
 
 ---
 
-## 4. JetBrains Marketplace Deployment Instructions
+## 4. V1.1.2 Amendment: Compilation analyzer fix + test-infra unblock (2026-04-18)
+
+V1.1.2 resolved two related defects that had been latent since V1.1.
+
+**`AEG-COMPILE-001` silent no-op (user-facing).** `CompilationErrorAnalyzer.harvestFile` invoked `DaemonCodeAnalyzerImpl.runMainPasses` without satisfying the IntelliJ Platform's thread-local contracts: the caller must install a `DaemonProgressIndicator` via `ProgressManager.runProcess`, the call must be wrapped in a `HighlightingSession`, and all of this must run inside a read action. All three preconditions were missing; the platform threw, a broad `catch (Throwable)` caught the exception, and the analyzer silently returned zero findings on every file. The harvest path is now wired correctly, and compilation findings actually reach the UI.
+
+**IDEA 2025.1+ compatibility.** While running `verifyPlugin` against the full declared `since-build="232.0" until-build="261.*"` range, `HighlightingSessionImpl.runInsideHighlightingSession` was reported as an unresolved method on IU-251.23774.435 — the signature grew a required `CodeInsightContext` parameter in 2025.1 as part of the "multiverse" feature, making the pre-2025.1 5-argument form a `NoSuchMethodError` at runtime. The analyzer now resolves the static method reflectively at class-load, caches the arg count, and supplies `CodeInsightContextKt.anyContext()` on 2025.1+ (a stable public Kotlin helper). This removes the direct compile-time reference to the internal method, so the verifier no longer flags it as an internal-API usage on 2023.2 / 2024.1 either. All four verifier targets — IU 2023.2.6, 2024.1.6, 2024.3.2.2, 2025.1 — now report *Compatible* with zero compatibility problems.
+
+**`BasePlatformTestCase` "indexing hang" (internal).** The V1.1 and V1.1.1 test suites appeared to hang in fixture `setUp()` at `IndexingTestUtil.waitUntilIndexesAreReady`. The root cause was a classpath collision rather than an indexing or sandbox issue: `kotlinx-coroutines-core:1.9.0` — pulled in both directly and transitively (notably via `mockk`) — shadowed the IntelliJ-forked `kotlinx-coroutines-core-jvm-*-intellij.jar`, which exposes platform-internal methods like `runBlockingWithParallelismCompensation`. When the stock jar won resolution, `UnindexedFilesScanner.collectIndexableFilesConcurrently` crashed with a `NoSuchMethodError` inside its scanning coroutine, indexes never signaled "ready", and the daemon polled forever. The fix keeps `kotlinx-coroutines-core` as `compileOnly` and adds a configuration-level `exclude` on both `runtimeClasspath` and `testRuntimeClasspath` — per-dependency excludes are insufficient because `mockk` reintroduces the jar transitively.
+
+The `org.jetbrains.intellij.platform` `2.2.1` → `2.14.0` bump (and Gradle `8.x` → `9.0` wrapper bump, required by the newer plugin) was originally pursued under the wrong hypothesis about the hang and is retained because the 2.14.x `TestFrameworkType` wiring is cleaner and already integrated.
+
+With both fixes in place, five `BasePlatformTestCase` tests (`PsiSyntaxAnalyzerTest`, `CompilationErrorAnalyzerTest`, `AnalysisEngineEarlyPassTest`, `FileScannerDocumentReadTest`, `AnalysisEnginePostEditRerunTest`) execute, and the full test suite reports 117/117 passing.
+
+---
+
+## 5. JetBrains Marketplace Deployment Instructions
 
 To ship a new version of Aegis Debug to the marketplace, follow these steps:
 
@@ -61,7 +77,7 @@ Ensure the version in `build.gradle.kts` and the `CHANGELOG.md` are updated and 
 ./gradlew clean test verifyPlugin buildPlugin
 ```
 The deployable artifact will be generated at:
-`build/distributions/ghostdebugger-1.0.0.zip`
+`build/distributions/ghostdebugger-<version>.zip` (e.g. `ghostdebugger-1.1.2.zip`).
 
 ### Step 2: Manual Verification (Final Smoke Test)
 Before uploading, install the generated ZIP into a fresh IntelliJ instance:
@@ -76,7 +92,7 @@ Before uploading, install the generated ZIP into a fresh IntelliJ instance:
 1. Log in to the [JetBrains Marketplace Vendor Portal](https://plugins.jetbrains.com/author/me).
 2. Select **Aegis Debug**.
 3. Click **Upload New Version**.
-4. Upload the `ghostdebugger-1.0.0.zip` file.
+4. Upload the `ghostdebugger-<version>.zip` file.
 5. Review the release notes (automatically pulled from `plugin.xml`).
 6. Submit for review.
 

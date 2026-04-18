@@ -5,11 +5,11 @@ plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.0.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
-    id("org.jetbrains.intellij.platform") version "2.2.1"
+    id("org.jetbrains.intellij.platform") version "2.14.0"
 }
 
 group = "com.ghostdebugger"
-version = "1.1.1"
+version = "1.1.2"
 
 repositories {
     mavenCentral()
@@ -22,13 +22,18 @@ dependencies {
     // IntelliJ Platform
     intellijPlatform {
         intellijIdeaCommunity("2024.3.2")
+        bundledPlugin("com.intellij.java")
+        bundledPlugin("org.jetbrains.kotlin")
         pluginVerifier()
         zipSigner()
         testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Plugin.Java)
     }
 
-    // Kotlin Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    // Kotlin Coroutines — coroutines-core is compileOnly because the platform ships a
+    // forked version with extra methods; bundling it clobbers the fork at runtime.
+    // -swing and -jdk8 are thin wrappers over core and must be on the runtime classpath.
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
 
@@ -47,6 +52,15 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.11.4")
 }
+
+// Belt-and-suspenders for the fork collision explained above: transitive coroutines-core
+// pulled in by anything else (e.g. test libs) still breaks platform internals like
+// UnindexedFilesScanner with NoSuchMethodError, so strip it from runtime classpaths entirely.
+configurations.matching { it.name in listOf("runtimeClasspath", "testRuntimeClasspath") }
+    .configureEach {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+    }
 
 kotlin {
     jvmToolchain(21)
@@ -103,10 +117,10 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2023.2.6")
-            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2024.1.6")
-            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2024.3.2.2")
-            ide(IntelliJPlatformType.IntellijIdeaUltimate, "2025.1")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2023.2.6")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2024.1.6")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2024.3.2.2")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.1")
         }
     }
 }
