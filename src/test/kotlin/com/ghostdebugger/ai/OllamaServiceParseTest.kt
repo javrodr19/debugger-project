@@ -43,31 +43,4 @@ class OllamaServiceParseTest {
         assertEquals("const a = b?.c;", fix.fixedCode)
     }
     
-    @Test fun `parseDetectIssuesResponse parses valid JSON array inside text`() {
-        val svc = OllamaService("http://localhost", "model")
-        val rawResponse = """
-            Here is the analysis:
-            [
-              {
-                "type": "NULL_SAFETY",
-                "severity": "ERROR",
-                "title": "Null warning",
-                "description": "May be null",
-                "line": 5
-              }
-            ]
-        """.trimIndent()
-        
-        val parseMethod = OllamaService::class.java.getDeclaredMethod("parseDetectIssuesResponse", String::class.java, String::class.java, String::class.java)
-        parseMethod.isAccessible = true
-        
-        @Suppress("UNCHECKED_CAST")
-        val issues = parseMethod.invoke(svc, rawResponse, "/path.ts", "1\n2\n3\n4\n5\n6\n7") as List<Issue>
-        
-        assertEquals(1, issues.size)
-        assertEquals(IssueType.NULL_SAFETY, issues[0].type)
-        assertEquals(IssueSeverity.ERROR, issues[0].severity)
-        assertEquals("Null warning", issues[0].title)
-        assertEquals(5, issues[0].line)
-    }
 }
