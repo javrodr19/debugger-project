@@ -211,6 +211,7 @@ class AnalysisEngine(
                 )
             },
             onFailure = { e ->
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("OpenAI pass failed; static results will ship", e)
                 emptyList<Issue>() to EngineStatusPayload(
                     provider = "OPENAI",
