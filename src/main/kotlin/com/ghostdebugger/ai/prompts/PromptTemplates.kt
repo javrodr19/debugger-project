@@ -7,16 +7,16 @@ object PromptTemplates {
 
     fun detectIssues(filePath: String, fileContent: String): String = """
         You are an expert software engineer reviewing the following source code file for bugs, memory leaks, missing error handling, circular dependencies, state bugs, and edge cases.
-        
+
         File Path: $filePath
-        
+
         ```
         $fileContent
         ```
-        
+
         If you find any issues, return a JSON array of objects representing the issues.
         Return ONLY valid JSON.
-        
+
         JSON schema for each array item:
         {
           "type": "<a string from the following exact list: NULL_SAFETY, CIRCULAR_DEPENDENCY, ASYNC_FLOW, UNHANDLED_PROMISE, STATE_BEFORE_INIT, HIGH_COMPLEXITY, MISSING_ERROR_HANDLING, DEAD_CODE, RESOURCE_LEAK, MEMORY_LEAK, ARCHITECTURE>",
@@ -25,8 +25,12 @@ object PromptTemplates {
           "description": "<A detailed explanation of the problem, max 2 sentences in English>",
           "line": <Integer, the 1-indexed line number where the issue exists>
         }
-        
+
         If no issues are found, return an empty array [].
+
+        Worked examples (follow this exact output shape):
+
+        ${PromptExamples.DETECT_ISSUES_EXAMPLES}
     """.trimIndent()
 
     fun explainIssue(issue: Issue, codeSnippet: String, projectContext: String = ""): String = """
@@ -125,23 +129,23 @@ object PromptTemplates {
     """.trimIndent()
     fun jointFix(issue: Issue, brokenFiles: Map<String, String>, healthyContext: Map<String, String>): String = """
         You are a world-class senior developer fixing a bug that might span multiple related files.
-        
+
         ## Primary Issue
         Type: ${issue.type}
         Title: ${issue.title}
         Primary File: ${issue.filePath.substringAfterLast("/")}
-        
+
         ## BROKEN NEIGHBORHOOD (Files that need fixing or review)
-        ${brokenFiles.entries.joinToString("\n\n") { (path, content) -> 
-            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```" 
+        ${brokenFiles.entries.joinToString("\n\n") { (path, content) ->
+            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```"
         }}
-        
+
         ## HEALTHY CONTEXT (Reference these to ensure type/signature compatibility)
-        ${healthyContext.entries.joinToString("\n\n") { (path, content) -> 
-            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```" 
+        ${healthyContext.entries.joinToString("\n\n") { (path, content) ->
+            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```"
         }}
-        
-        Provide a JOINT FIX plan. 
+
+        Provide a JOINT FIX plan.
         Your goal is to fix the issues while ensuring compatibility between all involved files.
         Return ONLY a JSON object with this exact structure:
         {
@@ -153,8 +157,12 @@ object PromptTemplates {
             }
           ]
         }
-        
+
         Include a fix entry for EVERY file in the BROKEN NEIGHBORHOOD section, even if no changes were needed (in that case, return the original code).
         Return ONLY valid JSON.
+
+        Worked examples (follow this exact output shape):
+
+        ${PromptExamples.JOINT_FIX_EXAMPLES}
     """.trimIndent()
 }
