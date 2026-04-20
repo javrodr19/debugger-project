@@ -1,7 +1,6 @@
 package com.ghostdebugger.analysis
 
 import com.ghostdebugger.ai.ApiKeyManager
-import com.ghostdebugger.ai.OllamaService
 import com.ghostdebugger.analysis.analyzers.*
 import com.ghostdebugger.model.*
 import com.ghostdebugger.settings.AIProvider
@@ -9,8 +8,6 @@ import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProgressIndicator
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 class AnalysisEngine(
     private val settingsProvider: () -> GhostDebuggerSettings.State =
@@ -21,7 +18,14 @@ class AnalysisEngine(
         val settings = settingsProvider()
         val service = com.ghostdebugger.ai.AIServiceFactory.create(settings, key)
             ?: return@AiPassRunner emptyList()
-        AIAnalyzer(service, progress).analyze(ctx)
+        val (concurrency, labelPrefix) = when (settings.aiProvider) {
+            com.ghostdebugger.settings.AIProvider.OLLAMA ->
+                AIAnalyzer.DEFAULT_CONCURRENCY_LOCAL to "Ollama: "
+            com.ghostdebugger.settings.AIProvider.OPENAI ->
+                AIAnalyzer.DEFAULT_CONCURRENCY_CLOUD to "OpenAI: "
+            else -> AIAnalyzer.DEFAULT_CONCURRENCY_CLOUD to "AI: "
+        }
+        AIAnalyzer(service, progress, concurrency, labelPrefix).analyze(ctx)
     },
     private val analyzers: List<Analyzer> = listOf(
         PsiSyntaxAnalyzer(),
@@ -233,29 +237,8 @@ class AnalysisEngine(
 
         indicator?.checkCanceled()
         val aiContext = context.limitAiFilesTo(settings.maxAiFiles)
-        val ollamaService = OllamaService(
-            endpoint        = settings.ollamaEndpoint,
-            model           = settings.ollamaModel,
-            timeoutMs       = settings.aiTimeoutMs,
-            cacheTtlSeconds = settings.cacheTtlSeconds,
-            cacheEnabled    = settings.cacheEnabled,
-            cacheMaxEntries = settings.aiCacheMaxEntries
-        )
         val started = System.currentTimeMillis()
-        val semaphore = Semaphore(OLLAMA_CONCURRENCY)
-        val result = runCatching {
-            coroutineScope {
-                aiContext.parsedFiles.map { file ->
-                    async(Dispatchers.IO) {
-                        semaphore.withPermit {
-                            indicator?.checkCanceled()
-                            indicator?.text2 = "Ollama: ${file.path.substringAfterLast('/')}"
-                            ollamaService.detectIssues(file.path, file.content)
-                        }
-                    }
-                }.awaitAll().flatten()
-            }
-        }
+        val result = runCatching { aiPassRunner.run(aiContext, "") }
         val latency = System.currentTimeMillis() - started
 
         return result.fold(
@@ -275,6 +258,7 @@ class AnalysisEngine(
                 )
             },
             onFailure = { e ->
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Ollama pass failed; static results will ship", e)
                 emptyList<Issue>() to EngineStatusPayload(
                     provider  = "OLLAMA",
@@ -303,8 +287,5 @@ class AnalysisEngine(
         return (100.0 - errorPenalty - warningPenalty).coerceIn(0.0, 100.0)
     }
 
-    companion object {
-        private const val OLLAMA_CONCURRENCY = 4
-    }
 }
 
