@@ -57,6 +57,8 @@
 ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.jetbrains.kotlin</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- ID kept as GhostDebugger for backward compatibility with pinned user layouts; display name is Aegis Debug -->
