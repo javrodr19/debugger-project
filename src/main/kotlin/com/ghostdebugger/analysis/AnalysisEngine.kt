@@ -40,42 +40,73 @@ class AnalysisEngine(
 ) {
     private val log = logger<AnalysisEngine>()
 
+    /** Result of the two static passes. Used by analyze() and analyzeStaticOnly(). */
+    private data class StaticPassResult(
+        val earlyIssues: List<Issue>,
+        val lateIssues: List<Issue>,
+        val limitedContext: AnalysisContext,
+        val filteredContext: AnalysisContext
+    )
+
     suspend fun analyze(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
         val settings = settingsProvider()
+        val staticResult = doStaticPasses(context, settings, indicator)
+
+        indicator?.text = "Running AI analysis..."
+        val (aiIssues, engineStatus) = runAiPass(staticResult.filteredContext, settings, indicator)
+        indicator?.checkCanceled()
+
+        val merged = mergeIssues(staticResult.earlyIssues + staticResult.lateIssues + aiIssues)
+        return finalize(merged, staticResult.limitedContext, engineStatus)
+    }
+
+    /** Runs early + late static passes only. Used for cascading dependent re-analysis. */
+    suspend fun analyzeStaticOnly(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
+        val settings = settingsProvider()
+        val staticResult = doStaticPasses(context, settings, indicator)
+        val merged = mergeIssues(staticResult.earlyIssues + staticResult.lateIssues)
+        val engineStatus = EngineStatusPayload(
+            provider = "STATIC",
+            status = EngineStatus.DISABLED,
+            message = "Static-only re-analysis (dependent cascade)."
+        )
+        return finalize(merged, staticResult.limitedContext, engineStatus)
+    }
+
+    private suspend fun doStaticPasses(
+        context: AnalysisContext,
+        settings: GhostDebuggerSettings.State,
+        indicator: ProgressIndicator?
+    ): StaticPassResult {
         val limitedContext = context.limitTo(settings.maxFilesToAnalyze)
 
         indicator?.text = "Checking for syntax and compilation errors..."
         val earlyAnalyzers = analyzers.filterIsInstance<EarlyAnalyzer>()
         val earlyIssues = runStaticPass(earlyAnalyzers, limitedContext, indicator)
-        
         indicator?.checkCanceled()
 
-        // Compute broken files
         val brokenFilePaths = earlyIssues.map { it.filePath.replace("\\", "/") }.toSet()
-        
-        // Filter context for downstream passes
-        val filteredFiles = limitedContext.parsedFiles.filterNot { 
-            it.path.replace("\\", "/") in brokenFilePaths 
+        val filteredFiles = limitedContext.parsedFiles.filterNot {
+            it.path.replace("\\", "/") in brokenFilePaths
         }
         val filteredContext = limitedContext.copy(parsedFiles = filteredFiles)
 
         indicator?.text = "Running static analysis..."
         val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
         val lateIssues = runStaticPass(lateAnalyzers, filteredContext, indicator)
-        
         indicator?.checkCanceled()
-        
-        indicator?.text = "Running AI analysis..."
-        val (aiIssues, engineStatus) = runAiPass(filteredContext, settings, indicator)
-        
-        indicator?.checkCanceled()
-        
-        val merged = mergeIssues(earlyIssues + lateIssues + aiIssues)
 
-        // Drop file content to save RAM once analysis is done
+        return StaticPassResult(earlyIssues, lateIssues, limitedContext, filteredContext)
+    }
+
+    private fun finalize(
+        merged: List<Issue>,
+        limitedContext: AnalysisContext,
+        engineStatus: EngineStatusPayload
+    ): AnalysisResult {
+        // Drop file content to save RAM
         limitedContext.parsedFiles.forEach { file ->
-            // Trigger lines computation before dropping content
-            val _lines = file.lines 
+            val _lines = file.lines
             file.content = ""
         }
 
@@ -91,11 +122,9 @@ class AnalysisEngine(
                 .average()
                 .takeIf { !it.isNaN() } ?: 0.0
         )
-
         val hotspots = merged.groupBy { it.filePath }
             .filter { (_, issues) -> issues.size >= 2 }
             .keys.toList()
-
         val risks = merged.filter { it.severity == IssueSeverity.ERROR }
             .map { RiskItem(nodeId = it.filePath, riskLevel = "HIGH", reason = it.title) }
 
