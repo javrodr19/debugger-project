@@ -31,6 +31,7 @@ class AnalysisEngine(
         PsiSyntaxAnalyzer(),
         CompilationErrorAnalyzer(),
         NullSafetyAnalyzer(),
+        KotlinNullSafetyAnalyzer(),
         StateInitAnalyzer(),
         AsyncFlowAnalyzer(),
         CircularDependencyAnalyzer(),
