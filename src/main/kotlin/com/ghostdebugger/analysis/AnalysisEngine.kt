@@ -1,7 +1,6 @@
 package com.ghostdebugger.analysis
 
 import com.ghostdebugger.ai.ApiKeyManager
-import com.ghostdebugger.ai.OllamaService
 import com.ghostdebugger.analysis.analyzers.*
 import com.ghostdebugger.model.*
 import com.ghostdebugger.settings.AIProvider
@@ -9,8 +8,6 @@ import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProgressIndicator
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 class AnalysisEngine(
     private val settingsProvider: () -> GhostDebuggerSettings.State =
@@ -21,12 +18,20 @@ class AnalysisEngine(
         val settings = settingsProvider()
         val service = com.ghostdebugger.ai.AIServiceFactory.create(settings, key)
             ?: return@AiPassRunner emptyList()
-        AIAnalyzer(service, progress).analyze(ctx)
+        val (concurrency, labelPrefix) = when (settings.aiProvider) {
+            com.ghostdebugger.settings.AIProvider.OLLAMA ->
+                AIAnalyzer.DEFAULT_CONCURRENCY_LOCAL to "Ollama: "
+            com.ghostdebugger.settings.AIProvider.OPENAI ->
+                AIAnalyzer.DEFAULT_CONCURRENCY_CLOUD to "OpenAI: "
+            else -> AIAnalyzer.DEFAULT_CONCURRENCY_CLOUD to "AI: "
+        }
+        AIAnalyzer(service, progress, concurrency, labelPrefix).analyze(ctx)
     },
     private val analyzers: List<Analyzer> = listOf(
         PsiSyntaxAnalyzer(),
         CompilationErrorAnalyzer(),
         NullSafetyAnalyzer(),
+        KotlinNullSafetyAnalyzer(),
         StateInitAnalyzer(),
         AsyncFlowAnalyzer(),
         CircularDependencyAnalyzer(),
@@ -35,42 +40,73 @@ class AnalysisEngine(
 ) {
     private val log = logger<AnalysisEngine>()
 
+    /** Result of the two static passes. Used by analyze() and analyzeStaticOnly(). */
+    private data class StaticPassResult(
+        val earlyIssues: List<Issue>,
+        val lateIssues: List<Issue>,
+        val limitedContext: AnalysisContext,
+        val filteredContext: AnalysisContext
+    )
+
     suspend fun analyze(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
         val settings = settingsProvider()
+        val staticResult = doStaticPasses(context, settings, indicator)
+
+        indicator?.text = "Running AI analysis..."
+        val (aiIssues, engineStatus) = runAiPass(staticResult.filteredContext, settings, indicator)
+        indicator?.checkCanceled()
+
+        val merged = mergeIssues(staticResult.earlyIssues + staticResult.lateIssues + aiIssues)
+        return finalize(merged, staticResult.limitedContext, engineStatus)
+    }
+
+    /** Runs early + late static passes only. Used for cascading dependent re-analysis. */
+    suspend fun analyzeStaticOnly(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
+        val settings = settingsProvider()
+        val staticResult = doStaticPasses(context, settings, indicator)
+        val merged = mergeIssues(staticResult.earlyIssues + staticResult.lateIssues)
+        val engineStatus = EngineStatusPayload(
+            provider = "STATIC",
+            status = EngineStatus.DISABLED,
+            message = "Static-only re-analysis (dependent cascade)."
+        )
+        return finalize(merged, staticResult.limitedContext, engineStatus)
+    }
+
+    private suspend fun doStaticPasses(
+        context: AnalysisContext,
+        settings: GhostDebuggerSettings.State,
+        indicator: ProgressIndicator?
+    ): StaticPassResult {
         val limitedContext = context.limitTo(settings.maxFilesToAnalyze)
 
         indicator?.text = "Checking for syntax and compilation errors..."
         val earlyAnalyzers = analyzers.filterIsInstance<EarlyAnalyzer>()
         val earlyIssues = runStaticPass(earlyAnalyzers, limitedContext, indicator)
-        
         indicator?.checkCanceled()
 
-        // Compute broken files
         val brokenFilePaths = earlyIssues.map { it.filePath.replace("\\", "/") }.toSet()
-        
-        // Filter context for downstream passes
-        val filteredFiles = limitedContext.parsedFiles.filterNot { 
-            it.path.replace("\\", "/") in brokenFilePaths 
+        val filteredFiles = limitedContext.parsedFiles.filterNot {
+            it.path.replace("\\", "/") in brokenFilePaths
         }
         val filteredContext = limitedContext.copy(parsedFiles = filteredFiles)
 
         indicator?.text = "Running static analysis..."
         val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
         val lateIssues = runStaticPass(lateAnalyzers, filteredContext, indicator)
-        
         indicator?.checkCanceled()
-        
-        indicator?.text = "Running AI analysis..."
-        val (aiIssues, engineStatus) = runAiPass(filteredContext, settings, indicator)
-        
-        indicator?.checkCanceled()
-        
-        val merged = mergeIssues(earlyIssues + lateIssues + aiIssues)
 
-        // Drop file content to save RAM once analysis is done
+        return StaticPassResult(earlyIssues, lateIssues, limitedContext, filteredContext)
+    }
+
+    private fun finalize(
+        merged: List<Issue>,
+        limitedContext: AnalysisContext,
+        engineStatus: EngineStatusPayload
+    ): AnalysisResult {
+        // Drop file content to save RAM
         limitedContext.parsedFiles.forEach { file ->
-            // Trigger lines computation before dropping content
-            val _lines = file.lines 
+            val _lines = file.lines
             file.content = ""
         }
 
@@ -86,11 +122,9 @@ class AnalysisEngine(
                 .average()
                 .takeIf { !it.isNaN() } ?: 0.0
         )
-
         val hotspots = merged.groupBy { it.filePath }
             .filter { (_, issues) -> issues.size >= 2 }
             .keys.toList()
-
         val risks = merged.filter { it.severity == IssueSeverity.ERROR }
             .map { RiskItem(nodeId = it.filePath, riskLevel = "HIGH", reason = it.title) }
 
@@ -207,6 +241,7 @@ class AnalysisEngine(
                 )
             },
             onFailure = { e ->
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("OpenAI pass failed; static results will ship", e)
                 emptyList<Issue>() to EngineStatusPayload(
                     provider = "OPENAI",
@@ -233,29 +268,8 @@ class AnalysisEngine(
 
         indicator?.checkCanceled()
         val aiContext = context.limitAiFilesTo(settings.maxAiFiles)
-        val ollamaService = OllamaService(
-            endpoint        = settings.ollamaEndpoint,
-            model           = settings.ollamaModel,
-            timeoutMs       = settings.aiTimeoutMs,
-            cacheTtlSeconds = settings.cacheTtlSeconds,
-            cacheEnabled    = settings.cacheEnabled,
-            cacheMaxEntries = settings.aiCacheMaxEntries
-        )
         val started = System.currentTimeMillis()
-        val semaphore = Semaphore(OLLAMA_CONCURRENCY)
-        val result = runCatching {
-            coroutineScope {
-                aiContext.parsedFiles.map { file ->
-                    async(Dispatchers.IO) {
-                        semaphore.withPermit {
-                            indicator?.checkCanceled()
-                            indicator?.text2 = "Ollama: ${file.path.substringAfterLast('/')}"
-                            ollamaService.detectIssues(file.path, file.content)
-                        }
-                    }
-                }.awaitAll().flatten()
-            }
-        }
+        val result = runCatching { aiPassRunner.run(aiContext, "") }
         val latency = System.currentTimeMillis() - started
 
         return result.fold(
@@ -275,6 +289,7 @@ class AnalysisEngine(
                 )
             },
             onFailure = { e ->
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Ollama pass failed; static results will ship", e)
                 emptyList<Issue>() to EngineStatusPayload(
                     provider  = "OLLAMA",
@@ -303,8 +318,5 @@ class AnalysisEngine(
         return (100.0 - errorPenalty - warningPenalty).coerceIn(0.0, 100.0)
     }
 
-    companion object {
-        private const val OLLAMA_CONCURRENCY = 4
-    }
 }
 

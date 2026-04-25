@@ -2,6 +2,26 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## [1.2.0] — 2026-04-25 — Hardening release: PSI-backed parsers, resilient AI parsing, dependent cascade
+
+### Added
+- New analyzer `KotlinNullSafetyAnalyzer` (rule `AEG-NULL-KT-001`) — PSI-backed Kotlin null-safety check covering safe-call (`?.`), if-null guard, `?.let`, `!!`, Elvis-return/throw, and prior reassignment. Single-file scope, name-based matching (no `BindingContext`), confidence 0.9.
+- Setting `maxDependentsToReanalyze` (default 20). Caps the dependent-cascade fan-out triggered by `reanalyzeFile`; 0 disables the cascade entirely.
+
+### Changed
+- Resilient AI JSON parsing: `AiJsonExtractor` tries direct parse → fenced block → bracket-balanced scan; `AiIssueMapper` centralizes `Issue` construction across OpenAI and Ollama (rec 2).
+- Concurrency consolidation: Ollama pass now routes through `AIAnalyzer`; the duplicated `Semaphore` loop in `AnalysisEngine.runOllamaPass` is gone. Concurrency defaults preserved (OpenAI=3, Ollama=4) (rec 5).
+- Few-shot examples added to `detectIssues` and `jointFix` prompts; prose prompts unchanged (rec 4).
+- `SymbolExtractor` is now a language dispatcher: TS/JS uses a hardened regex pass with string/comment masking and multi-line import collapsing; Kotlin and Java use real PSI parsers (`KotlinPsiSymbolExtractor`, `JavaPsiSymbolExtractor`) with the regex implementation retained as a private fallback for broken input (rec 1).
+- `reanalyzeFile` cascades static-only re-analysis to transitive dependents in the `ProjectGraph`, capped by `maxDependentsToReanalyze`. AI pass deliberately skipped on the cascade to keep cost bounded on hub files (rec 3).
+- `analyzeStaticOnly` extracted from `analyze()` in `AnalysisEngine`. No behavior change for `analyze()`.
+- `JcefBridge` now implements a minimal `BridgeChannel` interface so dependent-cascade tests can use a recording stub without standing up a real JCEF browser.
+- `plugin.xml` declares explicit `<depends>` on `com.intellij.modules.java` and `org.jetbrains.kotlin`, required by the new PSI-backed paths.
+
+### Verification
+- Tests: 117 → 167, all green.
+- `verifyPlugin` Compatible on IU 2023.2.6, 2024.1.6, 2024.3.2.2, 2025.1.
+
 ## [1.1.2] — 2026-04-18 — `AEG-COMPILE-001` now reports findings; test suite runs end-to-end; 2025.1 compatibility restored
 
 ### Fixed

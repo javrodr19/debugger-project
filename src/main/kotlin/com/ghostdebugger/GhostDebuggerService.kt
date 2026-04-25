@@ -4,6 +4,7 @@ import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.ai.AIServiceFactory
 import com.ghostdebugger.analysis.AnalysisEngine
+import com.ghostdebugger.bridge.BridgeChannel
 import com.ghostdebugger.bridge.JcefBridge
 import com.ghostdebugger.bridge.UIEvent
 import com.ghostdebugger.fix.FixApplicator
@@ -53,6 +54,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     @Volatile private var activeAnalysisIndicator: com.intellij.openapi.progress.ProgressIndicator? = null
 
     private var bridge: JcefBridge? = null
+    @Volatile private var testBridgeChannel: BridgeChannel? = null
     private var currentGraph: ProjectGraph? = null
     private var lastInMemoryGraph: com.ghostdebugger.graph.InMemoryGraph? = null
     var currentIssues: List<Issue> = emptyList()
@@ -350,7 +352,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         indicator.text = "Extracting symbols..."
         withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Extracting symbols...", 0.25) }
 
-        val extractor = SymbolExtractor()
+        val extractor = SymbolExtractor(project)
         val parsedFiles = rawFiles.map { 
             indicator.checkCanceled()
             extractor.extract(it) 
@@ -633,7 +635,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
                     FileScanner(project).parsedFiles(listOf(virtualFile)).firstOrNull()
                 } ?: return@launch
                 
-                val extractor = SymbolExtractor()
+                val extractor = SymbolExtractor(project)
                 val updatedFile = extractor.extract(parsedFile)
                 
                 val ctx = AnalysisContext(
@@ -658,16 +660,123 @@ class GhostDebuggerService(private val project: Project) : Disposable {
                         else -> NodeStatus.HEALTHY
                     }
                     inMemoryGraph.updateNode(node.copy(issues = newFileIssues, status = status))
-                    
+
                     withContext(Dispatchers.Swing) {
-                        bridge?.sendNodeUpdate(nodeId, status)
-                        bridge?.sendIssuesForFile(filePath, newFileIssues)
+                        val ch = testBridgeChannel ?: bridge
+                        ch?.sendNodeUpdate(nodeId, status)
+                        ch?.sendIssuesForFile(filePath, newFileIssues)
                     }
+
+                    cascadeDependents(inMemoryGraph, nodeId)
                 }
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Targeted re-analysis failed for $filePath", e)
                 analyzeProject()
             }
+        }
+    }
+
+    private suspend fun cascadeDependents(
+        inMemoryGraph: com.ghostdebugger.graph.InMemoryGraph,
+        primaryNodeId: String
+    ) {
+        val settings = GhostDebuggerSettings.getInstance().snapshot()
+        val cap = settings.maxDependentsToReanalyze
+        if (cap <= 0) return
+
+        val depIds = inMemoryGraph.calculateImpact(primaryNodeId).take(cap)
+        if (depIds.isEmpty()) return
+
+        log.info("Cascading static-only re-analysis to ${depIds.size} dependent(s) of $primaryNodeId")
+
+        val vFiles = depIds.mapNotNull { id ->
+            val node = inMemoryGraph.getNode(id) ?: return@mapNotNull null
+            LocalFileSystem.getInstance().findFileByPath(node.filePath)?.let { vf -> id to vf }
+        }
+        if (vFiles.isEmpty()) return
+
+        val parsedFiles = ApplicationManager.getApplication().runReadAction<List<ParsedFile>> {
+            FileScanner(project).parsedFiles(vFiles.map { it.second })
+        }
+        val extractor = SymbolExtractor(project)
+        val extracted = parsedFiles.map { extractor.extract(it) }
+
+        val ctx = AnalysisContext(
+            graph = inMemoryGraph,
+            project = project,
+            parsedFiles = extracted
+        )
+
+        val engine = AnalysisEngine()
+        val result = try {
+            engine.analyzeStaticOnly(ctx)
+        } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+            log.warn("Dependent static-only pass failed; skipping cascade", e)
+            return
+        }
+
+        val analyzedPaths = extracted.map { it.path.replace("\\", "/") }.toSet()
+        val issuesByPath = result.issues.groupBy { it.filePath.replace("\\", "/") }
+
+        updateIssues(
+            currentIssues.filterNot { existing ->
+                existing.filePath.replace("\\", "/") in analyzedPaths
+            } + result.issues
+        )
+
+        for ((depId, _) in vFiles) {
+            val node = inMemoryGraph.getNode(depId) ?: continue
+            val depPath = node.filePath
+            // Only update dependents that actually went through analyzeStaticOnly. A dep that
+            // FileScanner couldn't read is silently absent from `extracted`; updating its
+            // status from an empty issues list would falsely demote it to HEALTHY.
+            if (depPath.replace("\\", "/") !in analyzedPaths) continue
+
+            val depIssues = issuesByPath[depPath.replace("\\", "/")] ?: emptyList()
+            val status = when {
+                depIssues.any { it.severity == IssueSeverity.ERROR } -> NodeStatus.ERROR
+                depIssues.any { it.severity == IssueSeverity.WARNING } -> NodeStatus.WARNING
+                else -> NodeStatus.HEALTHY
+            }
+            inMemoryGraph.updateNode(node.copy(issues = depIssues, status = status))
+            withContext(Dispatchers.Swing) {
+                val ch = testBridgeChannel ?: bridge
+                ch?.sendNodeUpdate(depId, status)
+                ch?.sendIssuesForFile(depPath, depIssues)
+            }
+        }
+    }
+
+    // ── Test hooks (package-private; used only by BasePlatformTestCase tests). ──
+
+    internal fun setBridgeForTest(channel: BridgeChannel) {
+        this.testBridgeChannel = channel
+    }
+
+    internal fun installTestGraph(graph: com.ghostdebugger.graph.InMemoryGraph) {
+        this.lastInMemoryGraph = graph
+    }
+
+    /**
+     * Synchronous test-only mirror of [cascadeDependents] that skips re-parsing
+     * and analysis; it walks the impact set, caps at [cap], and fires the bridge
+     * for each dependent. Used to verify dispatch + cap semantics without
+     * standing up a real PSI fixture for every dependent file.
+     */
+    internal fun cascadeDependentsForTest(changedFilePath: String, cap: Int) {
+        val graph = lastInMemoryGraph ?: return
+        if (cap <= 0) return
+        val normalized = changedFilePath.trimStart('/')
+        val dependents = graph.calculateImpact(normalized).take(cap)
+        for (depId in dependents) {
+            val node = graph.getNode(depId) ?: continue
+            val status = NodeStatus.HEALTHY
+            graph.updateNode(node.copy(status = status))
+            val ch = testBridgeChannel ?: bridge
+            ch?.sendNodeUpdate(depId, status)
+            ch?.sendIssuesForFile(node.filePath, emptyList())
         }
     }
 

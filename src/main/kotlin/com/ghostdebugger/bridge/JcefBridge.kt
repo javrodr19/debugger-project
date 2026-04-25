@@ -17,7 +17,7 @@ import org.cef.handler.CefLoadHandlerAdapter
 class JcefBridge(
     private val browser: JBCefBrowser,
     private val onEvent: (UIEvent) -> Unit
-) : Disposable {
+) : Disposable, BridgeChannel {
     private val log = logger<JcefBridge>()
     private val json = Json {
         ignoreUnknownKeys = true
@@ -68,7 +68,7 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onGraphUpdate($graphJson)")
     }
 
-    fun sendIssuesForFile(filePath: String, issues: List<Issue>) {
+    override fun sendIssuesForFile(filePath: String, issues: List<Issue>) {
         val payload = json.encodeToString(mapOf("filePath" to filePath, "issues" to issues))
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onIssuesForFile($payload)")
     }
@@ -88,7 +88,7 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onFixApplied($payload)")
     }
 
-    fun sendNodeUpdate(nodeId: String, status: NodeStatus) {
+    override fun sendNodeUpdate(nodeId: String, status: NodeStatus) {
         val escapedId = nodeId.replace("\"", "\\\"")
         val payload = """{"nodeId":"$escapedId","status":"${status.name}"}"""
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onNodeUpdate($payload)")
