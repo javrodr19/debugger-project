@@ -1,5 +1,6 @@
 package com.ghostdebugger.ai
 
+import com.intellij.openapi.diagnostic.logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import java.util.concurrent.atomic.AtomicLong
@@ -13,9 +14,10 @@ object AiJsonExtractor {
 
     enum class Strategy { DIRECT, FENCED, BALANCED }
 
+    private val log = logger<AiJsonExtractor>()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val counters: Map<Strategy, AtomicLong> =
-        Strategy.values().associateWith { AtomicLong(0) }
+        Strategy.entries.associateWith { AtomicLong(0) }
 
     fun extract(raw: String): Result {
         if (raw.isBlank()) return Result.Empty
@@ -47,7 +49,9 @@ object AiJsonExtractor {
 
     private fun tryBalanced(raw: String): JsonElement? {
         val span = firstBalancedSpan(raw) ?: return null
-        return runCatching { json.parseToJsonElement(span) }.getOrNull()
+        return runCatching { json.parseToJsonElement(span) }
+            .onFailure { e -> log.warn("BALANCED strategy failed on span: ${span.take(200)}", e) }
+            .getOrNull()
     }
 
     private fun firstBalancedSpan(raw: String): String? {

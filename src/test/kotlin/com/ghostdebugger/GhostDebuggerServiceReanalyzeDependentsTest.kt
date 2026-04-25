@@ -26,13 +26,11 @@ class GhostDebuggerServiceReanalyzeDependentsTest : BasePlatformTestCase() {
 
         svc.cascadeDependentsForTest(changedFilePath = "/B.kt", cap = 20)
 
-        assertTrue(
-            "Expected node update for A.kt; got ${bridge.nodeUpdates.keys}",
-            bridge.nodeUpdates.containsKey("A.kt") || bridge.nodeUpdates.containsKey("/A.kt")
-        )
-        assertTrue(
-            "Expected node update for C.kt; got ${bridge.nodeUpdates.keys}",
-            bridge.nodeUpdates.containsKey("C.kt") || bridge.nodeUpdates.containsKey("/C.kt")
+        // depIds come from graph.calculateImpact(normalized), which is keyed by the
+        // graph node id — i.e., the path with the leading slash trimmed.
+        assertEquals(
+            setOf("A.kt", "C.kt"),
+            bridge.nodeUpdates.keys
         )
     }
 

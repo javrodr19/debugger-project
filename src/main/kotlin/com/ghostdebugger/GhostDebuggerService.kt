@@ -670,6 +670,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
                     cascadeDependents(inMemoryGraph, nodeId)
                 }
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Targeted re-analysis failed for $filePath", e)
                 analyzeProject()
             }
@@ -716,18 +717,23 @@ class GhostDebuggerService(private val project: Project) : Disposable {
             return
         }
 
-        val depPaths = extracted.map { it.path.replace("\\", "/") }.toSet()
+        val analyzedPaths = extracted.map { it.path.replace("\\", "/") }.toSet()
         val issuesByPath = result.issues.groupBy { it.filePath.replace("\\", "/") }
 
         updateIssues(
             currentIssues.filterNot { existing ->
-                existing.filePath.replace("\\", "/") in depPaths
+                existing.filePath.replace("\\", "/") in analyzedPaths
             } + result.issues
         )
 
         for ((depId, _) in vFiles) {
             val node = inMemoryGraph.getNode(depId) ?: continue
             val depPath = node.filePath
+            // Only update dependents that actually went through analyzeStaticOnly. A dep that
+            // FileScanner couldn't read is silently absent from `extracted`; updating its
+            // status from an empty issues list would falsely demote it to HEALTHY.
+            if (depPath.replace("\\", "/") !in analyzedPaths) continue
+
             val depIssues = issuesByPath[depPath.replace("\\", "/")] ?: emptyList()
             val status = when {
                 depIssues.any { it.severity == IssueSeverity.ERROR } -> NodeStatus.ERROR

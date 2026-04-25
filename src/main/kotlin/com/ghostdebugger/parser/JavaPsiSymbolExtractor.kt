@@ -21,16 +21,16 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
 
     fun extract(parsedFile: ParsedFile): ParsedFile {
         val psi = readPsi(parsedFile)
-        return if (psi != null) {
-            runCatching { fromPsi(psi, parsedFile) }
-                .onFailure { e ->
-                    if (e is ProcessCanceledException) throw e
-                    log.warn("Java PSI extract failed for ${parsedFile.path}, falling back to regex", e)
-                }
-                .getOrElse { extractWithRegex(parsedFile) }
-        } else {
-            extractWithRegex(parsedFile)
+        if (psi == null) {
+            log.info("Java PSI unavailable for ${parsedFile.path}; using regex fallback")
+            return extractWithRegex(parsedFile)
         }
+        return runCatching { fromPsi(psi, parsedFile) }
+            .onFailure { e ->
+                if (e is ProcessCanceledException) throw e
+                log.warn("Java PSI extract failed for ${parsedFile.path}, falling back to regex", e)
+            }
+            .getOrElse { extractWithRegex(parsedFile) }
     }
 
     private fun readPsi(parsedFile: ParsedFile): PsiJavaFile? {
@@ -44,6 +44,9 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
                     parsedFile.content
                 ) as? PsiJavaFile
             }
+        }.onFailure { e ->
+            if (e is ProcessCanceledException) throw e
+            log.warn("Java PSI read failed for ${parsedFile.path}", e)
         }.getOrNull()
     }
 

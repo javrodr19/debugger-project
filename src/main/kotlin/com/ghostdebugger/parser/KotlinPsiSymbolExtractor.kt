@@ -24,16 +24,16 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
 
     fun extract(parsedFile: ParsedFile): ParsedFile {
         val psi = readPsi(parsedFile)
-        return if (psi != null) {
-            runCatching { fromPsi(psi, parsedFile) }
-                .onFailure { e ->
-                    if (e is ProcessCanceledException) throw e
-                    log.warn("Kotlin PSI extract failed for ${parsedFile.path}, falling back to regex", e)
-                }
-                .getOrElse { extractWithRegex(parsedFile) }
-        } else {
-            extractWithRegex(parsedFile)
+        if (psi == null) {
+            log.info("Kotlin PSI unavailable for ${parsedFile.path}; using regex fallback")
+            return extractWithRegex(parsedFile)
         }
+        return runCatching { fromPsi(psi, parsedFile) }
+            .onFailure { e ->
+                if (e is ProcessCanceledException) throw e
+                log.warn("Kotlin PSI extract failed for ${parsedFile.path}, falling back to regex", e)
+            }
+            .getOrElse { extractWithRegex(parsedFile) }
     }
 
     private fun readPsi(parsedFile: ParsedFile): KtFile? {
@@ -47,6 +47,9 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
                     parsedFile.content
                 ) as? KtFile
             }
+        }.onFailure { e ->
+            if (e is ProcessCanceledException) throw e
+            log.warn("Kotlin PSI read failed for ${parsedFile.path}", e)
         }.getOrNull()
     }
 

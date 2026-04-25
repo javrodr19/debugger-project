@@ -87,6 +87,28 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
         assertEquals(0, analyze(src).size)
     }
 
+    fun testElvisThrowIsNotFlagged() {
+        val src = """
+            fun run() {
+                val x: String? = null
+                val s = x ?: throw IllegalStateException("nope")
+                println(x.length)
+            }
+        """.trimIndent()
+        assertEquals(0, analyze(src).size)
+    }
+
+    fun testReassignedToNullStillFlagged() {
+        val src = """
+            fun run() {
+                var x: String? = "hi"
+                x = null
+                println(x.length)
+            }
+        """.trimIndent()
+        assertEquals(1, analyze(src).size)
+    }
+
     fun testReassignedBeforeAccessIsNotFlagged() {
         val src = """
             fun run() {

@@ -30,7 +30,10 @@ object AiIssueMapper {
 
         return array.mapNotNull { item ->
             runCatching { toIssue(item.jsonObject, filePath, fileContent) }
-                .onFailure { log.warn("Failed to map AI issue item", it) }
+                .onFailure { e ->
+                    val preview = item.toString().take(120)
+                    log.warn("Failed to map AI issue item for $filePath: $preview", e)
+                }
                 .getOrNull()
         }
     }
@@ -39,10 +42,13 @@ object AiIssueMapper {
         val typeStr = obj["type"]?.jsonPrimitive?.content ?: return null
         val line = obj["line"]?.jsonPrimitive?.intOrNull ?: return null
 
-        val type = runCatching { IssueType.valueOf(typeStr) }.getOrDefault(IssueType.ARCHITECTURE)
-        val severity = runCatching {
-            IssueSeverity.valueOf(obj["severity"]?.jsonPrimitive?.content ?: "WARNING")
-        }.getOrDefault(IssueSeverity.WARNING)
+        val type = runCatching { IssueType.valueOf(typeStr) }
+            .onFailure { log.info("Unknown AI issue type '$typeStr' for $filePath; defaulting to ARCHITECTURE") }
+            .getOrDefault(IssueType.ARCHITECTURE)
+        val severityStr = obj["severity"]?.jsonPrimitive?.content ?: "WARNING"
+        val severity = runCatching { IssueSeverity.valueOf(severityStr) }
+            .onFailure { log.info("Unknown AI severity '$severityStr' for $filePath; defaulting to WARNING") }
+            .getOrDefault(IssueSeverity.WARNING)
 
         return Issue(
             id = UUID.randomUUID().toString(),
