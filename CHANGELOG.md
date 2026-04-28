@@ -2,6 +2,30 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## 1.3.0 — Kotlin K2 + Analysis API
+
+**Date:** 2026-XX-XX (filled in at merge)
+
+### Highlights
+
+- Aegis Debug now fully supports the Kotlin plugin in K2 mode. Minimum IDE raised to **IntelliJ 2024.3** (build 243.0).
+- `AEG-NULL-KT-001` rewritten on the Kotlin Analysis API. Type-inferred nullables, smart-cast windows, and reassignment flow are now resolved with real type information instead of name-based matching.
+- Three new Kotlin analyzers:
+  - **AEG-CAST-KT-001** — flags unsafe `as` downcasts (use `as?` + Elvis fallback instead).
+  - **AEG-TYPE-KT-001** — flags assignments where the declared type does not accept the initializer's type.
+  - **AEG-REDUNDANT-LET-KT-001** — flags `x?.let { ... }` blocks where smart-cast already proved `x` non-null.
+- Two new deterministic fixers (unsafe-cast and redundant-let) — type-mismatch is analyzer-only.
+- `FunctionSymbol` now carries rendered `returnType` and `paramTypes` for Kotlin and Java files. NeuroMap signatures and AI prompts include them when present.
+
+### Breaking
+
+- Minimum IDE: **IntelliJ 2024.3 (build 243.0)**. Older IDEs will refuse the install.
+
+### Contributors / spec / plan
+
+- Spec: `docs/superpowers/specs/2026-04-27-aegis-v1.3-k2-migration-design.md`
+- Plan: `docs/superpowers/plans/2026-04-27-aegis-v1.3-k2-migration.md`
+
 ## [1.2.0] — 2026-04-25 — Hardening release: PSI-backed parsers, resilient AI parsing, dependent cascade
 
 ### Added
