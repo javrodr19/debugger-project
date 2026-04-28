@@ -1,15 +1,10 @@
 package com.ghostdebugger.analysis.analyzers
 
-import com.ghostdebugger.analysis.Analyzer
 import com.ghostdebugger.model.*
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.diagnostic.logger
-import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.util.PsiTreeUtil
-import org.jetbrains.kotlin.idea.KotlinLanguage
+import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
@@ -25,15 +20,15 @@ import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
 import java.util.UUID
 
 /**
- * PSI-backed null-safety analyzer for Kotlin. Single-file scope, conservative-miss bias.
- * Flags access on a nullable property when it is not guarded by a safe call, an if-null
- * guard, a `?.let` closure, `!!`, a preceding Elvis-return/throw, or a reassignment to
- * a non-null value.
+ * PSI-backed null-safety analyzer for Kotlin. Single-file scope.
+ *
+ * Task 5 migrates the file-resolution path to project-bound PSI; the V1.2 name-matching
+ * logic is preserved verbatim. Task 8 replaces the logic with Analysis API resolution.
  *
  * Name-based matching only (no Kotlin BindingContext) — the cost of full resolution
  * isn't justified for single-file scope.
  */
-class KotlinNullSafetyAnalyzer : Analyzer {
+class KotlinNullSafetyAnalyzer : KotlinAnalyzer() {
 
     override val name = "KotlinNullSafetyAnalyzer"
     override val ruleId = "AEG-NULL-KT-001"
@@ -41,31 +36,12 @@ class KotlinNullSafetyAnalyzer : Analyzer {
     override val description =
         "Flags access on Kotlin nullable properties without a safe call, null guard, !!, or Elvis fallback."
 
-    private val log = logger<KotlinNullSafetyAnalyzer>()
-
-    override fun analyze(context: AnalysisContext): List<Issue> {
-        val issues = mutableListOf<Issue>()
-        for (file in context.parsedFiles) {
-            if (file.extension != "kt") continue
-            try {
-                issues.addAll(analyzeFile(file, context))
-            } catch (e: Exception) {
-                if (e is ProcessCanceledException) throw e
-                log.warn("KotlinNullSafetyAnalyzer failed for ${file.path}", e)
-            }
-        }
-        return issues
-    }
-
-    private fun analyzeFile(parsedFile: ParsedFile, context: AnalysisContext): List<Issue> {
-        val ktFile = ApplicationManager.getApplication().runReadAction<KtFile?> {
-            PsiFileFactory.getInstance(context.project).createFileFromText(
-                parsedFile.path.substringAfterLast('/').ifBlank { "Sample.kt" },
-                KotlinLanguage.INSTANCE,
-                parsedFile.content
-            ) as? KtFile
-        } ?: return emptyList()
-
+    override fun analyzeKtFile(
+        ktFile: KtFile,
+        parsedFile: ParsedFile,
+        context: AnalysisContext,
+        session: KaSession
+    ): List<Issue> {
         val document = PsiDocumentManager.getInstance(ktFile.project).getDocument(ktFile)
         fun lineOf(offset: Int): Int = document?.getLineNumber(offset)?.plus(1) ?: 1
 
@@ -108,7 +84,7 @@ class KotlinNullSafetyAnalyzer : Analyzer {
         return findings
     }
 
-    // ── Scope + declaration helpers ────────────────────────────────────────
+    // ── Scope + declaration helpers (unchanged from V1.2) ──────────────────
 
     private fun collectScopes(ktFile: KtFile): List<PsiElement> {
         val scopes = mutableListOf<PsiElement>()
@@ -152,48 +128,34 @@ class KotlinNullSafetyAnalyzer : Analyzer {
         return cursor === scope
     }
 
-    // ── Guard detection ────────────────────────────────────────────────────
-
     private fun isGuarded(
         access: KtDotQualifiedExpression,
         scopeBody: PsiElement,
         refName: String
     ): Boolean {
-        // Safe-call receiver (x?.foo) would be a KtSafeQualifiedExpression anywhere up the chain.
         var cursor: PsiElement? = access.parent
         while (cursor != null && cursor !== scopeBody.parent) {
             if (cursor is KtSafeQualifiedExpression &&
-                (cursor.receiverExpression as? KtNameReferenceExpression)?.getReferencedName() == refName) {
-                return true
-            }
+                (cursor.receiverExpression as? KtNameReferenceExpression)?.getReferencedName() == refName
+            ) return true
             if (cursor is KtIfExpression && nullCheckGuards(cursor, refName)) return true
             if (cursor is KtLambdaExpression) {
                 val call = PsiTreeUtil.getParentOfType(cursor, KtCallExpression::class.java)
                 val parent = call?.parent
                 if (parent is KtSafeQualifiedExpression &&
                     (parent.receiverExpression as? KtNameReferenceExpression)?.getReferencedName() == refName &&
-                    (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName() == "let") {
-                    return true
-                }
+                    (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName() == "let"
+                ) return true
             }
             cursor = cursor.parent
         }
-
-        // !! unwrap on the receiver inside the access itself
-        val recvText = access.receiverExpression.text
-        if (recvText == "$refName!!") return true
-
-        // Elvis guard earlier in the scope: walk ALL KtBinaryExpression nodes, not just
-        // top-level statements — the Elvis can be nested inside a KtProperty initializer
-        // (`val s = x ?: return`), inside a return statement, etc.
+        if (access.receiverExpression.text == "$refName!!") return true
         for (bin in PsiTreeUtil.findChildrenOfType(scopeBody, KtBinaryExpression::class.java)) {
             if (bin.textOffset >= access.textOffset) continue
             if (bin.operationToken.toString() != "ELVIS") continue
             val left = (bin.left as? KtNameReferenceExpression)?.getReferencedName()
             val rightText = bin.right?.text?.trim() ?: ""
-            if (left == refName && (rightText.startsWith("return") || rightText.startsWith("throw"))) {
-                return true
-            }
+            if (left == refName && (rightText.startsWith("return") || rightText.startsWith("throw"))) return true
         }
         return false
     }

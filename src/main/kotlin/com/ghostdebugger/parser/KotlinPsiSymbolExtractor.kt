@@ -8,8 +8,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFileFactory
-import org.jetbrains.kotlin.idea.KotlinLanguage
+import com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtFile
@@ -40,12 +39,7 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
         val p = project ?: ProjectManager.getInstance().defaultProject
         return runCatching {
             ApplicationManager.getApplication().runReadAction<KtFile?> {
-                val factory = PsiFileFactory.getInstance(p)
-                factory.createFileFromText(
-                    parsedFile.path.substringAfterLast('/').ifBlank { "Sample.kt" },
-                    KotlinLanguage.INSTANCE,
-                    parsedFile.content
-                ) as? KtFile
+                PsiManager.getInstance(p).findFile(parsedFile.virtualFile) as? KtFile
             }
         }.onFailure { e ->
             if (e is ProcessCanceledException) throw e
