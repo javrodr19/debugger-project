@@ -117,4 +117,75 @@ class KotlinNullSafetyAnalyzerTest : AegisKotlinAnalysisTestCase() {
         """.trimIndent()
         assertEquals(0, analyzeKt(src).size)
     }
+
+    // ── Canary tests — the V1.2 name-matcher would have missed these.
+    //    If these fail, suspect the Analysis API isn't resolving types
+    //    (project descriptor regression — R3 in design spec).
+
+    fun testCanary_typeInferredNullableMissedByOldAnalyzer() {
+        val src = """
+            fun fetch(): String? = null
+            fun run() {
+                val x = fetch()
+                println(x.length)
+            }
+        """.trimIndent()
+        val issues = analyzeKt(src)
+        assertEquals(
+            "Expected exactly one finding on the type-inferred nullable access; got ${issues.size}: $issues",
+            1, issues.size
+        )
+        assertEquals("AEG-NULL-KT-001", issues.single().ruleId)
+    }
+
+    fun testCanary_smartCastWindowSuppressesFinding() {
+        val src = """
+            fun fetch(): String? = null
+            fun run() {
+                val x = fetch()
+                if (x != null) {
+                    println(x.length)
+                }
+            }
+        """.trimIndent()
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    fun testCanary_genericNullableBoundIsFlagged() {
+        val src = """
+            class Box<T>(val value: T?)
+            fun run(b: Box<String>) {
+                println(b.value.length)
+            }
+        """.trimIndent()
+        val issues = analyzeKt(src)
+        assertEquals(1, issues.size)
+        assertEquals("AEG-NULL-KT-001", issues.single().ruleId)
+    }
+
+    fun testLateinitWithExplicitAssignmentBefore() {
+        val src = """
+            class Holder {
+                lateinit var name: String
+                fun setup() {
+                    name = "hi"
+                    println(name.length)
+                }
+            }
+        """.trimIndent()
+        // lateinit declares a non-null type; access never flagged.
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    fun testTypeUnknownDoesNotCrash() {
+        val src = """
+            fun run() {
+                val x: SomeUnresolvedType? = null
+                println(x.length)
+            }
+        """.trimIndent()
+        // F3 in design spec — KaErrorType must collapse to "don't flag",
+        // and the analyzer must not throw.
+        analyzeKt(src)
+    }
 }
