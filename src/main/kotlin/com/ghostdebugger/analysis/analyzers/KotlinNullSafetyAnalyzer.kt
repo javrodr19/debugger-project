@@ -1,6 +1,7 @@
 package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.model.*
+import com.ghostdebugger.parser.effectiveType
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -52,10 +53,7 @@ class KotlinNullSafetyAnalyzer : KotlinAnalyzer() {
             val receiver = access.receiverExpression
 
             with(session) {
-                // Smart-cast info takes precedence — `var x: String?; x = "hi"; x.length` smart-casts
-                // to non-null even though the declared type stays nullable.
-                val smartCast = receiver.smartCastInfo
-                val type = smartCast?.smartCastType ?: receiver.expressionType ?: return@with
+                val type = effectiveType(receiver) ?: return@with
                 if (type is KaErrorType) return@with        // F3 — type unknown, don't flag
                 if (!type.isMarkedNullable) return@with     // smart-cast or non-nullable
                 findings.add(buildIssue(parsedFile, receiver, lineOf(access.textOffset)))
