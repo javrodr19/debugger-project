@@ -4,7 +4,7 @@ All notable changes to Aegis Debug are documented here.
 
 ## 1.3.0 — Kotlin K2 + Analysis API
 
-**Date:** 2026-XX-XX (filled in at merge)
+**Date:** 2026-04-29
 
 ### Highlights
 
