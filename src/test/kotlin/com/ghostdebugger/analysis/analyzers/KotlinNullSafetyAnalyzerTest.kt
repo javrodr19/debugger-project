@@ -1,26 +1,11 @@
 package com.ghostdebugger.analysis.analyzers
 
-import com.ghostdebugger.graph.InMemoryGraph
-import com.ghostdebugger.model.*
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.ghostdebugger.AegisKotlinAnalysisTestCase
+import com.ghostdebugger.model.IssueType
 
-class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
+class KotlinNullSafetyAnalyzerTest : AegisKotlinAnalysisTestCase() {
 
-    private fun analyze(source: String): List<Issue> {
-        val vf = myFixture.configureByText("Sample.kt", source).virtualFile
-        val pf = ParsedFile(
-            virtualFile = vf,
-            path = vf.path,
-            extension = "kt",
-            content = source
-        )
-        val ctx = AnalysisContext(
-            graph = InMemoryGraph(),
-            project = project,
-            parsedFiles = listOf(pf)
-        )
-        return KotlinNullSafetyAnalyzer().analyze(ctx)
-    }
+    private fun analyzeKt(source: String) = analyze(source) { KotlinNullSafetyAnalyzer() }
 
     fun testNullableAccessWithoutGuardIsFlagged() {
         val src = """
@@ -29,7 +14,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x.length)
             }
         """.trimIndent()
-        val issues = analyze(src)
+        val issues = analyzeKt(src)
         assertEquals(1, issues.size)
         assertEquals(IssueType.NULL_SAFETY, issues.single().type)
     }
@@ -41,7 +26,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x?.length)
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testIfNotNullGuardIsNotFlagged() {
@@ -53,7 +38,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 }
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testLetGuardIsNotFlagged() {
@@ -63,7 +48,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 x?.let { println(it.length) }
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testBangBangIsNotFlagged() {
@@ -73,7 +58,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x!!.length)
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testElvisReturnIsNotFlagged() {
@@ -84,7 +69,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x.length)
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testElvisThrowIsNotFlagged() {
@@ -95,7 +80,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x.length)
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testReassignedToNullStillFlagged() {
@@ -106,7 +91,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x.length)
             }
         """.trimIndent()
-        assertEquals(1, analyze(src).size)
+        assertEquals(1, analyzeKt(src).size)
     }
 
     fun testReassignedBeforeAccessIsNotFlagged() {
@@ -117,7 +102,7 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 println(x.length)
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testShadowedVariableInInnerScopeIsNotFlagged() {
@@ -130,6 +115,77 @@ class KotlinNullSafetyAnalyzerTest : BasePlatformTestCase() {
                 }
             }
         """.trimIndent()
-        assertEquals(0, analyze(src).size)
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    // ── Canary tests — the V1.2 name-matcher would have missed these.
+    //    If these fail, suspect the Analysis API isn't resolving types
+    //    (project descriptor regression — R3 in design spec).
+
+    fun testCanary_typeInferredNullableMissedByOldAnalyzer() {
+        val src = """
+            fun fetch(): String? = null
+            fun run() {
+                val x = fetch()
+                println(x.length)
+            }
+        """.trimIndent()
+        val issues = analyzeKt(src)
+        assertEquals(
+            "Expected exactly one finding on the type-inferred nullable access; got ${issues.size}: $issues",
+            1, issues.size
+        )
+        assertEquals("AEG-NULL-KT-001", issues.single().ruleId)
+    }
+
+    fun testCanary_smartCastWindowSuppressesFinding() {
+        val src = """
+            fun fetch(): String? = null
+            fun run() {
+                val x = fetch()
+                if (x != null) {
+                    println(x.length)
+                }
+            }
+        """.trimIndent()
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    fun testCanary_genericNullableBoundIsFlagged() {
+        val src = """
+            class Box<T>(val value: T?)
+            fun run(b: Box<String>) {
+                println(b.value.length)
+            }
+        """.trimIndent()
+        val issues = analyzeKt(src)
+        assertEquals(1, issues.size)
+        assertEquals("AEG-NULL-KT-001", issues.single().ruleId)
+    }
+
+    fun testLateinitWithExplicitAssignmentBefore() {
+        val src = """
+            class Holder {
+                lateinit var name: String
+                fun setup() {
+                    name = "hi"
+                    println(name.length)
+                }
+            }
+        """.trimIndent()
+        // lateinit declares a non-null type; access never flagged.
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    fun testTypeUnknownDoesNotCrash() {
+        val src = """
+            fun run() {
+                val x: SomeUnresolvedType? = null
+                println(x.length)
+            }
+        """.trimIndent()
+        // F3 in design spec — KaErrorType must collapse to "don't flag",
+        // and the analyzer must not throw.
+        analyzeKt(src)
     }
 }

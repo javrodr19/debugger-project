@@ -1,5 +1,6 @@
 package com.ghostdebugger.parser
 
+import com.ghostdebugger.bridge.renderShort
 import com.ghostdebugger.model.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
@@ -8,8 +9,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFileFactory
-import org.jetbrains.kotlin.idea.KotlinLanguage
+import com.intellij.psi.PsiManager
+import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtFile
@@ -40,12 +41,7 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
         val p = project ?: ProjectManager.getInstance().defaultProject
         return runCatching {
             ApplicationManager.getApplication().runReadAction<KtFile?> {
-                val factory = PsiFileFactory.getInstance(p)
-                factory.createFileFromText(
-                    parsedFile.path.substringAfterLast('/').ifBlank { "Sample.kt" },
-                    KotlinLanguage.INSTANCE,
-                    parsedFile.content
-                ) as? KtFile
+                PsiManager.getInstance(p).findFile(parsedFile.virtualFile) as? KtFile
             }
         }.onFailure { e ->
             if (e is ProcessCanceledException) throw e
@@ -113,8 +109,27 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
             }
         }
 
+        // Enrich function symbols with rendered returnType + paramTypes via Analysis API.
+        // If the analyze block fails (KaErrorType, broken module, etc.), `enriched` falls
+        // back to the un-enriched `functions` list — the new fields stay at default.
+        val enriched = withKtAnalysis(ktFile) {
+            val byKey = PsiTreeUtil.findChildrenOfType(ktFile, KtNamedFunction::class.java)
+                .associateBy { (it.name ?: "") to lineOf(it.textOffset) }
+            functions.map { fs ->
+                val named = byKey[fs.name to fs.line] ?: return@map fs
+                try {
+                    val ret = named.returnType.takeIf { !it.isUnitType }?.let { renderShort(it) }
+                    val params = named.valueParameters.map { p -> renderShort(p.returnType) }
+                    fs.copy(returnType = ret, paramTypes = params)
+                } catch (e: Exception) {
+                    if (e is ProcessCanceledException) throw e
+                    fs
+                }
+            }
+        } ?: functions
+
         return parsedFile.copy(
-            functions = functions,
+            functions = enriched,
             imports = imports,
             exports = exports,
             variables = variables

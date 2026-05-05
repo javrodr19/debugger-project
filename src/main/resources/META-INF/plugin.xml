@@ -1,10 +1,10 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>1.1.2</version>
+    <version>1.3.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
-    <idea-version since-build="232.0" until-build="261.*"/>
+    <idea-version since-build="243.0" until-build="261.*"/>
 
     <description><![CDATA[
     <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>
@@ -39,6 +39,16 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>1.3.0 — Kotlin K2 + Analysis API (2026-04-29)</h3>
+    <ul>
+        <li>First-class K2-mode support: minimum IDE raised to 2024.3.</li>
+        <li>Rewrote <strong>AEG-NULL-KT-001</strong> on the Kotlin Analysis API for type-aware findings.</li>
+        <li>Added <strong>AEG-CAST-KT-001</strong>: unsafe <code>as</code> downcasts.</li>
+        <li>Added <strong>AEG-TYPE-KT-001</strong>: type mismatches between declared types and initializers.</li>
+        <li>Added <strong>AEG-REDUNDANT-LET-KT-001</strong>: redundant <code>?.let</code> after smart-cast.</li>
+        <li>Two new deterministic fixers: unsafe-cast and redundant-let.</li>
+        <li>Function symbols now carry rendered <code>returnType</code> and <code>paramTypes</code> for Kotlin and Java.</li>
+    </ul>
     <h3>1.1.0 — Syntax & Compilation Error Detection (2026-04-16)</h3>
     <ul>
         <li>Added <strong>AEG-SYNTAX-001</strong>: detects parse-level syntax errors across Kotlin, Java, TS, JS.</li>
@@ -59,6 +69,10 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
     <depends>org.jetbrains.kotlin</depends>
+
+    <extensions defaultExtensionNs="org.jetbrains.kotlin">
+        <supportsKotlinPluginMode supportsK2="true"/>
+    </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- ID kept as GhostDebugger for backward compatibility with pinned user layouts; display name is Aegis Debug -->

@@ -6,7 +6,9 @@ object FixerRegistry {
     private val fixers: Map<String, Fixer> = listOf(
         NullSafetyFixer(),
         StateInitFixer(),
-        AsyncFlowFixer()
+        AsyncFlowFixer(),
+        KotlinUnsafeCastFixer(),
+        KotlinRedundantLetFixer()
     ).associateBy { it.ruleId }
 
     /**

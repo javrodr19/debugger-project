@@ -8,6 +8,7 @@ import com.ghostdebugger.bridge.BridgeChannel
 import com.ghostdebugger.bridge.JcefBridge
 import com.ghostdebugger.bridge.UIEvent
 import com.ghostdebugger.fix.FixApplicator
+import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.fix.FixerRegistry
 import com.ghostdebugger.graph.GraphBuilder
 import com.ghostdebugger.model.*
@@ -516,15 +517,17 @@ class GhostDebuggerService(private val project: Project) : Disposable {
             ?: currentIssues.firstOrNull { nodeId.contains(it.filePath.substringAfterLast("/")) }
             ?: return
 
-        val fixer = FixerRegistry.forIssue(issue)
-        if (fixer != null) {
+        if (FixerRegistry.forIssue(issue) != null) {
             val fileContent = try {
                 java.io.File(issue.filePath).readText()
             } catch (e: Exception) {
                 log.warn("Could not read file for deterministic fix: ${issue.filePath}", e)
                 null
             }
-            val deterministicFix = fileContent?.let { fixer.generateFix(issue, it) }
+            val vf = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
+            val deterministicFix = if (vf != null && fileContent != null) {
+                FixDeriver(project).derive(issue, vf, fileContent)
+            } else null
             if (deterministicFix != null) {
                 scope.launch(Dispatchers.Swing) {
                     bridge?.sendFixSuggestion(deterministicFix)
@@ -576,11 +579,11 @@ class GhostDebuggerService(private val project: Project) : Disposable {
             return
         }
 
-        val fixer = FixerRegistry.forIssue(issue)
-        val fix = if (fixer != null) {
+        val fix = if (FixerRegistry.forIssue(issue) != null) {
             try {
                 val content = java.io.File(issue.filePath).readText()
-                fixer.generateFix(issue, content)
+                val vf = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
+                if (vf != null) FixDeriver(project).derive(issue, vf, content) else null
             } catch (e: Exception) {
                 log.warn("Could not re-derive fix for issue $issueId: ${e.message}", e)
                 null

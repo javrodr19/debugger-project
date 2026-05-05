@@ -115,7 +115,12 @@ data class FunctionSymbol(
     val name: String,
     val line: Int,
     val isAsync: Boolean = false,
-    val body: String = ""
+    val body: String = "",
+    /** Rendered short-form return type (e.g., "String?"). Null when the language extractor
+     *  doesn't surface types (TS/JS) or when type resolution failed for this function. */
+    val returnType: String? = null,
+    /** Rendered short-form parameter types in declaration order. Empty when unknown. */
+    val paramTypes: List<String> = emptyList()
 )
 
 data class VariableSymbol(

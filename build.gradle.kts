@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.ghostdebugger"
-version = "1.2.0"
+version = "1.3.0"
 
 repositories {
     mavenCentral()
@@ -28,6 +28,11 @@ dependencies {
         zipSigner()
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
+        // TestFrameworkType.Plugin.Kotlin does not exist in intellij-platform-gradle-plugin 2.14.0.
+        // Kotlin test fixtures are provided by the bundled "org.jetbrains.kotlin" plugin (declared
+        // above via bundledPlugin) plus the kotlin-test / kotlin-test-junit5 testImplementation
+        // entries already in this file. No separate testFramework line needed; revisit if/when
+        // the Gradle plugin exposes TestFrameworkType.Plugin.Kotlin in a future release.
     }
 
     // Kotlin Coroutines — coroutines-core is compileOnly because the platform ships a
@@ -104,7 +109,7 @@ intellijPlatform {
         """.trimIndent()
 
         ideaVersion {
-            sinceBuild = "232.0"
+            sinceBuild = "243.0"
             untilBuild = "261.*"
         }
 
@@ -117,10 +122,9 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            create(IntelliJPlatformType.IntellijIdeaUltimate, "2023.2.6")
-            create(IntelliJPlatformType.IntellijIdeaUltimate, "2024.1.6")
             create(IntelliJPlatformType.IntellijIdeaUltimate, "2024.3.2.2")
             create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.1")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.1")
         }
     }
 }

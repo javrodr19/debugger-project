@@ -83,7 +83,9 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
                             FunctionSymbol(
                                 name = el.name,
                                 line = lineOf(el.textOffset),
-                                body = el.text.take(120)
+                                body = el.text.take(120),
+                                returnType = el.returnType?.presentableText,
+                                paramTypes = el.parameterList.parameters.map { it.type.presentableText }
                             )
                         )
                     }

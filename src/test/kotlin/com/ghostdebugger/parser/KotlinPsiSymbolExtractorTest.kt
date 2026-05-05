@@ -1,9 +1,9 @@
 package com.ghostdebugger.parser
 
+import com.ghostdebugger.AegisKotlinAnalysisTestCase
 import com.ghostdebugger.model.ParsedFile
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-class KotlinPsiSymbolExtractorTest : BasePlatformTestCase() {
+class KotlinPsiSymbolExtractorTest : AegisKotlinAnalysisTestCase() {
 
     private fun parseFile(source: String): ParsedFile {
         val vf = myFixture.configureByText("Sample.kt", source).virtualFile
