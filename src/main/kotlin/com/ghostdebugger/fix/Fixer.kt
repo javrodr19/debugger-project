@@ -2,6 +2,7 @@ package com.ghostdebugger.fix
 
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
+import com.intellij.psi.PsiFile
 
 interface Fixer {
     /** Must equal the `ruleId` of the corresponding `Analyzer`. */
@@ -24,4 +25,13 @@ interface Fixer {
      * line out of range, etc.). A null return causes the caller to fall back to AI.
      */
     fun generateFix(issue: Issue, fileContent: String): CodeFix?
+
+    /**
+     * Optional PSI-driven fix path. [FixDeriver] tries this first; on null it
+     * falls back to [generateFix].
+     *
+     * The parameter is `PsiFile` (not `KtFile`) to keep this interface
+     * language-neutral; Kotlin fixers cast internally.
+     */
+    fun generateFixFromPsi(issue: Issue, file: PsiFile): CodeFix? = null
 }
