@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -21,9 +21,9 @@
     <h3>What's inside</h3>
     <ul>
         <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
-        <li><strong>Seven deterministic analyzers</strong> —
-            syntax, compilation, null safety, state-before-init, async flow, circular dependencies, complexity.</li>
-        <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
+        <li><strong>Eleven deterministic analyzers</strong> —
+            syntax, compilation, null safety (TS/JS/Kotlin), state-before-init, async flow, circular dependencies, complexity, unsafe-cast (Kotlin), type-mismatch (Kotlin), redundant-let (Kotlin).</li>
+        <li><strong>Five deterministic fixers</strong> with diff preview and native undo.</li>
         <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
         <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
         <li><strong>Ollama (local)</strong> or <strong>OpenAI (cloud)</strong> — both optional, both off by default.</li>
@@ -48,6 +48,15 @@
         <li>Added <strong>AEG-REDUNDANT-LET-KT-001</strong>: redundant <code>?.let</code> after smart-cast.</li>
         <li>Two new deterministic fixers: unsafe-cast and redundant-let.</li>
         <li>Function symbols now carry rendered <code>returnType</code> and <code>paramTypes</code> for Kotlin and Java.</li>
+    </ul>
+    <h3>1.2.0 — Hardening release (2026-04-25)</h3>
+    <ul>
+        <li>PSI-backed symbol extraction for Kotlin and Java (replacing regex-only paths).</li>
+        <li>New <strong>AEG-NULL-KT-001</strong>: Kotlin null-safety analyzer (PSI-backed, conservative-miss bias).</li>
+        <li>Resilient AI JSON parsing — three-strategy extractor (direct → fenced → bracket-balanced) with telemetry.</li>
+        <li>Single-source AI fan-out: Ollama and OpenAI both flow through one <code>AIAnalyzer</code>.</li>
+        <li>Few-shot examples in <code>detectIssues</code> and <code>jointFix</code> prompts.</li>
+        <li>Cross-file dependent re-analysis cascade (capped by <code>maxDependentsToReanalyze</code>, default 20).</li>
     </ul>
     <h3>1.1.0 — Syntax & Compilation Error Detection (2026-04-16)</h3>
     <ul>

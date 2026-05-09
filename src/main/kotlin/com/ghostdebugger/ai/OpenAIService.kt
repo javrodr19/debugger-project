@@ -34,8 +34,12 @@ class OpenAIService(
         .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .build()
 
-    override suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
-        val prompt = PromptTemplates.detectIssues(filePath, fileContent)
+    override suspend fun detectIssues(
+        filePath: String,
+        fileContent: String,
+        functions: List<com.ghostdebugger.model.FunctionSymbol>
+    ): List<Issue> {
+        val prompt = PromptTemplates.detectIssues(filePath, fileContent, functions)
         val rawResponse = callOpenAI(prompt, SystemPrompts.DEBUGGER, jsonMode = true)
         return when (val r = AiJsonExtractor.extract(rawResponse)) {
             is AiJsonExtractor.Result.Ok -> AiIssueMapper.mapIssues(r.element, filePath, fileContent)

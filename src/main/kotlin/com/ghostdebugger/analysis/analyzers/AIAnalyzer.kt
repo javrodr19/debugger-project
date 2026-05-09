@@ -36,7 +36,7 @@ class AIAnalyzer(
                         progress?.text2 = "$labelPrefix${file.path.substringAfterLast('/')}"
                         try {
                             log.info("Sending ${file.path} to AI for deep review...")
-                            service.detectIssues(file.path, file.content)
+                            service.detectIssues(file.path, file.content, file.functions)
                         } catch (e: Exception) {
                             if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                             log.warn("AI pass failed for ${file.path}", e)

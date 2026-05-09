@@ -46,8 +46,7 @@ class ReportGeneratorXssTest {
         
         val reportGenerator = ReportGenerator()
         val html = reportGenerator.generateHTMLReport(graph)
-        java.io.File("debug_report.html").writeText(html)
-        
+
         // Assertions
         assertFalse(html.contains("<script>"), "HTML should not contain raw script tag")
         assertFalse(html.contains("<img"), "HTML should not contain raw img tag")

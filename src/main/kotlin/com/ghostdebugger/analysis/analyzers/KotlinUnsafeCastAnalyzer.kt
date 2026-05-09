@@ -2,6 +2,7 @@ package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.model.*
 import com.ghostdebugger.parser.effectiveType
+import com.ghostdebugger.parser.effectiveTypeWithStructuralSmartCast
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -48,7 +49,7 @@ class KotlinUnsafeCastAnalyzer : KotlinAnalyzer() {
             with(session) {
                 val targetType = targetTypeRef.type
                 if (targetType is KaErrorType) return@with
-                val receiverType = effectiveType(cast.left) ?: return@with
+                val receiverType = effectiveTypeWithStructuralSmartCast(cast.left) ?: return@with
                 if (receiverType is KaErrorType) return@with
 
                 // Upcast or identity: receiver is already a subtype of target -> safe.
