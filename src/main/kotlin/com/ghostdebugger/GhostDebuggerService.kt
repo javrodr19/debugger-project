@@ -37,6 +37,13 @@ import com.intellij.xdebugger.XDebuggerManagerListener
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import com.intellij.xdebugger.frame.XStackFrame
+import com.intellij.ide.BrowserUtil
+import com.intellij.ide.actions.RevealFileAction
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.openapi.fileChooser.FileChooserFactory
+import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.swing.Swing
 import java.io.File
@@ -829,33 +836,58 @@ class GhostDebuggerService(private val project: Project) : Disposable {
             return
         }
 
-        scope.launch {
-            try {
-                val reportGenerator = ReportGenerator()
-                val htmlContent = reportGenerator.generateHTMLReport(graph)
+        scope.launch(Dispatchers.Swing) {
+            val descriptor = FileSaverDescriptor(
+                "Export Aegis Debug Report",
+                "Choose where to save the analysis report",
+                "html"
+            )
+            val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
+            val defaultName = "aegis-debug-${sanitizeFilename(project.name)}-${System.currentTimeMillis()}.html"
+            val saved = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, defaultName) ?: return@launch
 
-                val reportFile = File(
-                    System.getProperty("java.io.tmpdir"),
-                    "aegis-debug-${sanitizeFilename(project.name)}-${System.currentTimeMillis()}.html"
-                )
-                reportFile.writeText(htmlContent)
-
+            scope.launch {
                 try {
-                    java.awt.Desktop.getDesktop().browse(reportFile.toURI())
+                    val html = ReportGenerator().generateHTMLReport(graph)
+                    val outFile = saved.file
+                    outFile.writeText(html)
+                    withContext(Dispatchers.Swing) {
+                        notifyReportExported(outFile)
+                    }
                 } catch (e: Exception) {
-                    log.warn("Could not open browser: ${e.message}")
-                }
-
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Report exported to: ${reportFile.absolutePath}")
-                }
-            } catch (e: Exception) {
-                log.error("Failed to export report", e)
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendError("Export failed: ${e.message}")
+                    if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                    log.error("Failed to write report", e)
+                    withContext(Dispatchers.Swing) {
+                        bridge?.sendError("Export failed: ${e.message}")
+                    }
                 }
             }
         }
+    }
+
+    private fun notifyReportExported(file: java.io.File) {
+        val notification = NotificationGroupManager.getInstance()
+            .getNotificationGroup("GhostDebugger")
+            .createNotification(
+                "Aegis Debug report exported",
+                file.name,
+                NotificationType.INFORMATION
+            )
+        notification.addAction(NotificationAction.create("Open in browser") { _, _ ->
+            try {
+                BrowserUtil.browse(file)
+            } catch (e: Exception) {
+                log.warn("Could not open browser for ${file.absolutePath}", e)
+            }
+        })
+        notification.addAction(NotificationAction.create("Show in Files") { _, _ ->
+            try {
+                RevealFileAction.openFile(file)
+            } catch (e: Exception) {
+                log.warn("Could not reveal file ${file.absolutePath}", e)
+            }
+        })
+        notification.notify(project)
     }
 
     private fun sanitizeFilename(name: String): String =
