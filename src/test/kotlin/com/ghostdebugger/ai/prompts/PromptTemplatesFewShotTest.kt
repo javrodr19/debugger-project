@@ -67,4 +67,32 @@ class PromptTemplatesFewShotTest {
             assertDoesNotThrow({ json.parseToJsonElement(body) }, "Invalid JSON in example: $body")
         }
     }
+
+    @Test fun `detectIssues includes Function Signatures block when functions are provided`() {
+        val functions = listOf(
+            com.ghostdebugger.model.FunctionSymbol(
+                name = "greet",
+                line = 3,
+                returnType = "String?",
+                paramTypes = listOf("Int", "String")
+            )
+        )
+        val rendered = PromptTemplates.detectIssues("/foo.kt", "fun greet(): String? = null", functions)
+        assertTrue(
+            rendered.contains("Function Signatures:"),
+            "Expected 'Function Signatures:' header in prompt"
+        )
+        assertTrue(
+            rendered.contains("- greet(Int, String): String?  (line 3)"),
+            "Expected greet signature line in prompt; got:\n${rendered.lines().filter { it.contains("greet") }.joinToString("\n")}"
+        )
+    }
+
+    @Test fun `detectIssues omits Function Signatures block when functions list is empty`() {
+        val rendered = PromptTemplates.detectIssues("/foo.ts", "x", emptyList())
+        assertFalse(
+            rendered.contains("Function Signatures:"),
+            "Expected no 'Function Signatures:' header when functions empty"
+        )
+    }
 }

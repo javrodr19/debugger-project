@@ -21,7 +21,7 @@ class AnalysisEngineOllamaDelegationTest {
      */
 
     private class FakeService(val counter: AtomicInteger) : AIService {
-        override suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
+        override suspend fun detectIssues(filePath: String, fileContent: String, functions: List<com.ghostdebugger.model.FunctionSymbol>): List<Issue> {
             counter.incrementAndGet()
             return listOf(
                 Issue(

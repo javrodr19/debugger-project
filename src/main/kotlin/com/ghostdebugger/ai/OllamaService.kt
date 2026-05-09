@@ -33,9 +33,13 @@ class OllamaService(
         .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .build()
 
-    override suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
+    override suspend fun detectIssues(
+        filePath: String,
+        fileContent: String,
+        functions: List<com.ghostdebugger.model.FunctionSymbol>
+    ): List<Issue> {
         return try {
-            val raw = callOllama(PromptTemplates.detectIssues(filePath, fileContent))
+            val raw = callOllama(PromptTemplates.detectIssues(filePath, fileContent, functions))
             when (val r = AiJsonExtractor.extract(raw)) {
                 is AiJsonExtractor.Result.Ok -> AiIssueMapper.mapIssues(r.element, filePath, fileContent)
                 AiJsonExtractor.Result.Empty -> {
