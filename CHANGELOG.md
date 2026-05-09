@@ -2,6 +2,34 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## 1.4.0 — Cleanup, report-export rewrite, smart-cast walker
+
+**Date:** 2026-XX-XX (filled in at merge)
+
+### Highlights
+
+- **Report export rewrite** — clean HTML output (no leading-whitespace bug), file-chooser UX, IDE notification with "Open in browser" / "Show in Files" actions.
+- **Smart-cast walker** — V1.3's three documented smart-cast known limitations now resolved via parent-chain narrowing detection.
+- **AI prompts include function signatures** — JVM-language prompts now include a Function Signatures block listing `name(paramTypes): returnType`.
+- **Marketplace copy refreshed** — analyzer count bumped to eleven, fixer count to five.
+- **`KaExpressionTypeProvider.getReturnType(KtDeclaration)` deprecation** flagged by 2026.1's verifier resolved.
+- **Java regex fallback enrichment** — best-effort capture of return type and parameter types when PSI is unavailable.
+- **CLAUDE.md** — project-root file documenting build prerequisites and conventions.
+- **Test bar** raised from 192 → ~232.
+
+### Bug fixes
+
+- Report HTML rendered with leading whitespace per line (Kotlin `trimIndent()` interpolation order); replaced with `StringBuilder`.
+- Report success path used the error toast; now routes through proper `Notification` group.
+- Auto-open via `Desktop.getDesktop().browse()` was fragile on Linux; replaced with file chooser + user-clicks-to-open notification.
+- `displayPath = filePath.replace("/", "/")` no-op typo in `ReportGenerator`.
+- Missing 1.2.0 entry in plugin.xml `<change-notes>`.
+
+### Contributors / spec / plan
+
+- Spec: `docs/superpowers/specs/2026-05-06-aegis-v1.4-cleanup-design.md`
+- Plan: `docs/superpowers/plans/2026-05-06-aegis-v1.4-cleanup.md`
+
 ## 1.3.0 — Kotlin K2 + Analysis API
 
 **Date:** 2026-04-29
