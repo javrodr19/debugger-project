@@ -2,6 +2,7 @@ package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.model.*
 import com.ghostdebugger.parser.effectiveType
+import com.ghostdebugger.parser.effectiveTypeWithStructuralSmartCast
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -51,7 +52,7 @@ class KotlinRedundantLetAnalyzer : KotlinAnalyzer() {
             if (!isSingleStatementLambda(lambda)) continue
 
             with(session) {
-                val recvType = effectiveType(safeCall.receiverExpression) ?: return@with
+                val recvType = effectiveTypeWithStructuralSmartCast(safeCall.receiverExpression) ?: return@with
                 if (recvType is KaErrorType) return@with
                 if (recvType.isMarkedNullable) return@with
 
