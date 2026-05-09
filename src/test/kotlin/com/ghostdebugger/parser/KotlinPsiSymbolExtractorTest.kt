@@ -2,6 +2,7 @@ package com.ghostdebugger.parser
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
 import com.ghostdebugger.model.ParsedFile
+import com.intellij.openapi.application.ApplicationManager
 
 class KotlinPsiSymbolExtractorTest : AegisKotlinAnalysisTestCase() {
 
@@ -88,5 +89,79 @@ class KotlinPsiSymbolExtractorTest : AegisKotlinAnalysisTestCase() {
         val out = KotlinPsiSymbolExtractor(project).extract(parseFile(src))
 
         assertTrue(out.functions.any { it.name == "survive" })
+    }
+
+    fun testCanary_returnTypeIsRendered() {
+        val src = """
+            fun greet(): String = "hi"
+        """.trimIndent()
+        val extractor = KotlinPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.kt", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "kt",
+            content = src
+        )
+        val out = ApplicationManager.getApplication().runReadAction<ParsedFile> { extractor.extract(pf) }
+        val greet = out.functions.first { it.name == "greet" }
+        assertEquals("String", greet.returnType)
+    }
+
+    fun testCanary_nullableReturnTypeIsShortForm() {
+        val src = """
+            fun lookup(): String? = null
+        """.trimIndent()
+        val extractor = KotlinPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.kt", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "kt",
+            content = src
+        )
+        val out = ApplicationManager.getApplication().runReadAction<ParsedFile> { extractor.extract(pf) }
+        val lookup = out.functions.first { it.name == "lookup" }
+        assertEquals(
+            "Renderer should produce 'String?' (short form). If you see 'kotlin.String?', the renderer drifted to FQN form.",
+            "String?", lookup.returnType
+        )
+    }
+
+    fun testCanary_paramTypesRendered() {
+        val src = """
+            fun add(a: Int, b: Int): Int = a + b
+        """.trimIndent()
+        val extractor = KotlinPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.kt", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "kt",
+            content = src
+        )
+        val out = ApplicationManager.getApplication().runReadAction<ParsedFile> { extractor.extract(pf) }
+        val add = out.functions.first { it.name == "add" }
+        assertEquals(listOf("Int", "Int"), add.paramTypes)
+    }
+
+    fun testCanary_unitReturnFiltered() {
+        val src = """
+            fun shout(msg: String) { println(msg) }
+        """.trimIndent()
+        val extractor = KotlinPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.kt", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "kt",
+            content = src
+        )
+        val out = ApplicationManager.getApplication().runReadAction<ParsedFile> { extractor.extract(pf) }
+        val shout = out.functions.first { it.name == "shout" }
+        assertNull(
+            "Unit return should be filtered to null (don't clutter signatures with Unit)",
+            shout.returnType
+        )
     }
 }
