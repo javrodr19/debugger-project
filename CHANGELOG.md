@@ -4,7 +4,7 @@ All notable changes to Aegis Debug are documented here.
 
 ## 1.4.1 — Audit-driven correctness, safety, and observability fixes
 
-**Date:** 2026-XX-XX (filled in at merge)
+**Date:** 2026-05-10
 
 ### Highlights
 
