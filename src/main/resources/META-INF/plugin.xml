@@ -120,6 +120,10 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.GhostDebuggerService"/>
 
+        <!-- V1.5: VFS listener for auto-refresh on file save -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.FileChangeWatcher"/>
+
         <!-- Application-level settings service -->
         <applicationService
                 serviceImplementation="com.ghostdebugger.settings.GhostDebuggerSettings"/>

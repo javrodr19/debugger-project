@@ -21,13 +21,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.vfs.VirtualFileManager
-import com.intellij.openapi.vfs.newvfs.BulkFileListener
-import com.intellij.openapi.vfs.newvfs.events.VFileEvent
-import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.xdebugger.XDebugProcess
 import com.intellij.xdebugger.XDebugSession
@@ -63,8 +58,8 @@ class GhostDebuggerService(private val project: Project) : Disposable {
 
     private var bridge: JcefBridge? = null
     @Volatile private var testBridgeChannel: BridgeChannel? = null
-    private var currentGraph: ProjectGraph? = null
-    private var lastInMemoryGraph: com.ghostdebugger.graph.InMemoryGraph? = null
+    internal var currentGraph: ProjectGraph? = null
+    internal var lastInMemoryGraph: com.ghostdebugger.graph.InMemoryGraph? = null
     var currentIssues: List<Issue> = emptyList()
         private set
     @Volatile var issuesByFile: Map<String, List<Issue>> = emptyMap()
@@ -80,10 +75,21 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
     }
     private var aiService: AIService? = null
-    private var fileWatcherRegistered = false
-    private var autoRefreshJob: Job? = null
     private var debugSessionListener: XDebugSessionListener? = null
     private val fixApplicator = FixApplicator()
+
+    /**
+     * Accessor for collaborators that need to push BridgeChannel-shaped events
+     * (sendNodeUpdate, sendIssuesForFile). Tests can override via setBridgeForTest.
+     */
+    internal fun bridgeChannel(): BridgeChannel? = testBridgeChannel ?: bridge
+
+    /**
+     * Accessor for collaborators that need the full JcefBridge surface (the BridgeChannel
+     * methods plus the JcefBridge-only ones like sendAutoRefreshStart, sendAnalysisProgress).
+     * Returns null in unit-test contexts where only a recording BridgeChannel is installed.
+     */
+    internal fun jcefBridge(): JcefBridge? = bridge
 
     private fun resolveAiService(): AIService? {
         val settings = GhostDebuggerSettings.getInstance().snapshot()
@@ -99,51 +105,8 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     fun setBridge(bridge: JcefBridge) {
         this.bridge = bridge
         bridge.initialize()
-        registerFileWatcher()
+        FileChangeWatcher.getInstance(project).start()
         registerDebugSessionListener()
-    }
-
-    /**
-     * Registers a bulk file listener that triggers auto-refresh on file saves.
-     */
-    private fun registerFileWatcher() {
-        if (fileWatcherRegistered) return
-        fileWatcherRegistered = true
-
-        project.messageBus.connect(this).subscribe(
-            VirtualFileManager.VFS_CHANGES,
-            object : BulkFileListener {
-                override fun after(events: List<VFileEvent>) {
-                    if (System.currentTimeMillis() < suppressUntil) return
-                    
-                    val projectBase = project.basePath ?: return
-                    val fileIndex = ProjectFileIndex.getInstance(project)
-                    
-                    val hasRelevantChange = events.any { event ->
-                        val file = event.file
-                        val path = file?.path ?: ""
-                        event is VFileContentChangeEvent &&
-                        path.startsWith(projectBase) &&
-                        FileScanner.SUPPORTED_EXTENSIONS.contains(file?.extension) &&
-                        !fileIndex.isExcluded(file!!)
-                    }
-                    if (hasRelevantChange && currentGraph != null) {
-                        scheduleAutoRefresh()
-                    }
-                }
-            }
-        )
-    }
-
-    private fun scheduleAutoRefresh() {
-        autoRefreshJob?.cancel()
-        autoRefreshJob = scope.launch {
-            delay(7000)
-            withContext(Dispatchers.Swing) {
-                bridge?.sendAutoRefreshStart()
-            }
-            analyzeProject()
-        }
     }
 
     /**
@@ -327,7 +290,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         synchronized(analysisLock) {
             activeAnalysisIndicator?.cancel()
         }
-        autoRefreshJob?.cancel()
+        FileChangeWatcher.getInstance(project).cancelAutoRefresh()
     }
 
     private suspend fun performAnalysis(indicator: com.intellij.openapi.progress.ProgressIndicator) {
@@ -912,7 +875,6 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
-        autoRefreshJob?.cancel()
         scope.cancel()
     }
 }
