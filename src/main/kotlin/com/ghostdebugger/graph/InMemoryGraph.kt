@@ -12,8 +12,8 @@ class InMemoryGraph {
 
     fun addNode(node: GraphNode) {
         nodes[node.id] = node
-        adjacencyList.getOrPut(node.id) { mutableSetOf() }
-        reverseAdjacencyList.getOrPut(node.id) { mutableSetOf() }
+        adjacencyList.getOrPut(node.id) { ConcurrentHashMap.newKeySet() }
+        reverseAdjacencyList.getOrPut(node.id) { ConcurrentHashMap.newKeySet() }
         cachedCycles = null
     }
 
@@ -24,8 +24,8 @@ class InMemoryGraph {
 
     fun addEdge(edge: GraphEdge) {
         edges[edge.id] = edge
-        adjacencyList.getOrPut(edge.source) { mutableSetOf() }.add(edge.target)
-        reverseAdjacencyList.getOrPut(edge.target) { mutableSetOf() }.add(edge.source)
+        adjacencyList.getOrPut(edge.source) { ConcurrentHashMap.newKeySet() }.add(edge.target)
+        reverseAdjacencyList.getOrPut(edge.target) { ConcurrentHashMap.newKeySet() }.add(edge.source)
         cachedCycles = null
     }
 
@@ -47,32 +47,42 @@ class InMemoryGraph {
         cachedCycles?.let { return it }
         val cycles = mutableListOf<List<String>>()
         val visited = mutableSetOf<String>()
-        val recursionStack = mutableSetOf<String>()
-        val path = mutableListOf<String>()
 
-        fun dfs(nodeId: String) {
-            visited.add(nodeId)
-            recursionStack.add(nodeId)
-            path.add(nodeId)
+        // Iterative DFS — V1.4.1 rewrite. Recursive DFS could StackOverflowError on
+        // monorepo-shaped graphs (deep import chains). Each Frame holds the node and
+        // an iterator over outgoing neighbors; we pop the frame in post-order.
+        data class Frame(val node: String, val iter: Iterator<String>)
 
-            adjacencyList[nodeId]?.forEach { neighbor ->
-                if (!visited.contains(neighbor)) {
-                    dfs(neighbor)
-                } else if (recursionStack.contains(neighbor)) {
-                    val cycleStart = path.indexOf(neighbor)
-                    if (cycleStart >= 0) {
-                        cycles.add(path.subList(cycleStart, path.size).toList())
+        for (root in nodes.keys.toList()) {
+            if (root in visited) continue
+
+            val recursionStack = mutableSetOf<String>()
+            val path = mutableListOf<String>()
+            val stack = ArrayDeque<Frame>()
+
+            visited.add(root)
+            recursionStack.add(root)
+            path.add(root)
+            stack.addLast(Frame(root, (adjacencyList[root] ?: emptySet()).iterator()))
+
+            while (stack.isNotEmpty()) {
+                val top = stack.last()
+                if (top.iter.hasNext()) {
+                    val neighbor = top.iter.next()
+                    if (neighbor !in visited) {
+                        visited.add(neighbor)
+                        recursionStack.add(neighbor)
+                        path.add(neighbor)
+                        stack.addLast(Frame(neighbor, (adjacencyList[neighbor] ?: emptySet()).iterator()))
+                    } else if (neighbor in recursionStack) {
+                        val start = path.indexOf(neighbor)
+                        if (start >= 0) cycles.add(path.subList(start, path.size).toList())
                     }
+                } else {
+                    recursionStack.remove(top.node)
+                    path.removeLastOrNull()
+                    stack.removeLast()
                 }
-            }
-
-            path.removeLastOrNull()
-            recursionStack.remove(nodeId)
-        }
-
-        nodes.keys.forEach { nodeId ->
-            if (!visited.contains(nodeId)) {
-                dfs(nodeId)
             }
         }
 
