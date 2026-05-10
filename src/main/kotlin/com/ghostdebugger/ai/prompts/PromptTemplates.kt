@@ -5,11 +5,30 @@ import com.ghostdebugger.model.ProjectGraph
 
 object PromptTemplates {
 
-    fun detectIssues(filePath: String, fileContent: String): String = """
+    fun detectIssues(
+        filePath: String,
+        fileContent: String,
+        functions: List<com.ghostdebugger.model.FunctionSymbol> = emptyList()
+    ): String {
+        val signaturesBlock = if (functions.isEmpty()) "" else buildString {
+            appendLine()
+            appendLine("Function Signatures:")
+            functions.forEach { fn ->
+                val sig = buildString {
+                    append(fn.name)
+                    append('(')
+                    append(fn.paramTypes.joinToString(", "))
+                    append(')')
+                    fn.returnType?.let { append(": ").append(it) }
+                }
+                appendLine("- $sig  (line ${fn.line})")
+            }
+        }
+        return """
         You are an expert software engineer reviewing the following source code file for bugs, memory leaks, missing error handling, circular dependencies, state bugs, and edge cases.
 
         File Path: $filePath
-
+        $signaturesBlock
         ```
         $fileContent
         ```
@@ -31,7 +50,8 @@ object PromptTemplates {
         Worked examples (follow this exact output shape):
 
         ${PromptExamples.DETECT_ISSUES_EXAMPLES}
-    """.trimIndent()
+        """.trimIndent()
+    }
 
     fun explainIssue(issue: Issue, codeSnippet: String, projectContext: String = ""): String = """
         You are a senior software developer explaining a bug to a teammate.

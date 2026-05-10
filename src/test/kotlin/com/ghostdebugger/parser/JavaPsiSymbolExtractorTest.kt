@@ -71,4 +71,87 @@ class JavaPsiSymbolExtractorTest : BasePlatformTestCase() {
 
         assertTrue(out.exports.any { it.name == "Broken" })
     }
+
+    fun testCanary_javaReturnTypeCaptured() {
+        val src = """
+            public class Sample {
+                public String greet() { return "hi"; }
+            }
+        """.trimIndent()
+        val extractor = JavaPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.java", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "java",
+            content = src
+        )
+        val out = extractor.extract(pf)
+        val greet = out.functions.first { it.name == "greet" }
+        assertEquals("String", greet.returnType)
+    }
+
+    fun testCanary_javaParamTypesCaptured() {
+        val src = """
+            public class Sample {
+                public int add(int a, int b) { return a + b; }
+            }
+        """.trimIndent()
+        val extractor = JavaPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.java", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "java",
+            content = src
+        )
+        val out = extractor.extract(pf)
+        val add = out.functions.first { it.name == "add" }
+        assertEquals(listOf("int", "int"), add.paramTypes)
+    }
+
+    fun testCanary_javaVoidReturnCaptured() {
+        val src = """
+            public class Sample {
+                public void shout(String msg) { System.out.println(msg); }
+            }
+        """.trimIndent()
+        val extractor = JavaPsiSymbolExtractor(project)
+        val vf = myFixture.configureByText("Sample.java", src).virtualFile
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = vf,
+            path = vf.path,
+            extension = "java",
+            content = src
+        )
+        val out = extractor.extract(pf)
+        val shout = out.functions.first { it.name == "shout" }
+        // Java void via PSI: presentableText returns "void"; we capture it as-is.
+        assertEquals("void", shout.returnType)
+    }
+
+    fun testCanary_javaRegexFallbackEnrichment() {
+        val src = """
+            public class Sample {
+                public Foo doSomething(int x, String y) { return null; }
+            }
+        """.trimIndent()
+        val extractor = JavaPsiSymbolExtractor(project)
+        val pf = com.ghostdebugger.model.ParsedFile(
+            virtualFile = myFixture.configureByText("Sample.java", src).virtualFile,
+            path = "Sample.java",
+            extension = "java",
+            content = src
+        )
+        val out = extractor.extractWithRegex(pf)
+        val fn = out.functions.first { it.name == "doSomething" }
+        assertEquals(
+            "Regex fallback should capture return type",
+            "Foo", fn.returnType
+        )
+        assertEquals(
+            "Regex fallback should split params on comma and take type token",
+            listOf("int", "String"), fn.paramTypes
+        )
+    }
 }

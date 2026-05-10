@@ -115,9 +115,12 @@ class CompilationErrorAnalyzer : EarlyAnalyzer {
                     .map { buildIssue(it, document, parsedFile) }
             }
         } catch (e: InvocationTargetException) {
-            log.warn("daemon harvest failed for ${parsedFile.path}: ${(e.cause ?: e).message}")
+            val cause = e.cause
+            if (cause is com.intellij.openapi.progress.ProcessCanceledException) throw cause
+            log.warn("daemon harvest failed for ${parsedFile.path}: ${(cause ?: e).message}")
             emptyList()
         } catch (t: Throwable) {
+            if (t is com.intellij.openapi.progress.ProcessCanceledException) throw t
             log.warn("daemon harvest failed for ${parsedFile.path}: ${t.message}")
             emptyList()
         }

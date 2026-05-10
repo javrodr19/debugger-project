@@ -9,7 +9,9 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class ComplexityAnalyzerTest {
-    private val analyzer = ComplexityAnalyzer()
+    // V1.4.1: threshold is now provider-injected. Pre-1.4.1 used a hardcoded
+    // private val. Default 10 retained for test parity.
+    private val analyzer = ComplexityAnalyzer(thresholdProvider = { 10 })
 
     @Test
     fun `flags node with complexity above threshold`() {
@@ -47,5 +49,49 @@ class ComplexityAnalyzerTest {
         )
         val issues = analyzer.analyze(ctx)
         assertTrue(issues.none { it.type == IssueType.HIGH_COMPLEXITY }, issues.toString())
+    }
+
+    @Test
+    fun `respects custom threshold from provider`() {
+        // V1.4.1: with threshold lowered to 5, complexity 7 is now flagged
+        // even though it would not be with the default of 10.
+        val lowAnalyzer = ComplexityAnalyzer(thresholdProvider = { 5 })
+        val graph = InMemoryGraph().apply {
+            addNode(GraphNode(
+                id = "/src/Mid.kt",
+                type = NodeType.FILE,
+                name = "Mid.kt",
+                filePath = "/src/Mid.kt",
+                complexity = 7
+            ))
+        }
+        val ctx = FixtureFactory.context(
+            files = listOf(FixtureFactory.parsedFile("/src/Mid.kt", "kt", "// stub\n")),
+            graph = graph
+        )
+        val issues = lowAnalyzer.analyze(ctx)
+        assertTrue(issues.any { it.type == IssueType.HIGH_COMPLEXITY },
+            "Threshold 5 should flag complexity 7; got $issues")
+    }
+
+    @Test
+    fun `respects custom high threshold from provider`() {
+        val highAnalyzer = ComplexityAnalyzer(thresholdProvider = { 50 })
+        val graph = InMemoryGraph().apply {
+            addNode(GraphNode(
+                id = "/src/Mid.kt",
+                type = NodeType.FILE,
+                name = "Mid.kt",
+                filePath = "/src/Mid.kt",
+                complexity = 30
+            ))
+        }
+        val ctx = FixtureFactory.context(
+            files = listOf(FixtureFactory.parsedFile("/src/Mid.kt", "kt", "// stub\n")),
+            graph = graph
+        )
+        val issues = highAnalyzer.analyze(ctx)
+        assertTrue(issues.none { it.type == IssueType.HIGH_COMPLEXITY },
+            "Threshold 50 should NOT flag complexity 30; got $issues")
     }
 }

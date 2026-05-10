@@ -43,7 +43,7 @@ class KotlinUnsafeCastAnalyzerTest : AegisKotlinAnalysisTestCase() {
         assertEquals(0, analyzeKt(src).size)
     }
 
-    fun testSmartCastedReceiverFlagsAsKnownLimitation() {
+    fun testSmartCastedReceiverIsNotFlagged() {
         val src = """
             fun run(a: Any) {
                 if (a is String) {
@@ -51,14 +51,9 @@ class KotlinUnsafeCastAnalyzerTest : AegisKotlinAnalysisTestCase() {
                 }
             }
         """.trimIndent()
-        // K2 known limitation: smart-cast info from `is`-checks isn't propagated to the
-        // `cast.left` use site through `smartCastInfo`/`expressionType`. The Kotlin compiler
-        // recognises `a as String` as an unnecessary cast (and IDEA's "Unnecessary cast"
-        // inspection flags it) — but the public Analysis API doesn't expose that here, so
-        // our analyzer flags it as a genuine downcast (`Any -> String`). Conservative-miss
-        // bias is preferred (we'd rather over-flag than miss a real cast bug); but documenting
-        // the surface so a future fix can target this case explicitly.
-        assertEquals(1, analyzeKt(src).size)
+        // V1.4: the structural smart-cast walker detects `a is String` and narrows `a`
+        // to String at the `as String` use site; the cast is now identity, not flagged.
+        assertEquals(0, analyzeKt(src).size)
     }
 
     fun testCanary_unrelatedTypesDowncastFlagged() {

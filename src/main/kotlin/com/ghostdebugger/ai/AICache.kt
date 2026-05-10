@@ -21,13 +21,18 @@ class AICache(
     })
 
     fun get(key: String): String? {
-        val entry = cache[key] ?: return null
-        val age = Instant.now().epochSecond - entry.createdAt.epochSecond
-        if (age > ttlSeconds) {
-            cache.remove(key)
-            return null
+        // Synchronize read-modify-write so a fresh put() from another thread isn't
+        // racy-removed by an in-flight stale-eviction check.
+        val now = Instant.now().epochSecond
+        return synchronized(cache) {
+            val entry = cache[key] ?: return@synchronized null
+            if (now - entry.createdAt.epochSecond > ttlSeconds) {
+                cache.remove(key)
+                null
+            } else {
+                entry.response
+            }
         }
-        return entry.response
     }
 
     fun put(key: String, response: String) {

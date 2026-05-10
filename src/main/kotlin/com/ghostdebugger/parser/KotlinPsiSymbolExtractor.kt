@@ -78,7 +78,7 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
                                 name = name,
                                 line = lineOf(el.textOffset),
                                 isAsync = isAsync,
-                                body = el.text.take(120)
+                                body = boundedBody(document, el)
                             )
                         )
                     }
@@ -110,6 +110,8 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
         }
 
         // Enrich function symbols with rendered returnType + paramTypes via Analysis API.
+        // Uses the symbol-based path (named.symbol.returnType) instead of the deprecated
+        // KaExpressionTypeProvider.getReturnType(KtDeclaration) extension that V1.3 used.
         // If the analyze block fails (KaErrorType, broken module, etc.), `enriched` falls
         // back to the un-enriched `functions` list — the new fields stay at default.
         val enriched = withKtAnalysis(ktFile) {
@@ -118,8 +120,10 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
             functions.map { fs ->
                 val named = byKey[fs.name to fs.line] ?: return@map fs
                 try {
-                    val ret = named.returnType.takeIf { !it.isUnitType }?.let { renderShort(it) }
-                    val params = named.valueParameters.map { p -> renderShort(p.returnType) }
+                    val symbol = named.symbol as? org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
+                        ?: return@map fs
+                    val ret = symbol.returnType.takeIf { !it.isUnitType }?.let { renderShort(it) }
+                    val params = symbol.valueParameters.map { p -> renderShort(p.returnType) }
                     fs.copy(returnType = ret, paramTypes = params)
                 } catch (e: Exception) {
                     if (e is ProcessCanceledException) throw e
@@ -134,6 +138,20 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
             exports = exports,
             variables = variables
         )
+    }
+
+    /**
+     * Returns at most the first 120 chars of [el]'s source range via the document,
+     * so a 5K-line function isn't materialised in full just to be `.take(120)`-ed.
+     * Falls back to `el.text.take(120)` when no document is available (headless).
+     */
+    private fun boundedBody(document: com.intellij.openapi.editor.Document?, el: PsiElement): String {
+        val limit = 120
+        if (document == null) return el.text.take(limit)
+        val start = el.textOffset
+        if (start >= document.textLength) return ""
+        val end = minOf(start + limit, el.textRange.endOffset, document.textLength)
+        return document.getText(com.intellij.openapi.util.TextRange(start, end))
     }
 
     // ── Regex fallback — exercised when PSI bails on broken input. ──────────

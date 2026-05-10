@@ -111,9 +111,21 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
                 imports.add(ImportSymbol(source = match.groupValues[1], line = index + 1))
             }
             JAVA_METHOD_REGEX.find(trimmed)?.let { match ->
-                val name = match.groupValues[1]
+                val returnTypeText = match.groupValues[1]
+                val name = match.groupValues[2]
+                val paramList = match.groupValues[3]
                 if (name !in JAVA_RESERVED) {
-                    functions.add(FunctionSymbol(name = name, line = index + 1, body = trimmed.take(120)))
+                    val paramTypes = if (paramList.isBlank()) emptyList()
+                                     else paramList.split(",")
+                                                   .map { it.trim().substringBefore(" ").trim() }
+                                                   .filter { it.isNotBlank() }
+                    functions.add(FunctionSymbol(
+                        name = name,
+                        line = index + 1,
+                        body = trimmed.take(120),
+                        returnType = returnTypeText,
+                        paramTypes = paramTypes
+                    ))
                 }
             }
             JAVA_CLASS_REGEX.find(trimmed)?.let { match ->
@@ -126,7 +138,7 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
 
     companion object {
         private val JAVA_IMPORT_REGEX = Regex("^import\\s+([\\w.]+);")
-        private val JAVA_METHOD_REGEX = Regex("(?:public|private|protected|static|\\s)+[\\w<>\\[\\]]+\\s+(\\w+)\\s*\\([^)]*\\)")
+        private val JAVA_METHOD_REGEX = Regex("(?:public|private|protected|static|\\s)+([\\w<>\\[\\]]+)\\s+(\\w+)\\s*\\(([^)]*)\\)")
         private val JAVA_CLASS_REGEX = Regex("(?:public\\s+|private\\s+|protected\\s+)?(?:final\\s+|abstract\\s+)?class\\s+(\\w+)")
         private val JAVA_RESERVED = setOf("if", "while", "for", "switch")
     }

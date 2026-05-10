@@ -8,8 +8,13 @@ import com.intellij.openapi.diagnostic.logger
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefBrowserBase
 import com.intellij.ui.jcef.JBCefJSQuery
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.handler.CefLoadHandlerAdapter
@@ -89,8 +94,7 @@ class JcefBridge(
     }
 
     override fun sendNodeUpdate(nodeId: String, status: NodeStatus) {
-        val escapedId = nodeId.replace("\"", "\\\"")
-        val payload = """{"nodeId":"$escapedId","status":"${status.name}"}"""
+        val payload = json.encodeToString(mapOf("nodeId" to nodeId, "status" to status.name))
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onNodeUpdate($payload)")
     }
 
@@ -99,38 +103,52 @@ class JcefBridge(
     }
 
     fun sendAnalysisComplete(errorCount: Int, warningCount: Int, healthScore: Double) {
-        val payload = """{"errorCount":$errorCount,"warningCount":$warningCount,"healthScore":$healthScore}"""
+        // Heterogeneous numeric map — kotlinx.serialization's reified encoder can't infer
+        // a serializer for Map<String, Number>. buildJsonObject is the explicit-typed path.
+        val payload = buildJsonObject {
+            put("errorCount", errorCount)
+            put("warningCount", warningCount)
+            put("healthScore", healthScore)
+        }
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAnalysisComplete($payload)")
     }
 
     fun sendAnalysisProgress(text: String, fraction: Double) {
-        val escaped = text.replace("\\", "\\\\").replace("\"", "\\\"")
-        val payload = """{"text":"$escaped","fraction":$fraction}"""
+        val payload = buildJsonObject {
+            put("text", text)
+            put("fraction", fraction)
+        }
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onAnalysisProgress($payload)")
     }
 
     fun sendError(message: String) {
-        val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"")
-        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onError(\"$escaped\")")
+        // Raw string on the wire (JS receiver expects message: string). encodeToString
+        // produces a properly-escaped JSON string literal — backslashes, newlines,
+        // tabs, control chars are all handled by the encoder.
+        val escaped = json.encodeToString(message)
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onError($escaped)")
     }
 
     fun sendSystemExplanation(explanation: String) {
-        val escaped = explanation.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onSystemExplanation(\"$escaped\")")
+        val escaped = json.encodeToString(explanation)
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onSystemExplanation($escaped)")
     }
 
     fun sendImpactAnalysis(nodeId: String, affectedNodes: List<String>) {
-        val affectedJson = json.encodeToString(affectedNodes)
-        val escapedId = nodeId.replace("\"", "\\\"")
-        val payload = """{"nodeId":"$escapedId","affectedNodes":$affectedJson}"""
+        val payload = buildJsonObject {
+            put("nodeId", nodeId)
+            put("affectedNodes", buildJsonArray { affectedNodes.forEach { add(it) } })
+        }
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onImpactAnalysis($payload)")
     }
 
     fun sendDebugFrame(nodeId: String, filePath: String, line: Int, variables: List<DebugVariable>) {
-        val varsJson = json.encodeToString(variables)
-        val escapedId = nodeId.replace("\"", "\\\"")
-        val escapedPath = filePath.replace("\\", "/").replace("\"", "\\\"")
-        val payload = """{"nodeId":"$escapedId","filePath":"$escapedPath","line":$line,"variables":$varsJson}"""
+        val payload = buildJsonObject {
+            put("nodeId", nodeId)
+            put("filePath", filePath.replace("\\", "/"))
+            put("line", line)
+            put("variables", json.encodeToJsonElement(ListSerializer(DebugVariable.serializer()), variables))
+        }
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onDebugFrame($payload)")
     }
 
@@ -139,8 +157,8 @@ class JcefBridge(
     }
 
     fun sendDebugStateChanged(state: String) {
-        val escaped = state.replace("\"", "\\\"")
-        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onDebugStateChanged(\"$escaped\")")
+        val escaped = json.encodeToString(state)
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onDebugStateChanged($escaped)")
     }
 
     fun sendAutoRefreshStart() {

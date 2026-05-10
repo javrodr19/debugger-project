@@ -40,7 +40,7 @@ class KotlinRedundantLetAnalyzerTest : AegisKotlinAnalysisTestCase() {
         assertEquals(0, analyzeKt(src).size)
     }
 
-    fun testSmartCastViaIfNullCheckIsKnownLimitation() {
+    fun testCanary_smartCastWindowMakesLetRedundant() {
         val src = """
             fun fetch(): String? = null
             fun run() {
@@ -50,12 +50,10 @@ class KotlinRedundantLetAnalyzerTest : AegisKotlinAnalysisTestCase() {
                 }
             }
         """.trimIndent()
-        // K2 known limitation: smart-cast info from an `if (x != null)` block isn't
-        // exposed at the safe-call's receiver site, so we don't flag this `?.let` as
-        // redundant even though it is. IDEA's own "Redundant `?.let` call" inspection
-        // catches this via a different code path. The plain non-nullable case
-        // (`val x: String = "hi"; x?.let {...}`) is still flagged correctly above.
-        assertEquals(0, analyzeKt(src).size)
+        // V1.4: the structural smart-cast walker sees `if (x != null)` and treats `x`
+        // as non-null at the safe-call's receiver site; the `?.let` is therefore
+        // redundant and flagged.
+        assertEquals(1, analyzeKt(src).size)
     }
 
     fun testUnresolvedTypeDoesNotFlag() {

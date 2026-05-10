@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.ghostdebugger"
-version = "1.3.0"
+version = "1.4.1"
 
 repositories {
     mavenCentral()
@@ -91,9 +91,9 @@ intellijPlatform {
             <h3>What's inside</h3>
             <ul>
                 <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
-                <li><strong>Seven deterministic analyzers</strong> —
-                    syntax, compilation, null safety, state-before-init, async flow, circular dependencies, complexity.</li>
-                <li><strong>Three deterministic fixers</strong> with diff preview and native undo.</li>
+                <li><strong>Eleven deterministic analyzers</strong> —
+                    syntax, compilation, null safety (TS/JS/Kotlin), state-before-init, async flow, circular dependencies, complexity, unsafe-cast (Kotlin), type-mismatch (Kotlin), redundant-let (Kotlin).</li>
+                <li><strong>Five deterministic fixers</strong> with diff preview and native undo.</li>
                 <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
                 <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
                 <li><strong>Ollama (local)</strong> or <strong>OpenAI (cloud)</strong> — both optional, both off by default.</li>

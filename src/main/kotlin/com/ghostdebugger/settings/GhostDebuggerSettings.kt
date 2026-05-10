@@ -31,7 +31,8 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         var allowCloudUpload: Boolean = false,
         var analyzeOnlyChangedFiles: Boolean = false,
         var aiCacheMaxEntries: Int = 256,
-        var maxDependentsToReanalyze: Int = 20
+        var maxDependentsToReanalyze: Int = 20,
+        var maxComplexity: Int = 10
     )
 
     private var myState = State()
@@ -58,6 +59,7 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         if (openAiModel.isBlank()) openAiModel = "gpt-4o"
         if (aiCacheMaxEntries <= 0) aiCacheMaxEntries = 256
         if (maxDependentsToReanalyze < 0) maxDependentsToReanalyze = 0
+        if (maxComplexity < 1) maxComplexity = 10
         return this
     }
 

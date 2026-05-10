@@ -33,9 +33,13 @@ class OllamaService(
         .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .build()
 
-    override suspend fun detectIssues(filePath: String, fileContent: String): List<Issue> {
+    override suspend fun detectIssues(
+        filePath: String,
+        fileContent: String,
+        functions: List<com.ghostdebugger.model.FunctionSymbol>
+    ): List<Issue> {
         return try {
-            val raw = callOllama(PromptTemplates.detectIssues(filePath, fileContent))
+            val raw = callOllama(PromptTemplates.detectIssues(filePath, fileContent, functions))
             when (val r = AiJsonExtractor.extract(raw)) {
                 is AiJsonExtractor.Result.Ok -> AiIssueMapper.mapIssues(r.element, filePath, fileContent)
                 AiJsonExtractor.Result.Empty -> {
@@ -103,17 +107,18 @@ class OllamaService(
             .post(requestBody)
             .build()
 
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            val body = response.body?.string() ?: "unknown error"
-            log.error("Ollama API error: ${response.code} — $body")
-            throw RuntimeException("Ollama API error: ${response.code}")
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val body = response.body?.string() ?: "unknown error"
+                log.error("Ollama API error: ${response.code} — $body")
+                throw RuntimeException("Ollama API error: ${response.code}")
+            }
+
+            val responseBody = response.body?.string()
+                ?: throw RuntimeException("Empty response from Ollama")
+
+            json.decodeFromString<OllamaChatResponse>(responseBody).message.content
         }
-
-        val responseBody = response.body?.string()
-            ?: throw RuntimeException("Empty response from Ollama")
-
-        json.decodeFromString<OllamaChatResponse>(responseBody).message.content
     }
 
     // ── Response parsers (mirrors OpenAIService private methods) ─────────────

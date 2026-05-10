@@ -1,5 +1,8 @@
 package com.ghostdebugger.analysis
 
+import com.ghostdebugger.model.AnalysisContext
+import com.ghostdebugger.model.Issue
+import com.ghostdebugger.model.IssueSeverity
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.ghostdebugger.testutil.FixtureFactory
@@ -50,6 +53,33 @@ class AnalysisEngineCancellationTest {
 
         assertThrows(ProcessCanceledException::class.java) {
             runBlocking { engine.analyze(ctx, indicator) }
+        }
+    }
+
+    @Test
+    fun `runOne propagates ProcessCanceledException thrown from analyzer body`() {
+        // Pre-V1.4.1: AnalysisEngine.runOne caught (e: Exception) and returned emptyList(),
+        // swallowing PCE thrown from inside the analyzer.analyze() call. Engine returned a
+        // partial result; user clicked Cancel, the engine kept running.
+        val pceAnalyzer = object : Analyzer {
+            override val name = "test-pce-thrower"
+            override val ruleId = "TEST-PCE-001"
+            override val defaultSeverity = IssueSeverity.ERROR
+            override val description = "throws PCE on analyze() to verify rethrow path"
+            override fun analyze(context: AnalysisContext): List<Issue> =
+                throw ProcessCanceledException()
+        }
+
+        val files = listOf(FixtureFactory.parsedFile("/src/x.kt", "kt", "fun foo() {}"))
+        val ctx = FixtureFactory.context(files)
+        val engine = AnalysisEngine(
+            settingsProvider = { GhostDebuggerSettings.State(aiProvider = AIProvider.NONE) },
+            apiKeyProvider = { null },
+            analyzers = listOf(pceAnalyzer)
+        )
+
+        assertThrows(ProcessCanceledException::class.java) {
+            runBlocking { engine.analyze(ctx) }
         }
     }
 }

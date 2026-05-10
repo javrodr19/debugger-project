@@ -2,7 +2,7 @@
 
 **Static-first analysis. Deterministic fixes. Optional local or cloud AI.**
 
-Aegis Debug is a high-performance IntelliJ IDEA plugin designed to find real bugs in your code without compromising your privacy. By default, it operates entirely locally, using five deterministic analyzers to identify issues in TypeScript, JavaScript, Kotlin, and Java.
+Aegis Debug is a high-performance IntelliJ IDEA plugin designed to find real bugs in your code without compromising your privacy. By default, it operates entirely locally, using eleven deterministic analyzers to identify issues in TypeScript, JavaScript, Kotlin, and Java.
 
 ## Key Features
 
@@ -15,8 +15,9 @@ Aegis Debug is a high-performance IntelliJ IDEA plugin designed to find real bug
 
 ## Supported Languages
 
-- **TypeScript and JavaScript** — Full static analysis (5 analyzers) and deterministic fixers.
-- **Kotlin and Java** — Project graph, complexity analysis, and circular dependency detection.
+- **TypeScript and JavaScript** — Full static analysis and deterministic fixers (null safety, state-before-init, async flow, complexity, circular dependencies).
+- **Kotlin** — Type-aware Analysis API analyzers: null safety, unsafe cast, type mismatch, redundant let. Two deterministic fixers (unsafe cast, redundant let).
+- **Java** — PSI-backed symbol extraction and circular dependency analysis.
 
 ## Getting Started
 

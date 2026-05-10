@@ -26,6 +26,7 @@ class GhostDebuggerConfigurable : Configurable {
     private var autoAnalyzeOnOpenBox: JCheckBox? = null
     private var showInfoIssuesBox: JCheckBox? = null
     private var analyzeOnlyChangedFilesBox: JCheckBox? = null
+    private var maxComplexitySpinner: JSpinner? = null
 
     override fun getDisplayName(): String = "Aegis Debug"
 
@@ -103,6 +104,16 @@ class GhostDebuggerConfigurable : Configurable {
             add(aiFilesSpinner)
         }
 
+        // Complexity threshold (V1.4.1 — was hardcoded at 10 pre-1.4.1)
+        val complexitySpinner = JSpinner(SpinnerNumberModel(settings.maxComplexity, 1, 100, 1)).apply {
+            preferredSize = Dimension(80, 28)
+        }
+        maxComplexitySpinner = complexitySpinner
+        val maxComplexityPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("Complexity threshold:"))
+            add(complexitySpinner)
+        }
+
         // AI Timeout
         val timeoutSpinner = JSpinner(SpinnerNumberModel(settings.aiTimeoutMs.toInt(), 5000, 300000, 5000)).apply {
             preferredSize = Dimension(100, 28)
@@ -151,6 +162,7 @@ class GhostDebuggerConfigurable : Configurable {
         formPanel.add(ollamaModelPanel)
         formPanel.add(maxFilesPanel)
         formPanel.add(maxAiFilesPanel)
+        formPanel.add(maxComplexityPanel)
         formPanel.add(timeoutPanel)
         formPanel.add(cachePanel)
         formPanel.add(allowCloudBox)
@@ -181,6 +193,7 @@ class GhostDebuggerConfigurable : Configurable {
             || s.autoAnalyzeOnOpen != autoAnalyzeOnOpenBox?.isSelected
             || s.showInfoIssues != showInfoIssuesBox?.isSelected
             || s.analyzeOnlyChangedFiles != analyzeOnlyChangedFilesBox?.isSelected
+            || s.maxComplexity != maxComplexitySpinner?.value
     }
 
     override fun apply() {
@@ -201,6 +214,7 @@ class GhostDebuggerConfigurable : Configurable {
             autoAnalyzeOnOpen = autoAnalyzeOnOpenBox?.isSelected ?: false
             showInfoIssues = showInfoIssuesBox?.isSelected ?: true
             analyzeOnlyChangedFiles = analyzeOnlyChangedFilesBox?.isSelected ?: false
+            (maxComplexitySpinner?.value as? Int)?.let { maxComplexity = it }
         }
     }
 
@@ -220,5 +234,6 @@ class GhostDebuggerConfigurable : Configurable {
         autoAnalyzeOnOpenBox?.isSelected = s.autoAnalyzeOnOpen
         showInfoIssuesBox?.isSelected = s.showInfoIssues
         analyzeOnlyChangedFilesBox?.isSelected = s.analyzeOnlyChangedFiles
+        maxComplexitySpinner?.value = s.maxComplexity
     }
 }

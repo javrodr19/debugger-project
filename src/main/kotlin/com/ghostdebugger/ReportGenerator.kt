@@ -1,277 +1,147 @@
 package com.ghostdebugger
 
-import com.ghostdebugger.model.ProjectGraph
-import com.ghostdebugger.model.GraphNode
-import com.ghostdebugger.model.Issue
 import com.ghostdebugger.model.IssueSeverity
 import com.ghostdebugger.model.NodeStatus
-import java.io.File
+import com.ghostdebugger.model.ProjectGraph
+import java.time.LocalDateTime
 
-class ReportGenerator {
-    
-    private fun htmlEscape(s: String): String = 
+class ReportGenerator(
+    private val dateProvider: () -> LocalDateTime = { LocalDateTime.now() }
+) {
+
+    private fun htmlEscape(s: String): String =
         s.replace("&", "&amp;")
          .replace("<", "&lt;")
          .replace(">", "&gt;")
          .replace("\"", "&quot;")
          .replace("'", "&#39;")
 
-    fun generateHTMLReport(graph: ProjectGraph): String {
+    fun generateHTMLReport(graph: ProjectGraph): String = buildString {
         val issuesCount = graph.nodes.sumOf { it.issues.size }
         val errorCount = graph.nodes.sumOf { it.issues.count { it.severity == IssueSeverity.ERROR } }
         val warningCount = graph.nodes.sumOf { it.issues.count { it.severity == IssueSeverity.WARNING } }
-        
-        val htmlTemplate = """
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Aegis Debug Report - ${htmlEscape(graph.metadata.projectName)}</title>
-                <style>
-                    body {
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        background-color: #0d1117;
-                        color: #e6edf3;
-                        margin: 0;
-                        padding: 20px;
-                    }
-                    .container {
-                        max-width: 1200px;
-                        margin: 0 auto;
-                    }
-                    header {
-                        text-align: center;
-                        padding: 20px 0;
-                        border-bottom: 1px solid #21262d;
-                        margin-bottom: 30px;
-                    }
-                    h1 {
-                        color: #79c0ff;
-                        margin-bottom: 10px;
-                    }
-                    .stats {
-                        display: flex;
-                        justify-content: center;
-                        gap: 30px;
-                        flex-wrap: wrap;
-                        margin: 20px 0;
-                    }
-                    .stat-card {
-                        background: #161b22;
-                        border: 1px solid #30363d;
-                        border-radius: 8px;
-                        padding: 15px;
-                        text-align: center;
-                        min-width: 120px;
-                    }
-                    .stat-card.error { color: #f85149; }
-                    .stat-card.warning { color: #d29922; }
-                    .stat-card.health { color: #3fb950; }
-                    .stat-card .value {
-                        font-size: 24px;
-                        font-weight: bold;
-                    }
-                    .stat-card .label {
-                        font-size: 12px;
-                        opacity: 0.8;
-                        text-transform: uppercase;
-                        letter-spacing: 0.5px;
-                    }
-                    .issues-section {
-                        margin-top: 30px;
-                    }
-                    .issues-list {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                        gap: 20px;
-                        margin-top: 20px;
-                    }
-                    .issue-card {
-                        background: #161b22;
-                        border: 1px solid #30363d;
-                        border-radius: 8px;
-                        padding: 15px;
-                    }
-                    .issue-card.error { border-left: 4px solid #f85149; }
-                    .issue-card.warning { border-left: 4px solid #d29922; }
-                    .issue-card.info { border-left: 4px solid #3fb950; }
-                    .issue-card h3 {
-                        margin: 0 0 10px 0;
-                        font-size: 16px;
-                    }
-                    .issue-card .severity {
-                        font-size: 12px;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                        letter-spacing: 0.5px;
-                        margin-bottom: 5px;
-                    }
-                    .issue-card .file-path {
-                        font-size: 11px;
-                        opacity: 0.7;
-                        margin-bottom: 8px;
-                        word-break: break-all;
-                    }
-                    .issue-card .description {
-                        font-size: 13px;
-                        line-height: 1.5;
-                    }
-                    .node-details {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                        gap: 15px;
-                        margin-top: 20px;
-                    }
-                    .node-card {
-                        background: #161b22;
-                        border: 1px solid #30363d;
-                        border-radius: 8px;
-                        padding: 12px;
-                    }
-                    .node-card h3 {
-                        font-size: 14px;
-                        margin: 0 0 8px 0;
-                        color: #79c0ff;
-                    }
-                    .node-card .file-path {
-                        font-size: 10px;
-                        opacity: 0.7;
-                        margin-bottom: 5px;
-                    }
-                    .node-card .issues-count {
-                        font-size: 11px;
-                        display: flex;
-                        align-items: center;
-                        gap: 4px;
-                    }
-                    footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        padding: 20px 0;
-                        border-top: 1px solid #21262d;
-                        font-size: 12px;
-                        opacity: 0.6;
-                    }
-                    pre {
-                        background: #161b22;
-                        border: 1px solid #30363d;
-                        border-radius: 4px;
-                        padding: 10px;
-                        font-size: 11px;
-                        overflow: auto;
-                        margin: 10px 0;
-                    }
-                    .issue-snippet {
-                        margin-top: 8px;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <header>
-                        <h1>Aegis Debug Report</h1>
-                        <p>Project Analysis for ${htmlEscape(graph.metadata.projectName)}</p>
-                        <p>Generated on ${java.time.LocalDateTime.now()}</p>
-                        
-                        <div class="stats">
-                            <div class="stat-card health">
-                                <div class="value">${graph.metadata.healthScore.toInt()}%</div>
-                                <div class="label">Health Score</div>
-                            </div>
-                            <div class="stat-card error">
-                                <div class="value">${errorCount}</div>
-                                <div class="label">Errors</div>
-                            </div>
-                            <div class="stat-card warning">
-                                <div class="value">${warningCount}</div>
-                                <div class="label">Warnings</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="value">${issuesCount}</div>
-                                <div class="label">Total Issues</div>
-                            </div>
-                        </div>
-                    </header>
 
-                    <section class="issues-section">
-                        <h2>Issues Analysis</h2>
-                        <div class="issues-list">
-                            ${buildIssuesList(graph)}
-                        </div>
-                    </section>
-
-                    <section class="nodes-section">
-                        <h2>Module Overview</h2>
-                        <div class="node-details">
-                            ${buildNodesOverview(graph)}
-                        </div>
-                    </section>
-
-                    <footer>
-                        <p>Generated by Aegis Debug IntelliJ Plugin • ${htmlEscape(graph.metadata.projectName)}</p>
-                    </footer>
-                </div>
-            </body>
-            </html>
-        """.trimIndent()
-        
-        return htmlTemplate
+        appendLine("<!DOCTYPE html>")
+        appendLine("<html lang=\"en\">")
+        appendLine("<head>")
+        appendLine("<meta charset=\"UTF-8\">")
+        appendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">")
+        appendLine("<title>Aegis Debug Report - ${htmlEscape(graph.metadata.projectName)}</title>")
+        appendStyle()
+        appendLine("</head>")
+        appendLine("<body>")
+        appendLine("<div class=\"container\">")
+        appendHeader(graph, errorCount, warningCount, issuesCount)
+        appendIssuesSection(graph)
+        appendNodesSection(graph)
+        appendLine("<footer>")
+        appendLine("<p>Generated by Aegis Debug IntelliJ Plugin • ${htmlEscape(graph.metadata.projectName)}</p>")
+        appendLine("</footer>")
+        appendLine("</div>")
+        appendLine("</body>")
+        appendLine("</html>")
     }
-    
-    private fun buildIssuesList(graph: ProjectGraph): String {
-        val allIssues = mutableListOf<Issue>()
+
+    private fun StringBuilder.appendStyle() {
+        appendLine("<style>")
+        appendLine("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #e6edf3; margin: 0; padding: 20px; }")
+        appendLine(".container { max-width: 1200px; margin: 0 auto; }")
+        appendLine("header { text-align: center; padding: 20px 0; border-bottom: 1px solid #21262d; margin-bottom: 30px; }")
+        appendLine("h1 { color: #79c0ff; margin-bottom: 10px; }")
+        appendLine(".stats { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin: 20px 0; }")
+        appendLine(".stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; text-align: center; min-width: 120px; }")
+        appendLine(".stat-card.error { color: #f85149; }")
+        appendLine(".stat-card.warning { color: #d29922; }")
+        appendLine(".stat-card.health { color: #3fb950; }")
+        appendLine(".stat-card .value { font-size: 24px; font-weight: bold; }")
+        appendLine(".stat-card .label { font-size: 12px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }")
+        appendLine(".issues-section { margin-top: 30px; }")
+        appendLine(".issues-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }")
+        appendLine(".issue-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; }")
+        appendLine(".issue-card.error { border-left: 4px solid #f85149; }")
+        appendLine(".issue-card.warning { border-left: 4px solid #d29922; }")
+        appendLine(".issue-card.info { border-left: 4px solid #3fb950; }")
+        appendLine(".issue-card h3 { margin: 0 0 10px 0; font-size: 16px; }")
+        appendLine(".issue-card .severity { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }")
+        appendLine(".issue-card .file-path { font-size: 11px; opacity: 0.7; margin-bottom: 8px; word-break: break-all; }")
+        appendLine(".issue-card .description { font-size: 13px; line-height: 1.5; }")
+        appendLine(".node-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }")
+        appendLine(".node-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; }")
+        appendLine(".node-card h3 { font-size: 14px; margin: 0 0 8px 0; color: #79c0ff; }")
+        appendLine(".node-card .file-path { font-size: 10px; opacity: 0.7; margin-bottom: 5px; }")
+        appendLine(".node-card .issues-count { font-size: 11px; display: flex; align-items: center; gap: 4px; }")
+        appendLine("footer { text-align: center; margin-top: 40px; padding: 20px 0; border-top: 1px solid #21262d; font-size: 12px; opacity: 0.6; }")
+        appendLine("pre { background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 10px; font-size: 11px; overflow: auto; margin: 10px 0; }")
+        appendLine(".issue-snippet { margin-top: 8px; }")
+        appendLine("</style>")
+    }
+
+    private fun StringBuilder.appendHeader(graph: ProjectGraph, errors: Int, warnings: Int, total: Int) {
+        appendLine("<header>")
+        appendLine("<h1>Aegis Debug Report</h1>")
+        appendLine("<p>Project Analysis for ${htmlEscape(graph.metadata.projectName)}</p>")
+        // htmlEscape the date provider output. The default `() -> LocalDateTime` signature
+        // produces safe text, but the constructor parameter could be widened (or mocked) in
+        // future and an unescaped interpolation would be the only XSS vector in the renderer.
+        appendLine("<p>Generated on ${htmlEscape(dateProvider().toString())}</p>")
+        appendLine("<div class=\"stats\">")
+        appendLine("<div class=\"stat-card health\"><div class=\"value\">${graph.metadata.healthScore.toInt()}%</div><div class=\"label\">Health Score</div></div>")
+        appendLine("<div class=\"stat-card error\"><div class=\"value\">$errors</div><div class=\"label\">Errors</div></div>")
+        appendLine("<div class=\"stat-card warning\"><div class=\"value\">$warnings</div><div class=\"label\">Warnings</div></div>")
+        appendLine("<div class=\"stat-card\"><div class=\"value\">$total</div><div class=\"label\">Total Issues</div></div>")
+        appendLine("</div>")
+        appendLine("</header>")
+    }
+
+    private fun StringBuilder.appendIssuesSection(graph: ProjectGraph) {
+        appendLine("<section class=\"issues-section\">")
+        appendLine("<h2>Issues Analysis</h2>")
+        appendLine("<div class=\"issues-list\">")
         graph.nodes.forEach { node ->
-            allIssues.addAll(node.issues)
-        }
-        
-        return allIssues.joinToString("\n") { issue ->
-            val severityClass = when (issue.severity) {
-                IssueSeverity.ERROR -> "error"
-                IssueSeverity.WARNING -> "warning"
-                else -> "info"
+            node.issues.forEach { issue ->
+                val severityClass = when (issue.severity) {
+                    IssueSeverity.ERROR -> "error"
+                    IssueSeverity.WARNING -> "warning"
+                    else -> "info"
+                }
+                appendLine("<div class=\"issue-card $severityClass\">")
+                appendLine("<div class=\"severity\">${issue.severity}</div>")
+                appendLine("<h3>${htmlEscape(issue.title)}</h3>")
+                appendLine("<div class=\"file-path\">${htmlEscape(issue.filePath)}</div>")
+                appendLine("<div class=\"description\">${htmlEscape(issue.description)}</div>")
+                if (issue.codeSnippet.isNotBlank()) {
+                    appendLine("<div class=\"issue-snippet\"><pre>${htmlEscape(issue.codeSnippet)}</pre></div>")
+                }
+                appendLine("</div>")
             }
-            
-            """
-                <div class="issue-card $severityClass">
-                    <div class="severity">${issue.severity}</div>
-                    <h3>${htmlEscape(issue.title)}</h3>
-                    <div class="file-path">${htmlEscape(issue.filePath)}</div>
-                    <div class="description">${htmlEscape(issue.description)}</div>
-                    ${if (issue.codeSnippet.isNotBlank()) """
-                        <div class="issue-snippet">
-                            <pre>${htmlEscape(issue.codeSnippet)}</pre>
-                        </div>
-                    """ else ""}
-                </div>
-            """.trimIndent()
         }
+        appendLine("</div>")
+        appendLine("</section>")
     }
-    
-    private fun buildNodesOverview(graph: ProjectGraph): String {
-        return graph.nodes.joinToString("\n") { node ->
-            val statusClass = when (node.status) {
-                NodeStatus.ERROR -> "error"
-                NodeStatus.WARNING -> "warning"
-                else -> "health"
-            }
+
+    private fun StringBuilder.appendNodesSection(graph: ProjectGraph) {
+        appendLine("<section class=\"nodes-section\">")
+        appendLine("<h2>Module Overview</h2>")
+        appendLine("<div class=\"node-details\">")
+        graph.nodes.forEach { node ->
             val statusText = when (node.status) {
                 NodeStatus.ERROR -> "Error"
                 NodeStatus.WARNING -> "Warning"
                 else -> "Healthy"
             }
-            val displayPath = node.filePath.replace("/","/").split("/").takeLast(3).joinToString("/")
-            """
-                <div class="node-card">
-                    <h3>${htmlEscape(node.name)}</h3>
-                    <div class="file-path">${htmlEscape(displayPath)}</div>
-                    <div class="status">Status: $statusText</div>
-                    <div class="issues-count">Issues: ${node.issues.size}</div>
-                    ${if (node.complexity > 5) """
-                        <div class="complexity">Complexity: ${node.complexity}</div>
-                    """ else ""}
-                </div>
-            """.trimIndent()
+            // Normalise Windows backslashes, then take last 3 segments for compact display.
+            val displayPath = node.filePath.replace("\\", "/").split("/").takeLast(3).joinToString("/")
+            appendLine("<div class=\"node-card\">")
+            appendLine("<h3>${htmlEscape(node.name)}</h3>")
+            appendLine("<div class=\"file-path\">${htmlEscape(displayPath)}</div>")
+            appendLine("<div class=\"status\">Status: $statusText</div>")
+            appendLine("<div class=\"issues-count\">Issues: ${node.issues.size}</div>")
+            if (node.complexity > 5) {
+                appendLine("<div class=\"complexity\">Complexity: ${node.complexity}</div>")
+            }
+            appendLine("</div>")
         }
+        appendLine("</div>")
+        appendLine("</section>")
     }
 }
