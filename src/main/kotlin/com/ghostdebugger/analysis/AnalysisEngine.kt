@@ -170,6 +170,7 @@ class AnalysisEngine(
             log.info("${analyzer.name}: produced ${produced.size} issues")
             produced
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.warn("Analyzer ${analyzer.name} failed; continuing", e)
             emptyList()
         }
