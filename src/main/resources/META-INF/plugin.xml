@@ -124,6 +124,10 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.FileChangeWatcher"/>
 
+        <!-- V1.5: XDebugger session subscription + step-action dispatch -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.DebugSessionCoordinator"/>
+
         <!-- Application-level settings service -->
         <applicationService
                 serviceImplementation="com.ghostdebugger.settings.GhostDebuggerSettings"/>

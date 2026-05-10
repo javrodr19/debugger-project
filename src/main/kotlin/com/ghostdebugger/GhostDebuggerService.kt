@@ -24,14 +24,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
-import com.intellij.xdebugger.XDebugProcess
-import com.intellij.xdebugger.XDebugSession
-import com.intellij.xdebugger.XDebugSessionListener
-import com.intellij.xdebugger.XDebuggerManager
-import com.intellij.xdebugger.XDebuggerManagerListener
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
-import com.intellij.xdebugger.frame.XStackFrame
 import com.intellij.ide.BrowserUtil
 import com.intellij.ide.actions.RevealFileAction
 import com.intellij.notification.NotificationAction
@@ -75,7 +69,6 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
     }
     private var aiService: AIService? = null
-    private var debugSessionListener: XDebugSessionListener? = null
     private val fixApplicator = FixApplicator()
 
     /**
@@ -106,104 +99,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         this.bridge = bridge
         bridge.initialize()
         FileChangeWatcher.getInstance(project).start()
-        registerDebugSessionListener()
-    }
-
-    /**
-     * Hooks into the IDE's debug sessions to provide visual debug overlays.
-     */
-    private fun registerDebugSessionListener() {
-        try {
-            val debuggerManager = XDebuggerManager.getInstance(project)
-            project.messageBus.connect(this).subscribe(
-                XDebuggerManager.TOPIC,
-                object : XDebuggerManagerListener {
-                    override fun processStarted(debugProcess: XDebugProcess) {
-                        log.info("Debug session started")
-                        val session = debugProcess.session
-                        attachToDebugSession(session)
-                    }
-
-                    override fun processStopped(debugProcess: XDebugProcess) {
-                        log.info("Debug session stopped")
-                        scope.launch(Dispatchers.Swing) {
-                            bridge?.sendDebugSessionEnded()
-                        }
-                    }
-                }
-            )
-        } catch (e: Exception) {
-            log.warn("Could not register XDebugger listener: ${e.message}")
-        }
-    }
-
-    private fun attachToDebugSession(session: XDebugSession) {
-        val listener = object : XDebugSessionListener {
-            override fun sessionPaused() {
-                log.info("Debug session paused")
-                sendCurrentDebugFrame(session)
-            }
-
-            override fun sessionResumed() {
-                log.info("Debug session resumed")
-                scope.launch(Dispatchers.Swing) {
-                    bridge?.sendDebugStateChanged("running")
-                }
-            }
-
-            override fun sessionStopped() {
-                log.info("Debug session stopped (listener)")
-                scope.launch(Dispatchers.Swing) {
-                    bridge?.sendDebugSessionEnded()
-                }
-            }
-
-            override fun stackFrameChanged() {
-                sendCurrentDebugFrame(session)
-            }
-        }
-
-        debugSessionListener = listener
-        session.addSessionListener(listener)
-    }
-
-    private fun sendCurrentDebugFrame(session: XDebugSession) {
-        scope.launch {
-            try {
-                val frame = session.currentStackFrame ?: return@launch
-                val sourcePosition = frame.sourcePosition ?: return@launch
-                val filePath = sourcePosition.file.path.replace("\\", "/")
-                val line = sourcePosition.line + 1
-
-                val graph = currentGraph
-                val nodeId = if (graph != null) {
-                    graph.nodes.firstOrNull { node ->
-                        val nodePath = node.filePath.replace("\\", "/")
-                        filePath.endsWith(nodePath.substringAfterLast("/")) || nodePath == filePath
-                    }?.id ?: filePath
-                } else {
-                    filePath
-                }
-
-                val variables = mutableListOf<DebugVariable>()
-                try {
-                    variables.add(DebugVariable(
-                        name = "frame",
-                        value = frame.toString().take(60),
-                        type = "StackFrame"
-                    ))
-                } catch (e: Exception) {
-                    log.debug("Could not extract debug variables: ${e.message}")
-                }
-
-                withContext(Dispatchers.Swing) {
-                    bridge?.sendDebugFrame(nodeId, filePath, line, variables)
-                    bridge?.sendDebugStateChanged("paused")
-                }
-            } catch (e: Exception) {
-                log.warn("Failed to send debug frame: ${e.message}")
-            }
-        }
+        DebugSessionCoordinator.getInstance(project).start()
     }
 
     fun handleUIEvent(event: UIEvent) {
@@ -220,32 +116,12 @@ class GhostDebuggerService(private val project: Project) : Disposable {
             is UIEvent.BreakpointSet -> handleBreakpointSet(event.filePath, event.line)
             is UIEvent.BreakpointRemoved -> handleBreakpointRemoved(event.filePath, event.line)
             is UIEvent.ExportReportRequested -> handleExportReportRequested()
-            is UIEvent.DebugStepOver -> handleDebugAction { it.stepOver(false) }
-            is UIEvent.DebugStepInto -> handleDebugAction { it.stepInto() }
-            is UIEvent.DebugStepOut -> handleDebugAction { it.stepOut() }
-            is UIEvent.DebugResume -> handleDebugAction { it.resume() }
-            is UIEvent.DebugPause -> handleDebugAction { it.pause() }
+            is UIEvent.DebugStepOver -> DebugSessionCoordinator.getInstance(project).stepOver()
+            is UIEvent.DebugStepInto -> DebugSessionCoordinator.getInstance(project).stepInto()
+            is UIEvent.DebugStepOut -> DebugSessionCoordinator.getInstance(project).stepOut()
+            is UIEvent.DebugResume -> DebugSessionCoordinator.getInstance(project).resume()
+            is UIEvent.DebugPause -> DebugSessionCoordinator.getInstance(project).pause()
             is UIEvent.Unknown -> log.warn("Unknown UI event: ${event.raw}")
-        }
-    }
-
-    private fun handleDebugAction(action: (XDebugSession) -> Unit) {
-        ApplicationManager.getApplication().invokeLater {
-            try {
-                val session = XDebuggerManager.getInstance(project).currentSession
-                if (session != null) {
-                    action(session)
-                } else {
-                    scope.launch(Dispatchers.Swing) {
-                        bridge?.sendError("No active debug session. Start debugging first (Run → Debug).")
-                    }
-                }
-            } catch (e: Exception) {
-                log.warn("Debug action failed: ${e.message}")
-                scope.launch(Dispatchers.Swing) {
-                    bridge?.sendError("Debug action failed: ${e.message}")
-                }
-            }
         }
     }
 
