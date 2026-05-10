@@ -2,6 +2,49 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## 1.4.1 — Audit-driven correctness, safety, and observability fixes
+
+**Date:** 2026-XX-XX (filled in at merge)
+
+### Highlights
+
+- **Cancel-during-analysis is now honored.** A `catch (e: Exception)` block in `AnalysisEngine.runOne` was swallowing `ProcessCanceledException` (the IDE's cancellation signal) and returning an empty list, after which the next analyzer kept running. One-line fix; high-impact behavior change. Same class of bug fixed in `CompilationErrorAnalyzer.harvestFile` where `InvocationTargetException` wrapping hid PCE in the cause chain.
+- **JCEF tool-window bridge now encodes payloads via `kotlinx.serialization`** for all eight `send*` methods that previously built JSON by hand. The hand-built payloads escaped only `"`; backslashes (Windows paths), newlines (multi-line error messages), tabs, and control chars survived into `executeJavaScript`, breaking the embedded JS or — when an upstream string carried attacker-shaped content — yielding a JS injection vector inside JCEF.
+- **`InMemoryGraph` adjacency lists now use `ConcurrentHashMap.newKeySet()`** for the inner sets, eliminating a data race when analyzers add edges concurrently. `findCycles` rewritten as iterative DFS over an explicit stack — removes the recursion-depth ceiling on monorepo-scale graphs.
+- **OkHttp `Response` wrapped in `use { }`** in both `OllamaService` and `OpenAIService` — connections return to the pool deterministically on JSON-decode failure.
+- **`NullSafetyFixer` rewritten on PSI** — uses `KtDotQualifiedExpression` instead of line-text regex. Previous version could rewrite `varName.` inside string literals or comments.
+- **`NullSafetyAnalyzer` mid-line comments now skipped** (previously only line-leading `//` was caught), and a combined-alternation regex collapses the per-file scan from O(N × M) to O(N).
+- **`ComplexityAnalyzer` threshold now wired to settings** as `maxComplexity` (default 10, unchanged). The class description claimed "configurable threshold" since V1.0; now it's true.
+- **Observability:** `ApiKeyManager` logs PasswordSafe fallbacks; `AIAnalyzer` logs files skipped for exceeding the 2000-line cap.
+- **`ParsedFile.content` mutation** replaced with explicit `dropContent()` method — surfaces accidental post-analysis content reads instead of silently returning empty.
+
+### Bug fixes
+
+- `AnalysisEngine.runOne` swallowed `ProcessCanceledException` — Cancel button left subsequent analyzers running.
+- `CompilationErrorAnalyzer.harvestFile` swallowed PCE wrapped inside `InvocationTargetException`.
+- `JcefBridge.send*` hand-built JSON broke on backslashes / newlines / control chars.
+- `InMemoryGraph` adjacency-list inner `LinkedHashSet`s were not thread-safe.
+- `findCycles` could StackOverflow on deep dependency chains.
+- `OllamaService` / `OpenAIService` Response not deterministically closed on parse failure.
+- `AICache.get` get-then-remove TOCTOU could evict fresh entries.
+- `NullSafetyFixer` regex matched inside strings / comments.
+- `NullSafetyAnalyzer` mid-line comment slipped through.
+- `ApiKeyManager` silent PasswordSafe-failure fallback.
+- `AIAnalyzer` silent skip of >2000-line files.
+- `ReportGenerator` `dateProvider()` interpolated raw into HTML.
+
+### Deferred to V1.5
+
+- `GhostDebuggerService` is 918 lines (god class) — refactor-class.
+- `OllamaService` / `OpenAIService` near-duplicate — extract `BaseAIService`.
+- `Issue.fingerprint()` recomputed in `mergeIssues` — perf without observed pain.
+- `InMemoryGraph.toProjectGraph` re-walks whole graph on every analysis — separate design.
+
+### Contributors / spec / plan
+
+- Spec: `docs/superpowers/specs/2026-05-10-aegis-v1.4.1-audit-fixes-design.md`
+- Plan: `docs/superpowers/plans/2026-05-10-aegis-v1.4.1-audit-fixes.md`
+
 ## 1.4.0 — Cleanup, report-export rewrite, smart-cast walker
 
 **Date:** 2026-05-09
