@@ -109,6 +109,23 @@ data class ParsedFile(
     val variables: List<VariableSymbol> = emptyList()
 ) {
     val lines: List<String> by lazy { content.lines() }
+
+    /**
+     * Frees the in-memory copy of file content after analysis is complete.
+     *
+     * Forces the lazy [lines] cache to materialise (so subsequent reads of
+     * [lines] still work), then clears [content] to free heap. Callers reading
+     * [content] after this point will see `""` — by design, to surface
+     * accidental post-analysis content reads instead of silently returning empty.
+     *
+     * Idempotent. Subsequent calls are no-ops because [content] is already empty.
+     * Replaces V1.4 and earlier's inline `file.content = ""` mutation in
+     * `AnalysisEngine.finalize`, making the operation explicit at the call site.
+     */
+    fun dropContent() {
+        lines  // force lazy materialisation
+        content = ""
+    }
 }
 
 data class FunctionSymbol(

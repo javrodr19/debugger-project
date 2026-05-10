@@ -107,11 +107,9 @@ class AnalysisEngine(
         limitedContext: AnalysisContext,
         engineStatus: EngineStatusPayload
     ): AnalysisResult {
-        // Drop file content to save RAM
-        limitedContext.parsedFiles.forEach { file ->
-            val _lines = file.lines
-            file.content = ""
-        }
+        // Drop file content to save RAM. dropContent() forces the lazy `lines`
+        // materialisation, then clears `content`. Replaces V1.4's inline mutation.
+        limitedContext.parsedFiles.forEach { it.dropContent() }
 
         val metrics = ProjectMetrics(
             totalFiles = limitedContext.parsedFiles.size,
