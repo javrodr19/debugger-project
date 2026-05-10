@@ -4,15 +4,23 @@ import com.ghostdebugger.analysis.Analyzer
 import com.ghostdebugger.model.*
 import java.util.UUID
 
-class ComplexityAnalyzer : Analyzer {
+class ComplexityAnalyzer(
+    /**
+     * Threshold provider so the analyzer reads the live `maxComplexity` from settings on
+     * every run (V1.4.1 wiring). Tests inject a fixed value via the constructor.
+     * Default reads from [com.ghostdebugger.settings.GhostDebuggerSettings].
+     */
+    private val thresholdProvider: () -> Int =
+        { com.ghostdebugger.settings.GhostDebuggerSettings.getInstance().snapshot().maxComplexity }
+) : Analyzer {
     override val name = "ComplexityAnalyzer"
     override val ruleId = "AEG-CPX-001"
     override val defaultSeverity = IssueSeverity.WARNING
-    override val description = "Flags nodes whose estimated cyclomatic complexity exceeds the configured threshold (default 10)."
-    private val complexityThreshold = 10
+    override val description = "Flags nodes whose estimated cyclomatic complexity exceeds the configured threshold (default 10, configurable in Settings → Tools → Aegis Debug)."
 
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()
+        val complexityThreshold = thresholdProvider()
 
         for (node in context.graph.getAllNodes()) {
             if (node.complexity > complexityThreshold) {

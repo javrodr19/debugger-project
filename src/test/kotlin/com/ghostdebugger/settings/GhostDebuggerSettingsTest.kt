@@ -83,4 +83,22 @@ class GhostDebuggerSettingsTest {
     fun `AIProvider enum contains exactly NONE OPENAI OLLAMA`() {
         assertEquals(listOf("NONE", "OPENAI", "OLLAMA"), AIProvider.values().map { it.name })
     }
+
+    @Test
+    fun `maxComplexity defaults to 10 and round-trips through update + validate`() {
+        // V1.4.1 M3: previously hardcoded inside ComplexityAnalyzer; now surfaced
+        // as a settings field with a documented default of 10.
+        val s = GhostDebuggerSettings.State()
+        assertEquals(10, s.maxComplexity)
+
+        val target = GhostDebuggerSettings()
+        target.update { maxComplexity = 25 }
+        assertEquals(25, target.snapshot().maxComplexity)
+
+        // validate() normalises out-of-range values to default.
+        target.update { maxComplexity = 0 }
+        assertEquals(10, target.snapshot().maxComplexity)
+        target.update { maxComplexity = -5 }
+        assertEquals(10, target.snapshot().maxComplexity)
+    }
 }

@@ -80,7 +80,10 @@ class ReportGenerator(
         appendLine("<header>")
         appendLine("<h1>Aegis Debug Report</h1>")
         appendLine("<p>Project Analysis for ${htmlEscape(graph.metadata.projectName)}</p>")
-        appendLine("<p>Generated on ${dateProvider()}</p>")
+        // htmlEscape the date provider output. The default `() -> LocalDateTime` signature
+        // produces safe text, but the constructor parameter could be widened (or mocked) in
+        // future and an unescaped interpolation would be the only XSS vector in the renderer.
+        appendLine("<p>Generated on ${htmlEscape(dateProvider().toString())}</p>")
         appendLine("<div class=\"stats\">")
         appendLine("<div class=\"stat-card health\"><div class=\"value\">${graph.metadata.healthScore.toInt()}%</div><div class=\"label\">Health Score</div></div>")
         appendLine("<div class=\"stat-card error\"><div class=\"value\">$errors</div><div class=\"label\">Errors</div></div>")
