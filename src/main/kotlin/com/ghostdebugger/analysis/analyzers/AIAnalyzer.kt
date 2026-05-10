@@ -21,9 +21,18 @@ class AIAnalyzer(
     private val semaphore = Semaphore(concurrency)
 
     suspend fun analyze(context: AnalysisContext): List<Issue> {
+        val supportedExtensions = setOf("ts", "tsx", "js", "jsx", "kt", "java")
         val analyzableFiles = context.parsedFiles.filter {
-            it.extension in setOf("ts", "tsx", "js", "jsx", "kt", "java") &&
-                it.lines.size < 2000
+            it.extension in supportedExtensions && it.lines.size < 2000
+        }
+        // Surface files skipped purely for the 2000-line cap so users editing
+        // large files have visible feedback. Pre-V1.4.1 this was silent.
+        val skippedForSize = context.parsedFiles.filter {
+            it.extension in supportedExtensions && it.lines.size >= 2000
+        }
+        if (skippedForSize.isNotEmpty()) {
+            log.info("AI analysis skipped ${skippedForSize.size} file(s) exceeding 2000-line cap; " +
+                "first: ${skippedForSize.first().path} (${skippedForSize.first().lines.size} lines)")
         }
         val results = mutableListOf<Issue>()
         log.info("Starting AI Analysis on ${analyzableFiles.size} files with concurrency limit $concurrency...")

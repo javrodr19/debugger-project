@@ -140,24 +140,24 @@ class OpenAIService(
                 .post(requestBody)
                 .build()
 
-            val response = httpClient.newCall(httpRequest).execute()
+            httpClient.newCall(httpRequest).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val body = response.body?.string() ?: "Unknown error"
+                    log.error("OpenAI API error: ${response.code} - $body")
+                    throw RuntimeException("OpenAI API communication failure: ${response.code}")
+                }
 
-            if (!response.isSuccessful) {
-                val body = response.body?.string() ?: "Unknown error"
-                log.error("OpenAI API error: ${response.code} - $body")
-                throw RuntimeException("OpenAI API communication failure: ${response.code}")
+                val responseBody = response.body?.string()
+                    ?: throw RuntimeException("Empty response from OpenAI")
+
+                val completionResponse = try {
+                    json.decodeFromString<ChatCompletionResponse>(responseBody)
+                } catch (e: Exception) {
+                    log.error("Failed to decode OpenAI response: $responseBody", e)
+                    throw RuntimeException("Format error in OpenAI response")
+                }
+                completionResponse.choices.firstOrNull()?.message?.content
+                    ?: throw RuntimeException("No content in OpenAI response")
             }
-
-            val responseBody = response.body?.string()
-                ?: throw RuntimeException("Empty response from OpenAI")
-
-            val completionResponse = try {
-                 json.decodeFromString<ChatCompletionResponse>(responseBody)
-            } catch (e: Exception) {
-                log.error("Failed to decode OpenAI response: $responseBody", e)
-                throw RuntimeException("Format error in OpenAI response")
-            }
-            completionResponse.choices.firstOrNull()?.message?.content
-                ?: throw RuntimeException("No content in OpenAI response")
         }
 }
