@@ -132,6 +132,10 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.AnalysisOrchestrator"/>
 
+        <!-- V1.5: UIEvent dispatch + AI-service caching + UI handlers -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.UIEventRouter"/>
+
         <!-- Application-level settings service -->
         <applicationService
                 serviceImplementation="com.ghostdebugger.settings.GhostDebuggerSettings"/>

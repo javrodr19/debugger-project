@@ -36,23 +36,18 @@ class GhostDebuggerServiceReportPathTest {
     }
 
     /**
-     * When no graph is loaded, handleExportReportRequested must return early
-     * (dispatching an error to the bridge) without touching the file system or
-     * throwing any exception. This exercises the null-graph guard that was
-     * preserved in the FileSaverDialog rewrite.
+     * When no graph is loaded, the report export must return early (dispatching an error
+     * to the bridge) without touching the file system or throwing any exception. This
+     * exercises the null-graph guard preserved across the V1.5 split, where the handler
+     * moved from GhostDebuggerService.handleExportReportRequested to
+     * ReportExporter.export(graph).
      */
     @Test
-    fun `handleExportReportRequested with null graph sends error and does not write any file`() {
-        // Ensure currentGraph is null (default state after construction).
-        val field = GhostDebuggerService::class.java.getDeclaredField("currentGraph")
-        field.isAccessible = true
-        field.set(service, null)
-
-        val method = GhostDebuggerService::class.java.getDeclaredMethod("handleExportReportRequested")
-        method.isAccessible = true
-
-        // Should complete without throwing even though no dialog/file-chooser is available.
-        method.invoke(service)
+    fun `ReportExporter with null graph sends error and does not write any file`() {
+        // ReportExporter pulls the JcefBridge off the facade; the stubbed getInstance
+        // already returns our recording service, which has no bridge installed in this
+        // test — the null-graph branch logs an error and returns without dialog.
+        ReportExporter(project).export(null)
 
         // Wait briefly for the dispatched Swing coroutine.
         Thread.sleep(300)

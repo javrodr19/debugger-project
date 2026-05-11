@@ -99,6 +99,30 @@ classpath. Referencing it compiles under some Gradle configurations but fails at
 directly within the unpacked IDE distribution at runtime — a path that is always available when running under
 IPGP. Use `AegisKotlinAnalysisTestCase` as the base class for any test that exercises an Analysis API analyzer.
 
+### Facade state ownership (post-V1.5)
+
+`GhostDebuggerService` is the canonical project-level state holder for analysis results
+(`currentIssues`, `issuesByFile`, `currentGraph`, `lastInMemoryGraph`, `suppressUntil`).
+The four extracted collaborators (`AnalysisOrchestrator`, `UIEventRouter`,
+`FileChangeWatcher`, `DebugSessionCoordinator`) **read** state from the facade via
+`service.currentIssues` etc. and **write** via the facade's `internal fun updateIssues(...)`
+mutator (or, for `currentGraph` / `lastInMemoryGraph`, by assigning to the `internal var`
+fields). Direct assignment from a collaborator that bypasses the facade
+(`orchestrator.currentIssues = ...`) is forbidden — it re-introduces the scattered
+mutation V1.5 was designed to eliminate.
+
+The reason this matters: V2 will add new collaborators (test-runner cross-check,
+problems-tool-window emit path) that read the same state. If each collaborator owns its
+own copy, the cross-collaborator views drift and the user sees stale or contradictory
+issues across surfaces. One writer, many readers — through the facade.
+
+When adding a new collaborator: register it as `@Service(Service.Level.PROJECT)` in
+`plugin.xml`, register `Disposer.register(project, this)` in its `init { }`, and access
+project-level state only via `GhostDebuggerService.getInstance(project)`. To emit JCEF
+events, use `service.jcefBridge()?.send*()` for JcefBridge-only methods or
+`service.bridgeChannel()?.send*()` for `BridgeChannel` methods (the latter respects the
+test-recording stub installed via `setBridgeForTest`).
+
 ### File structure
 
 - Spec docs live at `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
