@@ -23,7 +23,8 @@ class OpenAIServiceTimeoutTest {
             affectedNodes = emptyList()
         )
         
-        val parseMethod = OpenAIService::class.java.getDeclaredMethod("parseFixResponse", String::class.java, Issue::class.java, String::class.java)
+        // parseFixResponse moved to BaseAIService in V1.5; reflect there.
+        val parseMethod = BaseAIService::class.java.getDeclaredMethod("parseFixResponse", String::class.java, Issue::class.java, String::class.java)
         parseMethod.isAccessible = true
         
         val rawResponse = """

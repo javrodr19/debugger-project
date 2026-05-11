@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>1.4.1</version>
+    <version>1.5.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -39,6 +39,12 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>1.5.0 — Pre-V2 structural refactor</h3>
+    <ul>
+        <li><strong>Internal restructure only.</strong> No user-visible behavior change. All analyzers, fixers, languages, and UI surfaces are unchanged.</li>
+        <li>The project-level service is split into focused collaborators (analysis orchestrator, UI event router, file-change watcher, debug-session coordinator, report exporter) to clear the path for V2's dynamic-validation features.</li>
+        <li>The two AI services (Ollama, OpenAI) now share a common abstract parent, eliminating ~120 LOC of duplication around caching, prompt dispatch, and HTTP client setup.</li>
+    </ul>
     <h3>1.4.1 — Audit-driven correctness and safety hardening</h3>
     <ul>
         <li><strong>Critical:</strong> Cancel during analysis is now honored — a previous catch swallowed the platform's cancellation signal, leaving analyzers running after the user clicked Stop.</li>
@@ -113,6 +119,22 @@
         <!-- Servicio principal del plugin (project-level) -->
         <projectService
                 serviceImplementation="com.ghostdebugger.GhostDebuggerService"/>
+
+        <!-- V1.5: VFS listener for auto-refresh on file save -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.FileChangeWatcher"/>
+
+        <!-- V1.5: XDebugger session subscription + step-action dispatch -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.DebugSessionCoordinator"/>
+
+        <!-- V1.5: analysis lifecycle, cancellation, dependent cascade, test seams -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.AnalysisOrchestrator"/>
+
+        <!-- V1.5: UIEvent dispatch + AI-service caching + UI handlers -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.UIEventRouter"/>
 
         <!-- Application-level settings service -->
         <applicationService

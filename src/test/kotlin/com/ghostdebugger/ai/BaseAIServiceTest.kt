@@ -1,0 +1,92 @@
+package com.ghostdebugger.ai
+
+import com.ghostdebugger.model.Issue
+import com.ghostdebugger.model.IssueSeverity
+import com.ghostdebugger.model.IssueType
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+
+/**
+ * Pins the cache + dispatch orchestration shared between OllamaService and OpenAIService.
+ * Uses a recording subclass that tracks callModel() invocations so we can assert when
+ * the cache short-circuits and when it falls through.
+ */
+class BaseAIServiceTest {
+
+    private class RecordingService(
+        cacheEnabled: Boolean,
+        private val response: String = "EXPLANATION: ok\n```ts\nfix\n```"
+    ) : BaseAIService(
+        timeoutMs = 1_000,
+        cacheTtlSeconds = 3600,
+        cacheEnabled = cacheEnabled,
+        cacheMaxEntries = 32
+    ) {
+        val invocationCount = AtomicInteger(0)
+        var lastJsonMode: Boolean = false
+
+        override suspend fun callModel(systemPrompt: String, userPrompt: String, jsonMode: Boolean): String {
+            invocationCount.incrementAndGet()
+            lastJsonMode = jsonMode
+            return response
+        }
+    }
+
+    private fun issue(): Issue = Issue(
+        id = UUID.randomUUID().toString(),
+        type = IssueType.NULL_SAFETY,
+        severity = IssueSeverity.ERROR,
+        title = "test",
+        description = "desc",
+        filePath = "/x.ts",
+        line = 1,
+        codeSnippet = "snippet",
+        affectedNodes = emptyList()
+    )
+
+    @Test
+    fun `explainIssue cache hit short-circuits callModel`() = runBlocking {
+        val svc = RecordingService(cacheEnabled = true)
+        val i = issue()
+        svc.explainIssue(i, "snippet")
+        svc.explainIssue(i, "snippet")
+        assertEquals(1, svc.invocationCount.get(), "second call should hit cache")
+    }
+
+    @Test
+    fun `suggestFix cache hit short-circuits callModel and re-parses cached response`() = runBlocking {
+        val svc = RecordingService(cacheEnabled = true)
+        val i = issue()
+        val first = svc.suggestFix(i, "snippet")
+        val second = svc.suggestFix(i, "snippet")
+        assertEquals(1, svc.invocationCount.get(), "second call should hit cache")
+        assertEquals(first.fixedCode, second.fixedCode)
+        assertEquals(first.description, second.description)
+    }
+
+    @Test
+    fun `cacheEnabled false skips the cache entirely`() = runBlocking {
+        val svc = RecordingService(cacheEnabled = false)
+        val i = issue()
+        svc.explainIssue(i, "snippet")
+        svc.explainIssue(i, "snippet")
+        assertEquals(2, svc.invocationCount.get(), "cache disabled — every call hits callModel")
+    }
+
+    @Test
+    fun `detectIssues passes jsonMode true to callModel`() = runBlocking {
+        val svc = RecordingService(cacheEnabled = true, response = "{}")
+        svc.detectIssues("/x.ts", "code", emptyList())
+        assertTrue(svc.lastJsonMode, "detectIssues must request JSON mode for the model")
+    }
+
+    @Test
+    fun `detectIssues empty extraction returns empty list`() = runBlocking {
+        val svc = RecordingService(cacheEnabled = true, response = "not json at all")
+        val issues = svc.detectIssues("/x.ts", "code", emptyList())
+        assertTrue(issues.isEmpty())
+    }
+}

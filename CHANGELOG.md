@@ -2,6 +2,27 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## 1.5.0 — Pre-V2 structural refactor (no user-visible change)
+
+**Date:** 2026-05-11
+
+### Highlights
+
+- **Pure structural release.** No new analyzer, fixer, language target, or UI surface. Counts unchanged at 11 analyzers / 5 fixers / TS+JS+Kotlin+Java.
+- **`GhostDebuggerService` shrinks 918 → ~150 LOC.** Becomes a thin facade over four new project-scoped services (`AnalysisOrchestrator`, `UIEventRouter`, `FileChangeWatcher`, `DebugSessionCoordinator`) plus a `ReportExporter` helper. Public API preserved — every external caller sees the same `getInstance(project)` entry point and the same method signatures.
+- **`BaseAIService` extracted.** `OllamaService` (146 LOC) and `OpenAIService` (163 LOC) now extend a shared abstract parent that owns cache lifecycle, prompt dispatch, `parseFixResponse`, and `detectIssues` orchestration. Subclasses implement only `callModel(systemPrompt, userPrompt, jsonMode)`. Net duplication eliminated: ~120 LOC.
+- **Why now, not in V2:** V2's roadmap (dynamic validation, Python, IDE-native integration) lands new code paths in or adjacent to today's god class. Splitting before V2 means each V2 feature lands on a clean seam; splitting after means V2 grows the god class first and V3 inherits a worse refactor problem.
+
+### Deferred (still)
+
+- `Issue.fingerprint()` memoization (perf, no observed pain) — carries forward to V1.6+.
+- `InMemoryGraph.toProjectGraph` incremental rebuild — separate design.
+
+### Contributors / spec / plan
+
+- Spec: `docs/superpowers/specs/2026-05-10-aegis-v1.5-refactor-design.md`
+- Plan: `docs/superpowers/plans/2026-05-10-aegis-v1.5-refactor.md`
+
 ## 1.4.1 — Audit-driven correctness, safety, and observability fixes
 
 **Date:** 2026-05-10
