@@ -4,7 +4,7 @@ All notable changes to Aegis Debug are documented here.
 
 ## 1.5.0 — Pre-V2 structural refactor (no user-visible change)
 
-**Date:** 2026-XX-XX (filled in at merge)
+**Date:** 2026-05-11
 
 ### Highlights
 
