@@ -128,6 +128,10 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.DebugSessionCoordinator"/>
 
+        <!-- V1.5: analysis lifecycle, cancellation, dependent cascade, test seams -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.AnalysisOrchestrator"/>
+
         <!-- Application-level settings service -->
         <applicationService
                 serviceImplementation="com.ghostdebugger.settings.GhostDebuggerSettings"/>

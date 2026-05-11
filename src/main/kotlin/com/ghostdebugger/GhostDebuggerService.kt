@@ -3,18 +3,13 @@ package com.ghostdebugger
 import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.ai.AIServiceFactory
-import com.ghostdebugger.analysis.AnalysisEngine
 import com.ghostdebugger.bridge.BridgeChannel
 import com.ghostdebugger.bridge.JcefBridge
 import com.ghostdebugger.bridge.UIEvent
 import com.ghostdebugger.fix.FixApplicator
 import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.fix.FixerRegistry
-import com.ghostdebugger.graph.GraphBuilder
 import com.ghostdebugger.model.*
-import com.ghostdebugger.parser.DependencyResolver
-import com.ghostdebugger.parser.FileScanner
-import com.ghostdebugger.parser.SymbolExtractor
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.application.ApplicationManager
@@ -22,20 +17,10 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
-import com.intellij.ide.BrowserUtil
-import com.intellij.ide.actions.RevealFileAction
-import com.intellij.notification.NotificationAction
-import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
-import com.intellij.openapi.fileChooser.FileChooserFactory
-import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.swing.Swing
-import java.io.File
 
 @Service(Service.Level.PROJECT)
 class GhostDebuggerService(private val project: Project) : Disposable {
@@ -47,9 +32,6 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         Disposer.register(project, this)
     }
 
-    private val analysisLock = Object()
-    @Volatile private var activeAnalysisIndicator: com.intellij.openapi.progress.ProgressIndicator? = null
-
     private var bridge: JcefBridge? = null
     @Volatile private var testBridgeChannel: BridgeChannel? = null
     internal var currentGraph: ProjectGraph? = null
@@ -58,13 +40,11 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         private set
     @Volatile var issuesByFile: Map<String, List<Issue>> = emptyMap()
         private set
-    @Volatile private var lastIssueFingerprints: Set<String> = emptySet()
     @Volatile var suppressUntil: Long = 0L
 
-    var isAnalyzing: Boolean = false
-        private set
+    val isAnalyzing: Boolean get() = AnalysisOrchestrator.getInstance(project).isAnalyzing
 
-    private fun updateIssues(newIssues: List<Issue>) {
+    internal fun updateIssues(newIssues: List<Issue>) {
         currentIssues = newIssues
         issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
     }
@@ -125,154 +105,11 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         }
     }
 
-    fun analyzeProject() {
-        synchronized(analysisLock) {
-            activeAnalysisIndicator?.cancel()
-        }
-
-        val task = object : com.intellij.openapi.progress.Task.Backgroundable(project, "Aegis Debug: Analyzing project", true) {
-            override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
-                synchronized(analysisLock) { activeAnalysisIndicator = indicator }
-                isAnalyzing = true
-                indicator.isIndeterminate = false
-                indicator.fraction = 0.0
-
-                try {
-                    runBlocking {
-                        performAnalysis(indicator)
-                    }
-                } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
-                    log.info("Analysis canceled by user")
-                    scope.launch(Dispatchers.Swing) {
-                        bridge?.sendError("Analysis canceled.")
-                    }
-                } catch (t: Throwable) {
-                    log.error("Analysis failed", t)
-                    scope.launch(Dispatchers.Swing) {
-                        bridge?.sendError("Analysis failed: ${t.message ?: t.javaClass.simpleName}")
-                    }
-                } finally {
-                    isAnalyzing = false
-                    synchronized(analysisLock) {
-                        if (activeAnalysisIndicator === indicator) activeAnalysisIndicator = null
-                    }
-                }
-            }
-        }
-        com.intellij.openapi.progress.ProgressManager.getInstance().run(task)
-    }
+    fun analyzeProject() = AnalysisOrchestrator.getInstance(project).analyzeProject()
 
     fun cancelAnalysis() {
-        synchronized(analysisLock) {
-            activeAnalysisIndicator?.cancel()
-        }
+        AnalysisOrchestrator.getInstance(project).cancelAnalysis()
         FileChangeWatcher.getInstance(project).cancelAutoRefresh()
-    }
-
-    private suspend fun performAnalysis(indicator: com.intellij.openapi.progress.ProgressIndicator) {
-        withContext(Dispatchers.Swing) {
-            bridge?.sendAnalysisStart()
-            // Commit all documents before starting analysis to sync PSI
-            com.intellij.psi.PsiDocumentManager.getInstance(project).commitAllDocuments()
-        }
-
-        log.info("Starting project analysis...")
-        indicator.text = "Scanning files..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Scanning files...", 0.0) }
-
-        val virtualFiles = ApplicationManager.getApplication().runReadAction<List<com.intellij.openapi.vfs.VirtualFile>> {
-            FileScanner(project).scanFiles()
-        }
-
-        indicator.checkCanceled()
-        indicator.fraction = 0.10
-        log.info("Found ${virtualFiles.size} files")
-        indicator.text = "Parsing files..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Parsing files...", 0.10) }
-
-        val rawFiles = ApplicationManager.getApplication().runReadAction<List<ParsedFile>> {
-            FileScanner(project).parsedFiles(virtualFiles)
-        }
-
-        indicator.checkCanceled()
-        indicator.fraction = 0.25
-        indicator.text = "Extracting symbols..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Extracting symbols...", 0.25) }
-
-        val extractor = SymbolExtractor(project)
-        val parsedFiles = rawFiles.map { 
-            indicator.checkCanceled()
-            extractor.extract(it) 
-        }
-
-        indicator.fraction = 0.40
-        indicator.text = "Resolving dependencies..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Resolving dependencies...", 0.40) }
-        
-        val resolver = DependencyResolver(project.basePath ?: "")
-        val dependencies = resolver.resolve(parsedFiles)
-
-        indicator.checkCanceled()
-        indicator.fraction = 0.50
-        indicator.text = "Building graph..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Building graph...", 0.50) }
-        
-        val graphBuilder = GraphBuilder()
-        val inMemoryGraph = graphBuilder.build(parsedFiles, dependencies)
-        lastInMemoryGraph = inMemoryGraph
-
-        indicator.checkCanceled()
-        indicator.fraction = 0.60
-        indicator.text = "Running analyzers..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Running analyzers...", 0.60) }
-
-        val analysisContext = AnalysisContext(
-            graph = inMemoryGraph,
-            project = project,
-            parsedFiles = parsedFiles
-        )
-        
-        val analysisResult = AnalysisEngine(progress = indicator).analyze(analysisContext, indicator)
-        val newIssues = analysisResult.issues
-        val newFingerprints = newIssues.map { it.fingerprint() }.toSet()
-        val issuesChanged = newFingerprints != lastIssueFingerprints
-        
-        lastIssueFingerprints = newFingerprints
-        updateIssues(newIssues)
-
-        indicator.checkCanceled()
-        indicator.fraction = 0.90
-        indicator.text = "Publishing results..."
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Publishing results...", 0.90) }
-
-        graphBuilder.applyIssues(inMemoryGraph, analysisResult.issues)
-
-        val projectGraph = inMemoryGraph.toProjectGraph(project.name)
-        currentGraph = projectGraph
-
-        log.info("Analysis complete: ${analysisResult.issues.size} issues found")
-
-        withContext(Dispatchers.Swing) {
-            bridge?.sendGraphData(projectGraph)
-            bridge?.sendAnalysisComplete(
-                analysisResult.metrics.errorCount,
-                analysisResult.metrics.warningCount,
-                analysisResult.metrics.healthScore
-            )
-            bridge?.sendEngineStatus(analysisResult.engineStatus)
-        }
-        indicator.fraction = 1.0
-        withContext(Dispatchers.Swing) { bridge?.sendAnalysisProgress("Complete", 1.0) }
-
-        if (issuesChanged) {
-            ApplicationManager.getApplication().invokeLater {
-                try {
-                    DaemonCodeAnalyzer.getInstance(project).restart()
-                } catch (e: Exception) {
-                    log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
-                }
-            }
-        }
     }
 
     private fun updateIssueExplanation(issueId: String, explanation: String) {
@@ -453,147 +290,12 @@ class GhostDebuggerService(private val project: Project) : Disposable {
                 withContext(Dispatchers.Swing) {
                     bridge?.sendFixApplied(issueId)
                 }
-                reanalyzeFile(issue.filePath)
+                AnalysisOrchestrator.getInstance(project).reanalyzeFile(issue.filePath)
             } else {
                 val msg = if (applied is com.ghostdebugger.fix.FixApplyResult.Rejected) applied.reason else "Fix application failed for issue $issueId."
                 withContext(Dispatchers.Swing) {
                     bridge?.sendError(msg)
                 }
-            }
-        }
-    }
-
-    private fun reanalyzeFile(filePath: String) {
-        scope.launch {
-            try {
-                log.info("Starting targeted re-analysis for $filePath")
-                
-                // Commit documents on EDT before starting
-                withContext(Dispatchers.Swing) {
-                    com.intellij.psi.PsiDocumentManager.getInstance(project).commitAllDocuments()
-                }
-
-                val inMemoryGraph = lastInMemoryGraph ?: run {
-                    analyzeProject()
-                    return@launch
-                }
-                
-                val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath) ?: return@launch
-                
-                val parsedFile = ApplicationManager.getApplication().runReadAction<ParsedFile?> {
-                    FileScanner(project).parsedFiles(listOf(virtualFile)).firstOrNull()
-                } ?: return@launch
-                
-                val extractor = SymbolExtractor(project)
-                val updatedFile = extractor.extract(parsedFile)
-                
-                val ctx = AnalysisContext(
-                    graph = inMemoryGraph,
-                    project = project,
-                    parsedFiles = listOf(updatedFile)
-                )
-                
-                val engine = AnalysisEngine()
-                val analysisResult = engine.analyze(ctx)
-                
-                val newFileIssues = analysisResult.issues
-                updateIssues(currentIssues.filterNot { it.filePath == filePath } + newFileIssues)
-                
-                val graphBuilder = GraphBuilder()
-                val nodeId = graphBuilder.normalizeId(filePath)
-                val node = inMemoryGraph.getNode(nodeId)
-                if (node != null) {
-                    val status = when {
-                        newFileIssues.any { it.severity == IssueSeverity.ERROR } -> NodeStatus.ERROR
-                        newFileIssues.any { it.severity == IssueSeverity.WARNING } -> NodeStatus.WARNING
-                        else -> NodeStatus.HEALTHY
-                    }
-                    inMemoryGraph.updateNode(node.copy(issues = newFileIssues, status = status))
-
-                    withContext(Dispatchers.Swing) {
-                        val ch = testBridgeChannel ?: bridge
-                        ch?.sendNodeUpdate(nodeId, status)
-                        ch?.sendIssuesForFile(filePath, newFileIssues)
-                    }
-
-                    cascadeDependents(inMemoryGraph, nodeId)
-                }
-            } catch (e: Exception) {
-                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
-                log.warn("Targeted re-analysis failed for $filePath", e)
-                analyzeProject()
-            }
-        }
-    }
-
-    private suspend fun cascadeDependents(
-        inMemoryGraph: com.ghostdebugger.graph.InMemoryGraph,
-        primaryNodeId: String
-    ) {
-        val settings = GhostDebuggerSettings.getInstance().snapshot()
-        val cap = settings.maxDependentsToReanalyze
-        if (cap <= 0) return
-
-        val depIds = inMemoryGraph.calculateImpact(primaryNodeId).take(cap)
-        if (depIds.isEmpty()) return
-
-        log.info("Cascading static-only re-analysis to ${depIds.size} dependent(s) of $primaryNodeId")
-
-        val vFiles = depIds.mapNotNull { id ->
-            val node = inMemoryGraph.getNode(id) ?: return@mapNotNull null
-            LocalFileSystem.getInstance().findFileByPath(node.filePath)?.let { vf -> id to vf }
-        }
-        if (vFiles.isEmpty()) return
-
-        val parsedFiles = ApplicationManager.getApplication().runReadAction<List<ParsedFile>> {
-            FileScanner(project).parsedFiles(vFiles.map { it.second })
-        }
-        val extractor = SymbolExtractor(project)
-        val extracted = parsedFiles.map { extractor.extract(it) }
-
-        val ctx = AnalysisContext(
-            graph = inMemoryGraph,
-            project = project,
-            parsedFiles = extracted
-        )
-
-        val engine = AnalysisEngine()
-        val result = try {
-            engine.analyzeStaticOnly(ctx)
-        } catch (e: Exception) {
-            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
-            log.warn("Dependent static-only pass failed; skipping cascade", e)
-            return
-        }
-
-        val analyzedPaths = extracted.map { it.path.replace("\\", "/") }.toSet()
-        val issuesByPath = result.issues.groupBy { it.filePath.replace("\\", "/") }
-
-        updateIssues(
-            currentIssues.filterNot { existing ->
-                existing.filePath.replace("\\", "/") in analyzedPaths
-            } + result.issues
-        )
-
-        for ((depId, _) in vFiles) {
-            val node = inMemoryGraph.getNode(depId) ?: continue
-            val depPath = node.filePath
-            // Only update dependents that actually went through analyzeStaticOnly. A dep that
-            // FileScanner couldn't read is silently absent from `extracted`; updating its
-            // status from an empty issues list would falsely demote it to HEALTHY.
-            if (depPath.replace("\\", "/") !in analyzedPaths) continue
-
-            val depIssues = issuesByPath[depPath.replace("\\", "/")] ?: emptyList()
-            val status = when {
-                depIssues.any { it.severity == IssueSeverity.ERROR } -> NodeStatus.ERROR
-                depIssues.any { it.severity == IssueSeverity.WARNING } -> NodeStatus.WARNING
-                else -> NodeStatus.HEALTHY
-            }
-            inMemoryGraph.updateNode(node.copy(issues = depIssues, status = status))
-            withContext(Dispatchers.Swing) {
-                val ch = testBridgeChannel ?: bridge
-                ch?.sendNodeUpdate(depId, status)
-                ch?.sendIssuesForFile(depPath, depIssues)
             }
         }
     }
@@ -604,30 +306,11 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         this.testBridgeChannel = channel
     }
 
-    internal fun installTestGraph(graph: com.ghostdebugger.graph.InMemoryGraph) {
-        this.lastInMemoryGraph = graph
-    }
+    internal fun installTestGraph(graph: com.ghostdebugger.graph.InMemoryGraph) =
+        AnalysisOrchestrator.getInstance(project).installTestGraph(graph)
 
-    /**
-     * Synchronous test-only mirror of [cascadeDependents] that skips re-parsing
-     * and analysis; it walks the impact set, caps at [cap], and fires the bridge
-     * for each dependent. Used to verify dispatch + cap semantics without
-     * standing up a real PSI fixture for every dependent file.
-     */
-    internal fun cascadeDependentsForTest(changedFilePath: String, cap: Int) {
-        val graph = lastInMemoryGraph ?: return
-        if (cap <= 0) return
-        val normalized = changedFilePath.trimStart('/')
-        val dependents = graph.calculateImpact(normalized).take(cap)
-        for (depId in dependents) {
-            val node = graph.getNode(depId) ?: continue
-            val status = NodeStatus.HEALTHY
-            graph.updateNode(node.copy(status = status))
-            val ch = testBridgeChannel ?: bridge
-            ch?.sendNodeUpdate(depId, status)
-            ch?.sendIssuesForFile(node.filePath, emptyList())
-        }
-    }
+    internal fun cascadeDependentsForTest(changedFilePath: String, cap: Int) =
+        AnalysisOrchestrator.getInstance(project).cascadeDependentsForTest(changedFilePath, cap)
 
     private fun handleExplainSystem() {
         val graph = currentGraph ?: run {
@@ -667,70 +350,8 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     }
 
     private fun handleExportReportRequested() {
-        val graph = currentGraph
-        if (graph == null) {
-            scope.launch(Dispatchers.Swing) {
-                bridge?.sendError("No analysis data available. Run 'Analyze Project' first.")
-            }
-            return
-        }
-
-        scope.launch(Dispatchers.Swing) {
-            val descriptor = FileSaverDescriptor(
-                "Export Aegis Debug Report",
-                "Choose where to save the analysis report",
-                "html"
-            )
-            val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
-            val defaultName = "aegis-debug-${sanitizeFilename(project.name)}-${System.currentTimeMillis()}.html"
-            val saved = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, defaultName) ?: return@launch
-
-            scope.launch {
-                try {
-                    val html = ReportGenerator().generateHTMLReport(graph)
-                    val outFile = saved.file
-                    outFile.writeText(html)
-                    withContext(Dispatchers.Swing) {
-                        notifyReportExported(outFile)
-                    }
-                } catch (e: Exception) {
-                    if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
-                    log.error("Failed to write report", e)
-                    withContext(Dispatchers.Swing) {
-                        bridge?.sendError("Export failed: ${e.message}")
-                    }
-                }
-            }
-        }
+        ReportExporter(project).export(currentGraph)
     }
-
-    private fun notifyReportExported(file: java.io.File) {
-        val notification = NotificationGroupManager.getInstance()
-            .getNotificationGroup("GhostDebugger")
-            .createNotification(
-                "Aegis Debug report exported",
-                file.name,
-                NotificationType.INFORMATION
-            )
-        notification.addAction(NotificationAction.create("Open in browser") { _, _ ->
-            try {
-                BrowserUtil.browse(file)
-            } catch (e: Exception) {
-                log.warn("Could not open browser for ${file.absolutePath}", e)
-            }
-        })
-        notification.addAction(NotificationAction.create("Show in Files") { _, _ ->
-            try {
-                RevealFileAction.openFile(file)
-            } catch (e: Exception) {
-                log.warn("Could not reveal file ${file.absolutePath}", e)
-            }
-        })
-        notification.notify(project)
-    }
-
-    private fun sanitizeFilename(name: String): String =
-        name.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
     private fun buildLocalSystemSummary(graph: ProjectGraph): String {
         val errorFiles = graph.nodes.count { it.status == NodeStatus.ERROR }

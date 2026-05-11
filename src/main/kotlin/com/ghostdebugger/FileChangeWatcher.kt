@@ -83,9 +83,7 @@ internal class FileChangeWatcher(private val project: Project) : Disposable {
             withContext(Dispatchers.Swing) {
                 GhostDebuggerService.getInstance(project).jcefBridge()?.sendAutoRefreshStart()
             }
-            // V1.5 plan note: this calls the facade today; Commit 5 swaps it to call the
-            // AnalysisOrchestrator directly once that service exists.
-            GhostDebuggerService.getInstance(project).analyzeProject()
+            AnalysisOrchestrator.getInstance(project).analyzeProject()
         }
     }
 
