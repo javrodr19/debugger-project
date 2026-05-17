@@ -342,3 +342,44 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
   padding: 1px 5px;
   border-radius: 3px;
 }
+
+/* 8. stats + roadmap -------------------------------------------------- */
+.stats { background: var(--c-navy-deep); }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 32px 0 36px;
+}
+.stat {
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 18px 18px 20px;
+}
+.stat dt {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--c-cream-faint);
+  margin-bottom: 10px;
+}
+.stat dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 15px; line-height: 1.4;
+  color: var(--c-gold);
+}
+.roadmap {
+  font-size: 14px; line-height: 1.65;
+  color: var(--c-cream-soft);
+  max-width: 70ch;
+}
+.roadmap strong { color: var(--c-cream); font-weight: 600; }
+.roadmap a { color: var(--c-gold); text-decoration: underline; text-underline-offset: 3px; }
+.roadmap kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
