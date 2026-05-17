@@ -413,3 +413,18 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
 .footer-row a:hover { color: var(--c-gold); }
 .footer-row strong { color: var(--c-cream); font-weight: 600; }
 .footer-row .sep { opacity: 0.45; margin: 0 6px; }
+
+/* 11. reveals --------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 480ms ease-out, transform 480ms ease-out;
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
