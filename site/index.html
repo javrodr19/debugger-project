@@ -38,7 +38,36 @@
 
   <main id="top">
     <section class="hero" aria-labelledby="hero-headline">
-      <!-- Hero content added in Task 3 -->
+      <div class="shell hero-grid">
+        <div class="hero-text">
+          <p class="eyebrow">An IntelliJ IDEA plugin <span class="dot" aria-hidden="true">·</span> by Javier Rodríguez</p>
+          <h1 id="hero-headline" class="headline">
+            Static-first debugging that <span class="accent">never leaves your machine.</span>
+          </h1>
+          <p class="sub">
+            Eleven deterministic analyzers. Five PSI-validated fixers.
+            Optional local AI. Zero telemetry.
+          </p>
+          <div class="cta-row">
+            <a class="cta cta-primary" href="https://plugins.jetbrains.com/" rel="noopener" target="_blank">Install from Marketplace</a>
+            <a class="cta cta-secondary" href="#case-studies">Read the case studies <span aria-hidden="true">→</span></a>
+          </div>
+          <p class="person-row">
+            <a href="https://github.com/javrodr19" rel="noopener" target="_blank">GitHub</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="#" rel="noopener" target="_blank" data-linkedin>LinkedIn</a>
+          </p>
+        </div>
+
+        <aside class="code-panel" aria-label="Example analyzer output">
+          <div class="code-panel-hdr">UserService.kt — analyzer output</div>
+          <pre class="code-panel-body"><span class="lineno">42</span><span class="comment">// inferred: String?</span>
+<span class="lineno">43</span><span class="kw">val</span> name = user.name
+<span class="lineno">44</span>
+<span class="lineno"></span><span class="rule">▸ AEG-NULL-KT-001</span> · unsafe deref
+<span class="lineno"></span><span class="pass">✓ fix available</span> · convert to <span class="kw">?.</span></pre>
+        </aside>
+      </div>
     </section>
 
     <section id="features" class="features" aria-labelledby="features-heading">
