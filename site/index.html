@@ -200,15 +200,17 @@
             <div class="cs-section">
               <h3>The fix</h3>
               <p>One helper, used by every Kotlin analyzer. Wraps <code>analyze { }</code>, rethrows <code>ProcessCanceledException</code> immediately (so the IDE's cancel button works), and returns <code>null</code> on any other Analysis API failure:</p>
-<pre class="cs-code"><span class="kw">internal fun</span> &lt;<span class="type">T</span>&gt; <span class="fn">withKtAnalysis</span>(
+<pre class="cs-code"><span class="kw">internal inline fun</span> &lt;<span class="type">T</span>&gt; <span class="fn">withKtAnalysis</span>(
     file: <span class="type">KtFile</span>,
     block: <span class="type">KaSession</span>.(<span class="type">KtFile</span>) -&gt; <span class="type">T</span>
 ): <span class="type">T</span>? = <span class="kw">try</span> {
     <span class="fn">analyze</span>(file) { <span class="fn">block</span>(file) }
-} <span class="kw">catch</span> (e: <span class="type">ProcessCanceledException</span>) { <span class="kw">throw</span> e }
-  <span class="kw">catch</span> (_: <span class="type">KaAnalysisNonPublicApiException</span>) { <span class="kw">null</span> }
-  <span class="kw">catch</span> (_: <span class="type">KaInvalidLifetimeOwnerAccessException</span>) { <span class="kw">null</span> }
-  <span class="kw">catch</span> (_: <span class="type">Throwable</span>) { <span class="kw">null</span> }</pre>
+} <span class="kw">catch</span> (e: <span class="type">ProcessCanceledException</span>) {
+    <span class="kw">throw</span> e
+} <span class="kw">catch</span> (e: <span class="type">Exception</span>) {
+    log.<span class="fn">warn</span>(<span class="str">"Analysis API failure for ${file.virtualFilePath}"</span>, e)
+    <span class="kw">null</span>
+}</pre>
             </div>
 
             <div class="cs-section">
