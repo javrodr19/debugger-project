@@ -1,1 +1,82 @@
-/* placeholder — populated in Task 2 */
+/* 1. tokens ------------------------------------------------------------ */
+:root {
+  --c-navy:        #0e1726;
+  --c-navy-deep:   #0a1120;
+  --c-panel:       #1a2436;
+  --c-border:      #243049;
+  --c-cream:       #f3ead3;
+  --c-cream-soft:  #f3ead3cc;
+  --c-cream-faint: #f3ead380;
+  --c-gold:        #c9a96a;
+  --c-gold-soft:   #c9a96a22;
+  --c-pass-green:  #8db580;
+  --c-comment:     #6b7488;
+  --c-muted:       #4a5570;
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shell-max:   1180px;
+  --shell-pad-x: clamp(20px, 4vw, 48px);
+
+  --radius:      4px;
+  --radius-card: 6px;
+
+  --t-fast: 120ms ease-out;
+  --t-med:  220ms ease-out;
+}
+
+/* 2. reset + base ----------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--c-navy);
+  color: var(--c-cream);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+img, svg { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+h1, h2, h3, h4, p { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+main { display: block; }
+section { padding-block: clamp(56px, 8vw, 96px); padding-inline: var(--shell-pad-x); }
+section > .shell { max-width: var(--shell-max); margin-inline: auto; }
+
+/* 3. nav -------------------------------------------------------------- */
+.site-nav {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px var(--shell-pad-x);
+  background: rgba(14, 23, 38, 0.85);
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  border-bottom: 1px solid var(--c-border);
+}
+.site-nav .brand {
+  font-weight: 600; letter-spacing: 0.06em;
+  font-size: 14px;
+}
+.site-nav .nav-links {
+  display: flex; gap: 24px;
+  font-size: 13px;
+  color: var(--c-cream-soft);
+}
+.site-nav .nav-links a {
+  transition: color var(--t-fast);
+}
+.site-nav .nav-links a:hover { color: var(--c-cream); }
+
+@media (max-width: 640px) {
+  .site-nav .nav-links { gap: 14px; font-size: 12px; }
+}
