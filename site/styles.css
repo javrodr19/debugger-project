@@ -383,3 +383,33 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
   border-radius: 3px;
   padding: 1px 6px;
 }
+
+/* 9. about ------------------------------------------------------------ */
+.about-shell { max-width: 760px; }
+.bio {
+  font-size: 16px; line-height: 1.7;
+  color: var(--c-cream);
+  margin: 24px 0 28px;
+}
+.bio strong { color: var(--c-cream); font-weight: 600; }
+.author-cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.author-cta-row .cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px;
+}
+.icon { display: inline-block; flex-shrink: 0; }
+
+/* 10. footer ---------------------------------------------------------- */
+.site-footer {
+  padding: 36px var(--shell-pad-x) 48px;
+  background: var(--c-navy-deep);
+  border-top: 1px solid var(--c-border);
+  font-size: 12.5px;
+  color: var(--c-cream-faint);
+}
+.footer-grid { display: flex; flex-direction: column; gap: 10px; }
+.footer-row { line-height: 1.6; }
+.footer-row a { color: var(--c-cream-soft); transition: color var(--t-fast); }
+.footer-row a:hover { color: var(--c-gold); }
+.footer-row strong { color: var(--c-cream); font-weight: 600; }
+.footer-row .sep { opacity: 0.45; margin: 0 6px; }
