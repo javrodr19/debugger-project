@@ -103,7 +103,75 @@
     </section>
 
     <section id="how-it-works" class="how-it-works" aria-labelledby="how-heading">
-      <!-- How-it-works content added in Task 5 -->
+      <div class="shell">
+        <h2 id="how-heading" class="section-title">How it works</h2>
+
+        <div class="how-grid">
+          <div class="how-prose">
+            <p>
+              Aegis Debug runs every analysis through deterministic static analyzers first, then optionally augments with AI. Static findings are PSI-backed and type-aware — the Kotlin analyzers use the Kotlin Analysis API; the Java analyzers use PSI directly.
+            </p>
+            <p>
+              AI is a fallback path, only if you opt in. Every finding carries a provenance badge so engine-verified results look distinct from local-AI or cloud-AI results. The reader always knows what they're trusting.
+            </p>
+          </div>
+
+          <figure class="architecture">
+            <svg viewBox="0 0 560 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arch-title arch-desc">
+              <title id="arch-title">Aegis Debug analysis pipeline</title>
+              <desc id="arch-desc">Source file flows through PSI parse, early syntax/compile pass, deterministic static analyzers, optional AI augmentation, and ends at an issue list plus NeuroMap overlay.</desc>
+
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#f3ead3" />
+                </marker>
+                <marker id="arrow-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#c9a96a" />
+                </marker>
+              </defs>
+
+              <!-- nodes -->
+              <g font-family="IBM Plex Sans, sans-serif" font-size="12" fill="#f3ead3">
+                <rect x="200" y="10"  width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="280" y="34"  text-anchor="middle">Source file</text>
+
+                <rect x="200" y="72"  width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="280" y="96"  text-anchor="middle">PSI parse</text>
+
+                <rect x="20"  y="72"  width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="100" y="96"  text-anchor="middle">Early pass (syntax / compile)</text>
+
+                <rect x="200" y="142" width="160" height="44" rx="4" fill="#1a2436" stroke="#c9a96a" stroke-width="2"/>
+                <text x="280" y="160" text-anchor="middle">Static analyzers</text>
+                <text x="280" y="176" text-anchor="middle" font-size="10" fill="#c9a96a">deterministic · engine badge</text>
+
+                <rect x="200" y="218" width="160" height="44" rx="4" fill="#1a2436" stroke="#243049" stroke-dasharray="4 3"/>
+                <text x="280" y="236" text-anchor="middle" fill="#f3ead3cc">AI augmentation</text>
+                <text x="280" y="252" text-anchor="middle" font-size="10" fill="#f3ead380">optional · local or cloud</text>
+
+                <rect x="200" y="294" width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="280" y="318" text-anchor="middle">Issue list + NeuroMap</text>
+              </g>
+
+              <!-- edges -->
+              <g stroke="#f3ead3" stroke-width="1.2" fill="none">
+                <line x1="280" y1="48" x2="280" y2="68" marker-end="url(#arrow)"/>
+                <line x1="200" y1="91" x2="184" y2="91" marker-end="url(#arrow)"/>
+              </g>
+              <g stroke="#c9a96a" stroke-width="1.4" fill="none">
+                <line x1="280" y1="110" x2="280" y2="138" marker-end="url(#arrow-gold)"/>
+              </g>
+              <g stroke="#f3ead3" stroke-width="1.2" fill="none" stroke-dasharray="4 3">
+                <line x1="280" y1="186" x2="280" y2="214" marker-end="url(#arrow)"/>
+              </g>
+              <g stroke="#f3ead3" stroke-width="1.2" fill="none">
+                <line x1="280" y1="262" x2="280" y2="290" marker-end="url(#arrow)"/>
+              </g>
+            </svg>
+            <figcaption>Solid path: deterministic. Dashed path: optional AI augmentation.</figcaption>
+          </figure>
+        </div>
+      </div>
     </section>
 
     <section id="case-studies" class="case-studies" aria-labelledby="cs-heading">

@@ -225,3 +225,32 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
   border-top: 1px solid var(--c-border);
   background: var(--c-navy-deep);
 }
+
+/* 6. how it works ----------------------------------------------------- */
+.how-it-works { background: var(--c-navy-deep); }
+.how-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .how-grid { grid-template-columns: 1fr; }
+}
+.how-prose p {
+  font-size: 15px; line-height: 1.65;
+  color: var(--c-cream-soft);
+  margin-bottom: 16px;
+  max-width: 50ch;
+}
+.architecture { margin: 0; }
+.architecture svg {
+  width: 100%; height: auto;
+  max-width: 560px;
+  margin-inline: auto;
+}
+.architecture figcaption {
+  margin-top: 12px;
+  font-size: 12px; color: var(--c-cream-faint);
+  text-align: center;
+}
