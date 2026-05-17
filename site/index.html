@@ -175,7 +175,28 @@
     </section>
 
     <section id="case-studies" class="case-studies" aria-labelledby="cs-heading">
-      <!-- Case-studies content added in Tasks 6-8 -->
+      <div class="shell">
+        <h2 id="cs-heading" class="section-title">Engineering case studies</h2>
+        <p class="section-lead">Three different kinds of work from the V1 → V1.5 cycle: a migration, a debugging dig, and a deliberate refactor.</p>
+
+        <div class="tabs-wrap">
+          <div class="tabs" role="tablist" aria-label="Case studies">
+            <button type="button" role="tab" class="tab" id="tab-k2"        aria-controls="panel-k2"        aria-selected="true"  tabindex="0">K2 migration</button>
+            <button type="button" role="tab" class="tab" id="tab-hang"      aria-controls="panel-hang"      aria-selected="false" tabindex="-1">The hanging tests</button>
+            <button type="button" role="tab" class="tab" id="tab-refactor"  aria-controls="panel-refactor"  aria-selected="false" tabindex="-1">Pre-V2 refactor</button>
+          </div>
+
+          <article role="tabpanel" id="panel-k2"        aria-labelledby="tab-k2"       class="tab-panel"            data-active>
+            <p class="cs-placeholder">[ Case study 1 content lands in Task 8 ]</p>
+          </article>
+          <article role="tabpanel" id="panel-hang"      aria-labelledby="tab-hang"     class="tab-panel" hidden>
+            <p class="cs-placeholder">[ Case study 2 content lands in Task 8 ]</p>
+          </article>
+          <article role="tabpanel" id="panel-refactor"  aria-labelledby="tab-refactor" class="tab-panel" hidden>
+            <p class="cs-placeholder">[ Case study 3 content lands in Task 8 ]</p>
+          </article>
+        </div>
+      </div>
     </section>
 
     <section id="stats" class="stats" aria-labelledby="stats-heading">

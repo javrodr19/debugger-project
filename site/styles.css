@@ -254,3 +254,82 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
   font-size: 12px; color: var(--c-cream-faint);
   text-align: center;
 }
+
+/* 7. case studies ----------------------------------------------------- */
+.case-studies { padding-bottom: clamp(72px, 10vw, 120px); }
+.tabs-wrap { margin-top: 32px; }
+.tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.tab {
+  background: transparent;
+  border: 0;
+  color: var(--c-cream-soft);
+  padding: 12px 16px;
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.01em;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.tab:hover { color: var(--c-cream); }
+.tab[aria-selected="true"] {
+  color: var(--c-cream);
+  border-bottom-color: var(--c-gold);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--c-gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.tab-panel { display: none; }
+.tab-panel[data-active] { display: block; }
+
+.cs-placeholder {
+  color: var(--c-cream-faint);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* case-study content (used in Task 8) */
+.cs-hook {
+  font-style: italic;
+  font-size: 16px; line-height: 1.55;
+  color: var(--c-cream);
+  max-width: 60ch;
+  margin-bottom: 28px;
+  padding-left: 16px;
+  border-left: 2px solid var(--c-gold);
+}
+.cs-section { margin-bottom: 22px; max-width: 64ch; }
+.cs-section h3 {
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--c-gold); font-weight: 500;
+  margin-bottom: 10px;
+}
+.cs-section p {
+  font-size: 14.5px; line-height: 1.65;
+  color: var(--c-cream-soft);
+}
+.cs-code {
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-left: 2px solid var(--c-gold);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px; line-height: 1.7;
+  overflow-x: auto;
+  margin-top: 14px;
+  color: #d6c89c;
+  white-space: pre;
+}
+.cs-code .comment { color: var(--c-comment); }
+.cs-code .kw      { color: #e0b677; }
+.cs-code .str     { color: #a7c080; }
+.cs-code .fn      { color: #e3c08a; }
+.cs-code .type    { color: #b6c9e8; }
