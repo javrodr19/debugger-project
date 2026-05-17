@@ -341,6 +341,7 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
   background: var(--c-gold-soft);
   padding: 1px 5px;
   border-radius: 3px;
+  overflow-wrap: anywhere;
 }
 
 /* 8. stats + roadmap -------------------------------------------------- */
