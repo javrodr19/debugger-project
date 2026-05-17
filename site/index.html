@@ -186,14 +186,98 @@
             <button type="button" role="tab" class="tab" id="tab-refactor"  aria-controls="panel-refactor"  aria-selected="false" tabindex="-1">Pre-V2 refactor</button>
           </div>
 
-          <article role="tabpanel" id="panel-k2"        aria-labelledby="tab-k2"       class="tab-panel"            data-active>
-            <p class="cs-placeholder">[ Case study 1 content lands in Task 8 ]</p>
+          <article role="tabpanel" id="panel-k2" aria-labelledby="tab-k2" class="tab-panel" data-active>
+            <p class="cs-hook">
+              Name-based matching was producing the wrong answers on smart-cast variables. The fix was to stop matching names and start asking the compiler.
+            </p>
+
+            <div class="cs-section">
+              <h3>The investigation</h3>
+              <p>V1.1.x's Kotlin null-safety analyzer used a regex-and-name-table approach: scan the file, build a table of which identifiers had been null-checked in scope, flag dereferences of identifiers not in the table. It produced false positives on every <code>if (x != null) { x.foo() }</code> idiom because the table never captured the narrowing — name-based matching can't see types.</p>
+              <p>I considered the <code>BindingContext</code> API first; rejected because it's deprecated under K2. The Kotlin Analysis API's <code>analyze(ktFile) { … }</code> block exposes smart-cast and type-inference data directly, but its session-bound values throw <code>KaInvalidLifetimeOwnerAccessException</code> if they escape the block. Catching that consistently across analyzers needed a chokepoint.</p>
+            </div>
+
+            <div class="cs-section">
+              <h3>The fix</h3>
+              <p>One helper, used by every Kotlin analyzer. Wraps <code>analyze { }</code>, rethrows <code>ProcessCanceledException</code> immediately (so the IDE's cancel button works), and returns <code>null</code> on any other Analysis API failure:</p>
+<pre class="cs-code"><span class="kw">internal fun</span> &lt;<span class="type">T</span>&gt; <span class="fn">withKtAnalysis</span>(
+    file: <span class="type">KtFile</span>,
+    block: <span class="type">KaSession</span>.(<span class="type">KtFile</span>) -&gt; <span class="type">T</span>
+): <span class="type">T</span>? = <span class="kw">try</span> {
+    <span class="fn">analyze</span>(file) { <span class="fn">block</span>(file) }
+} <span class="kw">catch</span> (e: <span class="type">ProcessCanceledException</span>) { <span class="kw">throw</span> e }
+  <span class="kw">catch</span> (_: <span class="type">KaAnalysisNonPublicApiException</span>) { <span class="kw">null</span> }
+  <span class="kw">catch</span> (_: <span class="type">KaInvalidLifetimeOwnerAccessException</span>) { <span class="kw">null</span> }
+  <span class="kw">catch</span> (_: <span class="type">Throwable</span>) { <span class="kw">null</span> }</pre>
+            </div>
+
+            <div class="cs-section">
+              <h3>Why it matters</h3>
+              <p>Funnelling every analyzer through one chokepoint means new Analysis API exceptions surface in one file. A reviewer who adds a Kotlin analyzer and forgets to call <code>withKtAnalysis</code> is immediately spottable in code review — every direct <code>analyze { }</code> call outside the helper is suspicious by definition. Documented in <code>CLAUDE.md</code> so future contributors inherit the convention without reading the V1.3 PR.</p>
+            </div>
           </article>
-          <article role="tabpanel" id="panel-hang"      aria-labelledby="tab-hang"     class="tab-panel" hidden>
-            <p class="cs-placeholder">[ Case study 2 content lands in Task 8 ]</p>
+          <article role="tabpanel" id="panel-hang" aria-labelledby="tab-hang" class="tab-panel" hidden>
+            <p class="cs-hook">
+              A transitive <code>kotlinx-coroutines-core</code> was shadowing IntelliJ's forked variant of the same jar. Five <code>BasePlatformTestCase</code> tests had been silently disabled for a release cycle.
+            </p>
+
+            <div class="cs-section">
+              <h3>The investigation</h3>
+              <p>Symptom: <code>IndexingTestUtil.waitUntilIndexesAreReady</code> polled forever. The test daemon never threw, never logged, never finished. My first hypothesis was test-framework wiring — I upgraded the IntelliJ Platform Gradle Plugin from 2.2.1 to 2.14.0 and re-ran. The hang persisted.</p>
+              <p>The real root cause sat one layer deeper. Stock <code>kotlinx-coroutines-core:1.9.0</code> was being pulled transitively (including via <code>mockk</code>) and was winning classpath resolution over IntelliJ's forked <code>kotlinx-coroutines-core-jvm-*-intellij.jar</code>. The fork exposes platform-only methods like <code>runBlockingWithParallelismCompensation</code> that <code>UnindexedFilesScanner</code> invokes during test setup. The stock jar threw <code>NoSuchMethodError</code> inside the scanning coroutine, which the scanner caught and converted to "still indexing" — silent forever.</p>
+            </div>
+
+            <div class="cs-section">
+              <h3>The fix</h3>
+              <p>Demote <code>kotlinx-coroutines-core</code> to <code>compileOnly</code> and apply a configuration-level <code>exclude</code> on both runtime classpaths. Per-dependency excludes weren't enough — <code>mockk</code> re-introduces the jar transitively, so the exclude has to live at the configuration level:</p>
+<pre class="cs-code"><span class="fn">configurations</span> {
+    <span class="fn">all</span> {
+        <span class="fn">exclude</span>(group = <span class="str">"org.jetbrains.kotlinx"</span>,
+                module = <span class="str">"kotlinx-coroutines-core"</span>)
+    }
+}
+
+<span class="fn">dependencies</span> {
+    <span class="fn">compileOnly</span>(<span class="str">"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"</span>)
+    <span class="comment">// IntelliJ's forked jar wins at runtime now</span>
+}</pre>
+            </div>
+
+            <div class="cs-section">
+              <h3>Why it matters</h3>
+              <p>Test-infrastructure failures that masquerade as "indexing slowness" can hide silent test-suite regressions across releases — in this case, five tests had been disabled since V1.1 without anyone noticing. The platform's forked-jar trick is invisible from outside JetBrains; finding the root cause required reading Gradle dependency-resolution output, the IntelliJ Community source, and the coroutine scanner's catch block.</p>
+            </div>
           </article>
-          <article role="tabpanel" id="panel-refactor"  aria-labelledby="tab-refactor" class="tab-panel" hidden>
-            <p class="cs-placeholder">[ Case study 3 content lands in Task 8 ]</p>
+          <article role="tabpanel" id="panel-refactor" aria-labelledby="tab-refactor" class="tab-panel" hidden>
+            <p class="cs-hook">
+              Every V2 feature would land code inside or adjacent to <code>GhostDebuggerService</code>. Splitting now means V2 lands on a clean seam; splitting later means V3 inherits a worse problem.
+            </p>
+
+            <div class="cs-section">
+              <h3>The investigation</h3>
+              <p>By V1.4.1, <code>GhostDebuggerService</code> was 918 lines and held five distinct responsibilities: analysis orchestration, VFS-listener plumbing, debug-event subscription, UI-event routing, and report export. V2's roadmap adds five capabilities — test-runner cross-check, debug-session cross-check, problems-tool-window integration, IntentionAction quick-fixes, streaming AI — and every one of them would land in or adjacent to that class.</p>
+              <p>Mapping each V2 feature to its eventual home revealed four natural seams: analysis state, UI events, VFS plumbing, debug events. The decision was whether to split before V2 (paying the refactor cost on a stable baseline) or after (paying it on top of new features). Splitting before means each V2 feature lands on a clean seam. Splitting after means V3 inherits a 1500-line god class.</p>
+            </div>
+
+            <div class="cs-section">
+              <h3>The fix</h3>
+              <p>Facade pattern. The class keeps its name and <code>getInstance(project)</code> entry point — six external callers depend on that signature — but the body becomes a thin delegator over four new project-scoped services. State stays on the facade; collaborators read it through the facade and write it through one internal mutator:</p>
+<pre class="cs-code"><span class="comment">// One writer, many readers. Invariant documented in CLAUDE.md.</span>
+<span class="kw">internal fun</span> <span class="fn">updateIssues</span>(issues: <span class="type">List</span>&lt;<span class="type">Issue</span>&gt;) {
+    currentIssues = issues
+    issuesByFile = issues.<span class="fn">groupBy</span> { it.file }
+}
+
+<span class="comment">// Collaborator side — reads through facade, never assigns directly.</span>
+<span class="kw">class</span> <span class="type">AnalysisOrchestrator</span>(<span class="kw">private val</span> service: <span class="type">GhostDebuggerService</span>) {
+    <span class="kw">fun</span> <span class="fn">currentIssueCount</span>(): <span class="type">Int</span> = service.currentIssues.size
+}</pre>
+            </div>
+
+            <div class="cs-section">
+              <h3>Why it matters</h3>
+              <p>State ownership matters in a multi-collaborator system. If each collaborator owned its own copy of the issue list, the views drift and the user sees stale or contradictory findings across surfaces. One writer (the facade), many readers (collaborators) is the invariant that prevents that — and it's documented in <code>CLAUDE.md</code> precisely so V2's new collaborators inherit the rule instead of re-litigating it.</p>
+            </div>
           </article>
         </div>
       </div>

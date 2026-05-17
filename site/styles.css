@@ -333,3 +333,12 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
 .cs-code .str     { color: #a7c080; }
 .cs-code .fn      { color: #e3c08a; }
 .cs-code .type    { color: #b6c9e8; }
+
+.cs-section code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--c-cream);
+  background: var(--c-gold-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
