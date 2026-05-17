@@ -159,3 +159,69 @@ section > .shell { max-width: var(--shell-max); margin-inline: auto; }
 .code-panel .kw      { color: #e0b677; }
 .code-panel .rule    { color: var(--c-gold); }
 .code-panel .pass    { color: var(--c-pass-green); }
+
+/* 5. features --------------------------------------------------------- */
+.section-title {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+}
+.section-lead {
+  font-size: 15px; color: var(--c-cream-soft);
+  max-width: 60ch;
+  margin-bottom: 40px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 48px;
+}
+@media (max-width: 900px) {
+  .feature-grid { grid-template-columns: 1fr; }
+}
+
+.feature-card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-card);
+  padding: 22px 22px 24px;
+  transition: border-left-color var(--t-med), transform var(--t-med);
+}
+.feature-card:hover {
+  border-left-color: var(--c-gold);
+  transform: translateY(-2px);
+}
+.feature-badge {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.1em;
+  color: var(--c-gold); margin-bottom: 16px;
+}
+.feature-card h3 {
+  font-size: 17px; font-weight: 600;
+  margin-bottom: 10px;
+}
+.feature-card p {
+  font-size: 14px; line-height: 1.6;
+  color: var(--c-cream-soft);
+}
+
+.screenshot {
+  margin: 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.screenshot img {
+  width: 100%; height: auto;
+  display: block;
+}
+.screenshot figcaption {
+  font-size: 12px; color: var(--c-cream-faint);
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-navy-deep);
+}

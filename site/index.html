@@ -71,7 +71,35 @@
     </section>
 
     <section id="features" class="features" aria-labelledby="features-heading">
-      <!-- Features content added in Task 4 -->
+      <div class="shell">
+        <h2 id="features-heading" class="section-title">What it does</h2>
+        <p class="section-lead">Three things, deliberately scoped. Aegis Debug runs every analysis through deterministic static analyzers first, then optionally augments with AI.</p>
+
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-badge">01</div>
+            <h3>Static-first analysis</h3>
+            <p>Eleven analyzers across TypeScript, JavaScript, Kotlin, and Java — null safety, state-before-init, async flow, complexity, circular dependencies, syntax, and compilation errors.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-badge">02</div>
+            <h3>Deterministic fixers</h3>
+            <p>Five one-click fixers with PSI-validity guarantees: every produced edit parses or the fixer returns null and falls back to AI.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-badge">03</div>
+            <h3>Privacy by default</h3>
+            <p>No telemetry. No cloud uploads without explicit opt-in. Optional local Ollama or cloud OpenAI for AI augmentation. API keys stored in IntelliJ PasswordSafe.</p>
+          </article>
+        </div>
+
+        <figure class="screenshot">
+          <img src="assets/neuromap-hero.png" alt="NeuroMap view of an Aegis Debug analysis — project graph with per-file issue overlay" loading="lazy" width="1600" height="1000">
+          <figcaption>NeuroMap — the project graph view, with per-file issue overlay.</figcaption>
+        </figure>
+      </div>
     </section>
 
     <section id="how-it-works" class="how-it-works" aria-labelledby="how-heading">
