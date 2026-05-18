@@ -41,3 +41,11 @@ gha-creds-*.json
 
 # Brainstorming visual companion (local mockups, not source)
 .superpowers/
+
+# Claude Code local config (per-machine state, never source)
+.claude/
+
+# One-off scratch + build artifacts that crept into the repo
+tmp_unzip/
+test_output.txt
+test_regex.kts
