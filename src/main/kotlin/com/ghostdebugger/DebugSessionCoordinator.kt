@@ -139,7 +139,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
     }
 
     internal fun extractVariableName(title: String, description: String): String? {
-        val varRegex = "Variable '([^']+)'|Nullable '([^']+)'|Expression '([^']+)'|Null reference: (\\w+)".toRegex()
+        val varRegex = "Variable '([^']+)'|Nullable '([^']+)'|Expression '([^']+)'|Field '([^']+)'|Null reference: (\\w+)|read before assignment: (\\w+)|read before init: (\\w+)".toRegex()
         val match = varRegex.find(description) ?: varRegex.find(title) ?: return null
         for (i in 1 until match.groupValues.size) {
             val valStr = match.groupValues[i]
@@ -157,19 +157,25 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
         val relevantIssues = service.currentIssues.filter {
             it.filePath.replace("\\", "/") == normalizedPath &&
             it.line == line &&
-            it.type == com.ghostdebugger.model.IssueType.NULL_SAFETY
+            (it.type == com.ghostdebugger.model.IssueType.NULL_SAFETY || it.type == com.ghostdebugger.model.IssueType.STATE_BEFORE_INIT)
         }
 
         for (issue in relevantIssues) {
             val varName = extractVariableName(issue.title, issue.description) ?: continue
-            log.info("Cross-checking null-safety for variable '$varName' on line $line")
+            log.info("Cross-checking for variable '$varName' on line $line")
 
             evaluator.evaluate(varName, object : com.intellij.xdebugger.evaluation.XDebuggerEvaluator.XEvaluationCallback {
                 override fun evaluated(result: com.intellij.xdebugger.frame.XValue) {
                     result.computePresentation(object : com.intellij.xdebugger.frame.XValueNode {
                         override fun setPresentation(icon: javax.swing.Icon?, type: String?, value: String, hasChildren: Boolean) {
-                            val isNull = value == "null" || value == "undefined"
-                            updateIssueWithDebuggerResult(issue, isNull)
+                            val isBadValue = when (issue.type) {
+                                com.ghostdebugger.model.IssueType.NULL_SAFETY -> value == "null" || value == "undefined"
+                                com.ghostdebugger.model.IssueType.STATE_BEFORE_INIT -> value == "null" || value == "undefined" ||
+                                        value.contains("uninitialized", ignoreCase = true) ||
+                                        value.contains("not initialized", ignoreCase = true)
+                                else -> false
+                            }
+                            updateIssueWithDebuggerResult(issue, isBadValue)
                         }
 
                         override fun setPresentation(icon: javax.swing.Icon?, presentation: com.intellij.xdebugger.frame.presentation.XValuePresentation, hasChildren: Boolean) {
@@ -186,8 +192,14 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                                 override fun renderNumericValue(text: String) { sb.append(text) }
                             })
                             val textValue = sb.toString()
-                            val isNull = textValue == "null" || textValue == "undefined"
-                            updateIssueWithDebuggerResult(issue, isNull)
+                            val isBadValue = when (issue.type) {
+                                com.ghostdebugger.model.IssueType.NULL_SAFETY -> textValue == "null" || textValue == "undefined"
+                                com.ghostdebugger.model.IssueType.STATE_BEFORE_INIT -> textValue == "null" || textValue == "undefined" ||
+                                        textValue.contains("uninitialized", ignoreCase = true) ||
+                                        textValue.contains("not initialized", ignoreCase = true)
+                                else -> false
+                            }
+                            updateIssueWithDebuggerResult(issue, isBadValue)
                         }
 
                         override fun setFullValueEvaluator(fullValueEvaluator: com.intellij.xdebugger.frame.XFullValueEvaluator) {}

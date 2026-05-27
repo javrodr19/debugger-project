@@ -41,14 +41,16 @@ abstract class KotlinAnalyzer : Analyzer {
     }
 
     private fun analyzeFileSafely(file: ParsedFile, context: AnalysisContext): List<Issue> {
-        val ktFile = ApplicationManager.getApplication().runReadAction<KtFile?> {
-            PsiManager.getInstance(context.project).findFile(file.virtualFile) as? KtFile
+        val app = ApplicationManager.getApplication() ?: return emptyList()
+        val project = context.project ?: return emptyList()
+        val ktFile = app.runReadAction<KtFile?> {
+            PsiManager.getInstance(project).findFile(file.virtualFile) as? KtFile
         }
         if (ktFile == null) {
             log.info("Kotlin PSI unavailable for ${file.path}; skipping $name")
             return emptyList()
         }
-        return ApplicationManager.getApplication().runReadAction<List<Issue>> {
+        return app.runReadAction<List<Issue>> {
             withKtAnalysis(ktFile) { analyzeKtFile(it, file, context, this) } ?: emptyList()
         }
     }

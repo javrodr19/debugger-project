@@ -52,9 +52,29 @@ class GhostDebuggerService(private val project: Project) : Disposable {
 
     val isAnalyzing: Boolean get() = AnalysisOrchestrator.getInstance(project).isAnalyzing
 
+    private val issuesUpdateListeners = mutableListOf<(List<Issue>) -> Unit>()
+
+    internal fun onIssuesUpdated(listener: (List<Issue>) -> Unit) {
+        issuesUpdateListeners += listener
+    }
+
+    internal fun removeIssuesListener(listener: (List<Issue>) -> Unit) {
+        issuesUpdateListeners -= listener
+    }
+
     internal fun updateIssues(newIssues: List<Issue>) {
+        println("GhostDebuggerService: updateIssues called with ${newIssues.size} issues. Number of listeners: ${issuesUpdateListeners.size}")
         currentIssues = newIssues
         issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
+        
+        for (listener in issuesUpdateListeners) {
+            try {
+                listener(newIssues)
+            } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                log.warn("Error invoking issues update listener", e)
+            }
+        }
     }
 
     // ── Bridge accessors ───────────────────────────────────────────────────
@@ -79,6 +99,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         bridge.initialize()
         FileChangeWatcher.getInstance(project).start()
         DebugSessionCoordinator.getInstance(project).start()
+        ProblemsViewCoordinator.getInstance(project).start()
     }
 
     fun handleUIEvent(event: UIEvent) = UIEventRouter.getInstance(project).handle(event)

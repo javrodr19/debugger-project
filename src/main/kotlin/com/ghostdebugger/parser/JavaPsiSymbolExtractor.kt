@@ -34,9 +34,10 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
     }
 
     private fun readPsi(parsedFile: ParsedFile): PsiJavaFile? {
-        val p = project ?: ProjectManager.getInstance().defaultProject
+        val app = ApplicationManager.getApplication() ?: return null
+        val p = project ?: runCatching { ProjectManager.getInstance().defaultProject }.getOrNull() ?: return null
         return runCatching {
-            ApplicationManager.getApplication().runReadAction<PsiJavaFile?> {
+            app.runReadAction<PsiJavaFile?> {
                 val factory = PsiFileFactory.getInstance(p)
                 factory.createFileFromText(
                     parsedFile.path.substringAfterLast('/').ifBlank { "Sample.java" },

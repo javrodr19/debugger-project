@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>2.0.0-alpha.1</version>
+    <version>2.0.0-alpha.2</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -39,6 +39,14 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>2.0.0-alpha.2 — Finish the runtime-tier story</h3>
+    <ul>
+        <li><strong>Test-suite cross-check.</strong> Failed-test stack frames now promote matching static findings to <code>RUNTIME_CONFIRMED</code>. When a JUnit / Jest / pytest test fails, every static finding on a line in the failure's stack trace gets the runtime badge.</li>
+        <li><strong>Coverage hints.</strong> When you run with coverage, findings on covered-but-non-failing lines are marked <code>LIKELY</code>; findings on uncovered lines get a "needs test coverage" hint.</li>
+        <li><strong>State-before-init runtime confirmation.</strong> The debug-session cross-check (shipped in alpha.1 for null-safety) now also confirms <code>STATE_BEFORE_INIT</code> findings by inspecting field values at the pause point.</li>
+        <li><strong>Problems tool window integration.</strong> Every Aegis finding now appears in the native IntelliJ Problems panel alongside compiler errors and inspection results — keyboard-driven users no longer need to leave their flow to see what Aegis found.</li>
+        <li>Internal: facade gains a lightweight <code>onIssuesUpdated</code> callback registry so new collaborators can subscribe without polling.</li>
+    </ul>
     <h3>2.0.0-alpha.1 — First V2 milestone: dynamic validation foundation</h3>
     <ul>
         <li><strong>Runtime-confirmed provenance tier.</strong> A fourth source tag, <code>RUNTIME_CONFIRMED</code>, joins <code>STATIC</code> / <code>AI_LOCAL</code> / <code>AI_CLOUD</code>. Findings promoted to this tier get a distinct pulsing badge and outrank unconfirmed siblings in the issue list.</li>
@@ -144,6 +152,10 @@
         <!-- V1.5: UIEvent dispatch + AI-service caching + UI handlers -->
         <projectService
                 serviceImplementation="com.ghostdebugger.UIEventRouter"/>
+
+        <!-- V2.0.0-alpha.2: native Problems tool window emit -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.ProblemsViewCoordinator"/>
 
         <!-- Application-level settings service -->
         <applicationService

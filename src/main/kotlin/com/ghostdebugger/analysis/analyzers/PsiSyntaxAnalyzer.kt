@@ -18,12 +18,13 @@ class PsiSyntaxAnalyzer : EarlyAnalyzer {
 
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()
-        val project = context.project
+        val project = context.project ?: return emptyList()
+        val app = ApplicationManager.getApplication() ?: return emptyList()
 
         for (parsedFile in context.parsedFiles) {
             ProgressManager.checkCanceled()
 
-            ApplicationManager.getApplication().runReadAction {
+            app.runReadAction {
                 val psiFile = PsiManager.getInstance(project).findFile(parsedFile.virtualFile) ?: return@runReadAction
                 val document = PsiDocumentManager.getInstance(project).getDocument(psiFile) ?: return@runReadAction
                 

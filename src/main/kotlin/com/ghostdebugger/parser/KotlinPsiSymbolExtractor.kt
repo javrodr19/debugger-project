@@ -38,9 +38,10 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
     }
 
     private fun readPsi(parsedFile: ParsedFile): KtFile? {
-        val p = project ?: ProjectManager.getInstance().defaultProject
+        val app = ApplicationManager.getApplication() ?: return null
+        val p = project ?: runCatching { ProjectManager.getInstance().defaultProject }.getOrNull() ?: return null
         return runCatching {
-            ApplicationManager.getApplication().runReadAction<KtFile?> {
+            app.runReadAction<KtFile?> {
                 PsiManager.getInstance(p).findFile(parsedFile.virtualFile) as? KtFile
             }
         }.onFailure { e ->

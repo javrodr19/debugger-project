@@ -11,6 +11,10 @@ import com.ghostdebugger.parser.DependencyResolver
 import com.ghostdebugger.parser.FileScanner
 import com.ghostdebugger.parser.SymbolExtractor
 import com.ghostdebugger.settings.GhostDebuggerSettings
+import com.ghostdebugger.model.Issue
+import com.ghostdebugger.model.IssueSource
+import com.intellij.execution.testframework.AbstractTestProxy
+import com.intellij.execution.testframework.TestStatusListener
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -63,6 +67,25 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
 
     init {
         Disposer.register(project, this)
+        try {
+            val testListener = object : TestStatusListener() {
+                override fun testSuiteFinished(root: AbstractTestProxy?) {
+                    if (root != null) {
+                        try {
+                            handleTestSuiteFinished(root)
+                        } catch (e: Exception) {
+                            if (e is ProcessCanceledException) throw e
+                            log.warn("Error in handleTestSuiteFinished", e)
+                        }
+                    }
+                }
+            }
+            com.intellij.openapi.extensions.ExtensionPointName.create<TestStatusListener>("com.intellij.testStatusListener")
+                .point.registerExtension(testListener, this)
+        } catch (e: Exception) {
+            if (e is ProcessCanceledException) throw e
+            log.warn("Failed to register TestStatusListener", e)
+        }
     }
 
     fun analyzeProject() {
@@ -377,6 +400,108 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
             val ch = svc.bridgeChannel()
             ch?.sendNodeUpdate(depId, status)
             ch?.sendIssuesForFile(node.filePath, emptyList())
+        }
+    }
+
+    private fun handleTestSuiteFinished(root: AbstractTestProxy) {
+        val failedLeaves = mutableListOf<AbstractTestProxy>()
+        gatherFailedLeaves(root, failedLeaves)
+        
+        if (failedLeaves.isEmpty()) return
+        
+        val svc = service()
+        val currentIssues = svc.currentIssues
+        if (currentIssues.isEmpty()) return
+        
+        val promotedIssues = mutableSetOf<String>()
+        
+        for (failedLeaf in failedLeaves) {
+            val stacktrace = failedLeaf.stacktrace ?: continue
+            val frames = parseStackTrace(stacktrace)
+            
+            for ((framePath, line) in frames) {
+                for (issue in currentIssues) {
+                    if (issue.line == line && isPathMatch(issue.filePath, framePath)) {
+                        promotedIssues.add(issue.id)
+                    }
+                }
+            }
+        }
+        
+        if (promotedIssues.isEmpty()) return
+        
+        val updatedIssues = currentIssues.map { issue ->
+            if (issue.id in promotedIssues) {
+                val updatedSources = if (issue.sources.contains(IssueSource.RUNTIME_CONFIRMED)) {
+                    issue.sources
+                } else {
+                    issue.sources + IssueSource.RUNTIME_CONFIRMED
+                }
+                issue.copy(
+                    sources = updatedSources,
+                    confidence = 1.0
+                )
+            } else {
+                issue
+            }
+        }
+        
+        svc.updateIssues(updatedIssues)
+    }
+
+    private fun gatherFailedLeaves(proxy: AbstractTestProxy, result: MutableList<AbstractTestProxy>) {
+        if (proxy.isLeaf) {
+            if (proxy.isDefect) {
+                result.add(proxy)
+            }
+        } else {
+            val children = runCatching { proxy.children }.getOrNull() ?: emptyList()
+            for (child in children) {
+                if (child != null) {
+                    gatherFailedLeaves(child, result)
+                }
+            }
+        }
+    }
+
+    private fun parseStackTrace(stacktrace: String): List<Pair<String, Int>> {
+        val results = mutableListOf<Pair<String, Int>>()
+        val lines = stacktrace.split("\n")
+        
+        val parenRegex = """\(((?:[a-zA-Z]:)?[^:()]+):(\d+)(?::\d+)?\)""".toRegex()
+        val rawAtRegex = """at\s+((?:[a-zA-Z]:)?[^:()\s]+):(\d+)(?::\d+)?""".toRegex()
+        
+        for (line in lines) {
+            val trimmed = line.trim()
+            val matchParen = parenRegex.find(trimmed)
+            if (matchParen != null) {
+                val fileName = matchParen.groupValues[1]
+                val lineNum = matchParen.groupValues[2].toIntOrNull()
+                if (lineNum != null) {
+                    results.add(Pair(fileName, lineNum))
+                }
+                continue
+            }
+            val matchRawAt = rawAtRegex.find(trimmed)
+            if (matchRawAt != null) {
+                val fileName = matchRawAt.groupValues[1]
+                val lineNum = matchRawAt.groupValues[2].toIntOrNull()
+                if (lineNum != null) {
+                    results.add(Pair(fileName, lineNum))
+                }
+            }
+        }
+        return results
+    }
+
+    private fun isPathMatch(issuePath: String, stackFramePath: String): Boolean {
+        val normalizedIssue = issuePath.replace("\\", "/").trimStart('/')
+        val normalizedFrame = stackFramePath.replace("\\", "/").trimStart('/')
+        
+        return if (normalizedFrame.contains("/")) {
+            normalizedIssue.endsWith(normalizedFrame) || normalizedFrame.endsWith(normalizedIssue)
+        } else {
+            normalizedIssue.substringAfterLast("/") == normalizedFrame
         }
     }
 

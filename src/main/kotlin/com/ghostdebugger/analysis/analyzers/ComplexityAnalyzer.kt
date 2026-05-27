@@ -10,8 +10,10 @@ class ComplexityAnalyzer(
      * every run (V1.4.1 wiring). Tests inject a fixed value via the constructor.
      * Default reads from [com.ghostdebugger.settings.GhostDebuggerSettings].
      */
-    private val thresholdProvider: () -> Int =
-        { com.ghostdebugger.settings.GhostDebuggerSettings.getInstance().snapshot().maxComplexity }
+    private val thresholdProvider: () -> Int = {
+        if (com.intellij.openapi.application.ApplicationManager.getApplication() == null) 10
+        else runCatching { com.ghostdebugger.settings.GhostDebuggerSettings.getInstance().snapshot().maxComplexity }.getOrElse { 10 }
+    }
 ) : Analyzer {
     override val name = "ComplexityAnalyzer"
     override val ruleId = "AEG-CPX-001"
