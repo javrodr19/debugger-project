@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>1.5.0</version>
+    <version>2.0.0-alpha.1</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -39,6 +39,15 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>2.0.0-alpha.1 — First V2 milestone: dynamic validation foundation</h3>
+    <ul>
+        <li><strong>Runtime-confirmed provenance tier.</strong> A fourth source tag, <code>RUNTIME_CONFIRMED</code>, joins <code>STATIC</code> / <code>AI_LOCAL</code> / <code>AI_CLOUD</code>. Findings promoted to this tier get a distinct pulsing badge and outrank unconfirmed siblings in the issue list.</li>
+        <li><strong>Debug-session cross-check (null-safety).</strong> When the debugger pauses on a line carrying a null-safety finding, Aegis evaluates the relevant variable in the current frame: if the value is actually null/undefined, the finding is promoted to <code>RUNTIME_CONFIRMED</code> with confidence 1.0; if it's non-null, the finding is demoted with confidence 0.1.</li>
+        <li><strong>Confidence pill.</strong> Each finding now shows a <code>CONFIRMED</code> / <code>LIKELY</code> / <code>UNCONFIRMED</code> chip derived from the runtime tier and confidence score, surfacing trust at a glance.</li>
+        <li><strong>Quick-fix intention actions.</strong> The deterministic fixers are now exposed as native <code>IntentionAction</code> entries; press <code>Alt+Enter</code> on a flagged line to apply the same fix the detail panel offers, with full undo support.</li>
+        <li>Internal: <code>sendCurrentDebugFrame</code> now rethrows <code>ProcessCanceledException</code> per the project's PCE-handling convention.</li>
+        <li><em>Still on the V2 backlog (continuation in 2.0.0-alpha.2 onward):</em> test-suite cross-check, false-positive suppression memory, Python support, native Problems tool window emit, inspection profile integration, streaming AI responses.</li>
+    </ul>
     <h3>1.5.0 — Pre-V2 structural refactor</h3>
     <ul>
         <li><strong>Internal restructure only.</strong> No user-visible behavior change. All analyzers, fixers, languages, and UI surfaces are unchanged.</li>
@@ -150,6 +159,12 @@
         <!-- ExternalAnnotator for Problems window — registered for all languages -->
         <externalAnnotator language=""
                            implementationClass="com.ghostdebugger.annotator.GhostDebuggerAnnotator"/>
+
+        <!-- Aegis Quick-Fix Intention Action -->
+        <intentionAction>
+            <className>com.ghostdebugger.intentions.AegisQuickFixIntentionAction</className>
+            <category>Aegis Debug</category>
+        </intentionAction>
 
         <!-- Notification group -->
         <notificationGroup id="GhostDebugger"

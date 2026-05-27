@@ -129,8 +129,129 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                     bridge?.sendDebugFrame(nodeId, filePath, line, variables)
                     bridge?.sendDebugStateChanged("paused")
                 }
+
+                performDebugSessionCrossCheck(session, filePath, line)
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Failed to send debug frame: ${e.message}")
+            }
+        }
+    }
+
+    internal fun extractVariableName(title: String, description: String): String? {
+        val varRegex = "Variable '([^']+)'|Nullable '([^']+)'|Expression '([^']+)'|Null reference: (\\w+)".toRegex()
+        val match = varRegex.find(description) ?: varRegex.find(title) ?: return null
+        for (i in 1 until match.groupValues.size) {
+            val valStr = match.groupValues[i]
+            if (valStr.isNotEmpty()) return valStr
+        }
+        return null
+    }
+
+    internal fun performDebugSessionCrossCheck(session: XDebugSession, filePath: String, line: Int) {
+        val frame = session.currentStackFrame ?: return
+        val evaluator = frame.evaluator ?: return
+        val service = GhostDebuggerService.getInstance(project)
+        val normalizedPath = filePath.replace("\\", "/")
+
+        val relevantIssues = service.currentIssues.filter {
+            it.filePath.replace("\\", "/") == normalizedPath &&
+            it.line == line &&
+            it.type == com.ghostdebugger.model.IssueType.NULL_SAFETY
+        }
+
+        for (issue in relevantIssues) {
+            val varName = extractVariableName(issue.title, issue.description) ?: continue
+            log.info("Cross-checking null-safety for variable '$varName' on line $line")
+
+            evaluator.evaluate(varName, object : com.intellij.xdebugger.evaluation.XDebuggerEvaluator.XEvaluationCallback {
+                override fun evaluated(result: com.intellij.xdebugger.frame.XValue) {
+                    result.computePresentation(object : com.intellij.xdebugger.frame.XValueNode {
+                        override fun setPresentation(icon: javax.swing.Icon?, type: String?, value: String, hasChildren: Boolean) {
+                            val isNull = value == "null" || value == "undefined"
+                            updateIssueWithDebuggerResult(issue, isNull)
+                        }
+
+                        override fun setPresentation(icon: javax.swing.Icon?, presentation: com.intellij.xdebugger.frame.presentation.XValuePresentation, hasChildren: Boolean) {
+                            val sb = StringBuilder()
+                            presentation.renderValue(object : com.intellij.xdebugger.frame.presentation.XValuePresentation.XValueTextRenderer {
+                                override fun renderKeywordValue(text: String) { sb.append(text) }
+                                override fun renderValue(text: String) { sb.append(text) }
+                                override fun renderValue(text: String, key: com.intellij.openapi.editor.colors.TextAttributesKey) { sb.append(text) }
+                                override fun renderStringValue(text: String) { sb.append(text) }
+                                override fun renderStringValue(text: String, additionalSpecialCharsToHighlight: String?, maxLength: Int) { sb.append(text) }
+                                override fun renderComment(text: String) { sb.append(text) }
+                                override fun renderSpecialSymbol(text: String) { sb.append(text) }
+                                override fun renderError(text: String) { sb.append(text) }
+                                override fun renderNumericValue(text: String) { sb.append(text) }
+                            })
+                            val textValue = sb.toString()
+                            val isNull = textValue == "null" || textValue == "undefined"
+                            updateIssueWithDebuggerResult(issue, isNull)
+                        }
+
+                        override fun setFullValueEvaluator(fullValueEvaluator: com.intellij.xdebugger.frame.XFullValueEvaluator) {}
+                        override fun isObsolete(): Boolean = false
+                    }, com.intellij.xdebugger.frame.XValuePlace.TOOLTIP)
+                }
+
+                override fun errorOccurred(errorMessage: String) {
+                    log.debug("Evaluation failed for variable $varName: $errorMessage")
+                }
+            }, frame.sourcePosition)
+        }
+    }
+
+    internal fun updateIssueWithDebuggerResult(issue: com.ghostdebugger.model.Issue, isNull: Boolean) {
+        scope.launch {
+            val service = GhostDebuggerService.getInstance(project)
+            val currentList = service.currentIssues
+            val existingIndex = currentList.indexOfFirst { it.id == issue.id }
+            if (existingIndex < 0) return@launch
+
+            val existingIssue = currentList[existingIndex]
+
+            val newSources = if (isNull) {
+                if (existingIssue.sources.contains(com.ghostdebugger.model.IssueSource.RUNTIME_CONFIRMED)) {
+                    existingIssue.sources
+                } else {
+                    existingIssue.sources + com.ghostdebugger.model.IssueSource.RUNTIME_CONFIRMED
+                }
+            } else {
+                existingIssue.sources - com.ghostdebugger.model.IssueSource.RUNTIME_CONFIRMED
+            }
+
+            val newConfidence = if (isNull) 1.0 else 0.1
+
+            val updatedIssue = existingIssue.copy(
+                sources = newSources,
+                confidence = newConfidence
+            )
+
+            val newList = currentList.toMutableList()
+            newList[existingIndex] = updatedIssue
+
+            service.updateIssues(newList)
+
+            val inMemoryGraph = service.lastInMemoryGraph
+            if (inMemoryGraph != null) {
+                val nodeId = com.ghostdebugger.graph.GraphBuilder().normalizeId(updatedIssue.filePath)
+                val node = inMemoryGraph.getNode(nodeId)
+                if (node != null) {
+                    val updatedNodeIssues = node.issues.map { if (it.id == issue.id) updatedIssue else it }
+                    inMemoryGraph.updateNode(node.copy(issues = updatedNodeIssues))
+                }
+            }
+
+            withContext(Dispatchers.Swing) {
+                val bridge = service.bridgeChannel()
+                bridge?.sendIssuesForFile(updatedIssue.filePath, service.issuesByFile[updatedIssue.filePath] ?: emptyList())
+
+                val projectGraph = inMemoryGraph?.toProjectGraph(project.name)
+                if (projectGraph != null) {
+                    service.currentGraph = projectGraph
+                    service.jcefBridge()?.sendGraphData(projectGraph)
+                }
             }
         }
     }
