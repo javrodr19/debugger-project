@@ -16,7 +16,7 @@ export type IssueType =
   | 'ARCHITECTURE'
 
 // ── Phase 2 provenance types ──────────────────────────────────────────────────
-export type IssueSource    = 'STATIC' | 'AI_CLOUD' | 'AI_LOCAL'
+export type IssueSource    = 'STATIC' | 'AI_CLOUD' | 'AI_LOCAL' | 'RUNTIME_CONFIRMED'
 export type EngineProvider = 'STATIC' | 'OPENAI' | 'OLLAMA'
 export type EngineStatus   = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'FALLBACK_TO_STATIC' | 'DISABLED'
 

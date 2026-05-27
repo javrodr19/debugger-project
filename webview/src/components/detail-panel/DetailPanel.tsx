@@ -358,8 +358,19 @@ function IssuesContent({
   }
 
   const sorted = [...issues].sort((a, b) => {
-    const order = { ERROR: 0, WARNING: 1, INFO: 2 }
-    return order[a.severity] - order[b.severity]
+    const aRuntime = a.sources?.includes('RUNTIME_CONFIRMED') ? 1 : 0
+    const bRuntime = b.sources?.includes('RUNTIME_CONFIRMED') ? 1 : 0
+    if (aRuntime !== bRuntime) {
+      return bRuntime - aRuntime
+    }
+    
+    const severityOrder = { ERROR: 0, WARNING: 1, INFO: 2 }
+    const sevDiff = severityOrder[a.severity] - severityOrder[b.severity]
+    if (sevDiff !== 0) return sevDiff
+    
+    const aConf = a.confidence ?? 0.7
+    const bConf = b.confidence ?? 0.7
+    return bConf - aConf
   })
 
   return (
@@ -432,6 +443,7 @@ function IssueRow({
                 ))}
               </span>
             )}
+            <ConfidencePill issue={issue} />
           </div>
         </div>
       </div>
@@ -1139,6 +1151,7 @@ function ProvenanceBadge({ source }: { source: IssueSource }) {
   let label = 'AI'
   let textColor = 'var(--badge-ai-text)'
   let bgColor = 'var(--badge-ai-bg)'
+  let border = 'none'
 
   if (source === 'STATIC') {
     label = 'STATIC'
@@ -1152,6 +1165,11 @@ function ProvenanceBadge({ source }: { source: IssueSource }) {
     label = 'LOCAL'
     textColor = '#3DB566' // Green
     bgColor = 'rgba(61, 181, 102, 0.15)'
+  } else if (source === 'RUNTIME_CONFIRMED') {
+    label = 'RUNTIME CONFIRMED'
+    textColor = '#56d4dd' // Cyber Cyan
+    bgColor = 'rgba(86, 212, 221, 0.12)'
+    border = '1px solid rgba(86, 212, 221, 0.3)'
   }
 
   return (
@@ -1159,11 +1177,24 @@ function ProvenanceBadge({ source }: { source: IssueSource }) {
       display: 'inline-flex', alignItems: 'center',
       color: textColor,
       background: bgColor,
+      border: border,
       fontSize: 8, fontWeight: 700,
       padding: '1px 5px', borderRadius: 0,
       letterSpacing: '0.06em',
       flexShrink: 0,
     }}>
+      {source === 'RUNTIME_CONFIRMED' && (
+        <span
+          className="animate-dot-pulse"
+          style={{
+            display: 'inline-block',
+            width: 4, height: 4,
+            borderRadius: '50%',
+            background: '#56d4dd',
+            marginRight: 4,
+          }}
+        />
+      )}
       {label}
     </span>
   )
@@ -1182,6 +1213,44 @@ function TrustBadge({ isDeterministic }: { isDeterministic?: boolean }) {
       letterSpacing: '0.05em',
     }}>
       {det ? 'Deterministic' : 'AI-Generated'}
+    </span>
+  )
+}
+
+function ConfidencePill({ issue }: { issue: Issue }) {
+  let label = 'UNCONFIRMED'
+  let color = 'var(--fg-muted)'
+  let bg = 'rgba(122, 117, 112, 0.06)'
+  let border = '1px dashed rgba(122, 117, 112, 0.2)'
+
+  const isRuntimeConfirmed = issue.sources?.includes('RUNTIME_CONFIRMED')
+  const conf = issue.confidence ?? 0.7
+
+  if (isRuntimeConfirmed || conf >= 0.9) {
+    label = 'CONFIRMED'
+    color = '#3DB566' // Green
+    bg = 'rgba(61, 181, 102, 0.08)'
+    border = '1px dashed rgba(61, 181, 102, 0.3)'
+  } else if (conf >= 0.5) {
+    label = 'LIKELY'
+    color = '#D4943A' // Amber
+    bg = 'rgba(212, 148, 58, 0.08)'
+    border = '1px dashed rgba(212, 148, 58, 0.3)'
+  }
+
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      color,
+      background: bg,
+      border,
+      fontSize: 7, fontWeight: 700,
+      padding: '1px 4px', borderRadius: 0,
+      letterSpacing: '0.04em',
+      marginLeft: 4,
+      flexShrink: 0,
+    }}>
+      {label}
     </span>
   )
 }

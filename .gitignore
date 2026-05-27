@@ -37,6 +37,7 @@ gradlew.bat
 tmp/
 
 .gemini/
+.antigravitycli/
 gha-creds-*.json
 
 # Brainstorming visual companion (local mockups, not source)
