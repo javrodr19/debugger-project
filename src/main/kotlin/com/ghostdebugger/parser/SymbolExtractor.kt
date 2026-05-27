@@ -18,11 +18,13 @@ class SymbolExtractor(private val project: Project? = null) {
     private val tsJs = TsJsRegexSymbolExtractor()
     private val kotlinPsi by lazy { KotlinPsiSymbolExtractor(project) }
     private val javaPsi by lazy { JavaPsiSymbolExtractor(project) }
+    private val pythonPsi by lazy { PythonSymbolExtractor(project) }
 
     fun extract(parsedFile: ParsedFile): ParsedFile = when (parsedFile.extension) {
         "ts", "tsx", "js", "jsx" -> tsJs.extract(parsedFile)
         "kt" -> kotlinPsi.extract(parsedFile)
         "java" -> javaPsi.extract(parsedFile)
+        "py" -> pythonPsi.extract(parsedFile)
         else -> parsedFile
     }
 }

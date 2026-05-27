@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.ghostdebugger"
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.3"
 
 repositories {
     mavenCentral()
@@ -24,6 +24,7 @@ dependencies {
         intellijIdeaCommunity("2024.3.2")
         bundledPlugin("com.intellij.java")
         bundledPlugin("org.jetbrains.kotlin")
+        plugin("PythonCore:243.23654.189")
         pluginVerifier()
         zipSigner()
         testFramework(TestFrameworkType.Platform)
@@ -135,6 +136,8 @@ val npmCmd = if (isWindows) listOf("cmd", "/c", "npm") else listOf("npm")
 tasks {
     test {
         useJUnitPlatform()
+        systemProperty("idea.load.plugins", "true")
+        systemProperty("idea.load.plugins.id", "com.ghostdebugger,PythonCore,org.jetbrains.kotlin,com.intellij.java")
     }
 
     register<Exec>("npmInstallWebview") {

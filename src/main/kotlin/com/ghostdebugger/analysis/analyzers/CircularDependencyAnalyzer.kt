@@ -24,6 +24,7 @@ class CircularDependencyAnalyzer : Analyzer {
             val firstNodeId = cycle.first()
             val firstNode = context.graph.getNode(firstNodeId) ?: continue
 
+            val actualRuleId = if (firstNode.filePath.endsWith(".py")) "AEG-CYCLE-PY-001" else "AEG-CYCLE-001"
             issues.add(
                 Issue(
                     id = UUID.randomUUID().toString(),
@@ -37,7 +38,8 @@ class CircularDependencyAnalyzer : Analyzer {
                     codeSnippet = cycle.joinToString(" → ") { id -> 
                         context.graph.getNode(id)?.name ?: id.substringAfterLast("/") 
                     },
-                    affectedNodes = cycle
+                    affectedNodes = cycle,
+                    ruleId = actualRuleId
                 )
             )
         }

@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>2.0.0-alpha.2</version>
+    <version>2.0.0-alpha.3</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -39,6 +39,15 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>2.0.0-alpha.3 — Language Breadth: Python Analyzer Pipeline</h3>
+    <ul>
+        <li><strong>Primary Python Support.</strong> A complete static analysis pipeline is now fully integrated alongside TypeScript and JavaScript.</li>
+        <li><strong>Type-Aware None Safety Analyzer.</strong> Surfaces dangerous accesses on <code>None</code>-able or <code>Optional</code> types using PEP 484 type hints and <code>TypeEvalContext</code> API.</li>
+        <li><strong>Constructor State Init Analyzer.</strong> Captures field and variable reads on <code>self.attr</code> inside <code>__init__</code> before their respective assignments.</li>
+        <li><strong>Asynchronous Flow Analyzer.</strong> Detects unawaited awaitable/async function calls inside asynchronous methods (<code>async def</code>).</li>
+        <li><strong>Dynamic Circular Dependency Mapping.</strong> Extends dependency resolution to resolve Python imports and detect cycles dynamically in the project graph.</li>
+        <li><strong>Python Cyclomatic Complexity.</strong> Adds complexity measurements matching Python syntax keywords.</li>
+    </ul>
     <h3>2.0.0-alpha.2 — Finish the runtime-tier story</h3>
     <ul>
         <li><strong>Test-suite cross-check.</strong> Failed-test stack frames now promote matching static findings to <code>RUNTIME_CONFIRMED</code>. When a JUnit / Jest / pytest test fails, every static finding on a line in the failure's stack trace gets the runtime badge.</li>
@@ -120,6 +129,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
     <depends>org.jetbrains.kotlin</depends>
+    <depends>com.intellij.modules.python</depends>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
         <supportsKotlinPluginMode supportsK2="true"/>

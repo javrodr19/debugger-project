@@ -24,7 +24,8 @@ class FileScanner(private val project: Project) {
     companion object {
         internal val SUPPORTED_EXTENSIONS = setOf(
             "kt", "java",                       // JVM
-            "ts", "tsx", "js", "jsx"            // Web
+            "ts", "tsx", "js", "jsx",           // Web
+            "py"                                // Python
         )
     }
 
