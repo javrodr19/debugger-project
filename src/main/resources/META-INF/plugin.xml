@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>2.0.0-alpha.1</version>
+    <version>2.0.0-alpha.2</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -39,6 +39,13 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>2.0.0-alpha.2 — Second V2 milestone: native integration and test validation</h3>
+    <ul>
+        <li><strong>Native Problems tool window emit.</strong> Aegis findings are now fully published to the IDE's native Problems view via <code>WolfTheProblemSolver</code>. Real-time background sync adds, updates, and clears problems as files are analyzed, providing a seamless keyboard-driven experience.</li>
+        <li><strong>Test-suite cross-check.</strong> Aegis now registers statically with the platform's test framework. When a test suite fails, stack traces are parsed and matching static findings are automatically promoted to <code>RUNTIME_CONFIRMED</code>.</li>
+        <li><strong>Uninitialized state debugger correlation.</strong> Expanded debugger variable evaluation to the uninitialized state rule (<code>STATE_BEFORE_INIT</code>). When paused, JDWP uninitialized markers are checked to confirm or demote findings.</li>
+        <li><strong>Callback updates on facade.</strong> Introduced a thread-safe issues-updated listener subscription registry on the <code>GhostDebuggerService</code> facade for instant collaborator updates.</li>
+    </ul>
     <h3>2.0.0-alpha.1 — First V2 milestone: dynamic validation foundation</h3>
     <ul>
         <li><strong>Runtime-confirmed provenance tier.</strong> A fourth source tag, <code>RUNTIME_CONFIRMED</code>, joins <code>STATIC</code> / <code>AI_LOCAL</code> / <code>AI_CLOUD</code>. Findings promoted to this tier get a distinct pulsing badge and outrank unconfirmed siblings in the issue list.</li>
@@ -160,6 +167,14 @@
         <!-- V1.5: UIEvent dispatch + AI-service caching + UI handlers -->
         <projectService
                 serviceImplementation="com.ghostdebugger.UIEventRouter"/>
+
+        <!-- V2.0.0-alpha.2: native Problems tool window emit -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.ProblemsViewCoordinator"/>
+
+        <!-- V2.0.0-alpha.2: test runner listener -->
+        <testStatusListener
+                implementation="com.ghostdebugger.AegisTestStatusListener"/>
 
         <!-- Application-level settings service -->
         <applicationService
