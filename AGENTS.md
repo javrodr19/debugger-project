@@ -333,6 +333,10 @@ the test-recording stub installed via `setBridgeForTest`).
 - Accessibility: ARIA roles on tabs/panels, focus styles, keyboard navigation. The
   landing-page accessibility pass set the bar — match it.
 
+### 5.8 Periodic commits
+
+Develop in a clean, iterative flow by making periodic git commits at logical checkpoints (e.g. after completing a component, fixing a set of compilation errors, or writing/verifying a test class). Never pile up massive single commits covering several distinct files and subsystems.
+
 ---
 
 ## 6. Commit and PR conventions

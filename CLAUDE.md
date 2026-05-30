@@ -123,6 +123,10 @@ events, use `service.jcefBridge()?.send*()` for JcefBridge-only methods or
 `service.bridgeChannel()?.send*()` for `BridgeChannel` methods (the latter respects the
 test-recording stub installed via `setBridgeForTest`).
 
+### Periodic commits
+
+When developing new features or performing extensive refactoring, commit changes periodically at logical stopping points (e.g., after completing a component, resolving a compiler error, or getting a new test to pass). This preserves development history, prevents large unwieldy diffs, and matches best-practice git discipline.
+
 ### File structure
 
 - Spec docs live at `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
