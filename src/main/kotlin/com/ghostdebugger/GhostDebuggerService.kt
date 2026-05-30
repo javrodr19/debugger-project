@@ -56,6 +56,20 @@ class GhostDebuggerService(private val project: Project) : Disposable {
 
     val isAnalyzing: Boolean get() = AnalysisOrchestrator.getInstance(project).isAnalyzing
 
+    private val issuesUpdateListeners = mutableListOf<(List<Issue>) -> Unit>()
+
+    internal fun onIssuesUpdated(listener: (List<Issue>) -> Unit) {
+        synchronized(issuesUpdateListeners) {
+            issuesUpdateListeners += listener
+        }
+    }
+
+    internal fun removeIssuesListener(listener: (List<Issue>) -> Unit) {
+        synchronized(issuesUpdateListeners) {
+            issuesUpdateListeners -= listener
+        }
+    }
+
     internal fun updateIssues(newIssues: List<Issue>) {
         currentIssues = newIssues
         issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
@@ -63,6 +77,18 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         // V2.0 orphan GC
         val activeFingerprints = newIssues.map { it.fingerprint() }.toSet()
         RuntimeEvidenceStore.getInstance(project).clearOrphans(activeFingerprints)
+
+        val listenersCopy = synchronized(issuesUpdateListeners) {
+            issuesUpdateListeners.toList()
+        }
+        for (listener in listenersCopy) {
+            try {
+                listener(newIssues)
+            } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                log.warn("Error in issues update listener", e)
+            }
+        }
     }
 
     // ── Bridge accessors ───────────────────────────────────────────────────
@@ -90,6 +116,7 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         bridge.initialize()
         FileChangeWatcher.getInstance(project).start()
         DebugSessionCoordinator.getInstance(project).start()
+        ProblemsViewCoordinator.getInstance(project).start()
         
         // V2.0: Start observers
         TestRunObserver.getInstance(project).start()
