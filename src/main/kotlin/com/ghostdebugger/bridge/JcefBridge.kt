@@ -19,7 +19,16 @@ import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.handler.CefLoadHandlerAdapter
 
+import com.ghostdebugger.store.RuntimeEvidenceStore
+import com.ghostdebugger.store.SuppressionMemoryService
+import com.ghostdebugger.settings.GhostDebuggerSettings
+import com.ghostdebugger.model.ConfidenceCalculator
+import com.ghostdebugger.model.Confidence
+import com.intellij.openapi.project.Project
+import kotlinx.serialization.json.*
+
 class JcefBridge(
+    private val project: Project,
     private val browser: JBCefBrowser,
     private val onEvent: (UIEvent) -> Unit
 ) : Disposable, BridgeChannel {
@@ -68,14 +77,67 @@ class JcefBridge(
         browser.cefBrowser.executeJavaScript(injectScript, browser.cefBrowser.url ?: "about:blank", 0)
     }
 
+    private fun augmentIssues(issues: List<Issue>): List<JsonElement> {
+        val store = RuntimeEvidenceStore.getInstance(project)
+        val suppression = SuppressionMemoryService.getInstance(project)
+
+        return issues.map { issue ->
+            val fingerprint = issue.fingerprint()
+            val evidence = store.lookup(fingerprint)
+            val confidence = ConfidenceCalculator.calculate(evidence)
+            val suppressed = suppression.shouldAutoHide(fingerprint)
+
+            val issueJson = json.encodeToJsonElement(Issue.serializer(), issue) as JsonObject
+            buildJsonObject {
+                issueJson.forEach { key, value -> put(key, value) }
+                put("dynamicConfidence", confidence.name)
+                put("suppressed", suppressed)
+            }
+        }
+    }
+
     fun sendGraphData(graph: ProjectGraph) {
-        val graphJson = json.encodeToString(graph)
-        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onGraphUpdate($graphJson)")
+        val augmentedNodes = graph.nodes.map { node ->
+            val augmentedIssues = augmentIssues(node.issues)
+            val nodeJson = json.encodeToJsonElement(GraphNode.serializer(), node) as JsonObject
+            buildJsonObject {
+                nodeJson.forEach { key, value ->
+                    if (key == "issues") {
+                        put("issues", JsonArray(augmentedIssues))
+                    } else {
+                        put(key, value)
+                    }
+                }
+            }
+        }
+        val graphJson = json.encodeToJsonElement(ProjectGraph.serializer(), graph) as JsonObject
+        val settings = GhostDebuggerSettings.getInstance().snapshot()
+        val augmentedGraph = buildJsonObject {
+            graphJson.forEach { key, value ->
+                if (key == "nodes") {
+                    put("nodes", JsonArray(augmentedNodes))
+                } else {
+                    put(key, value)
+                }
+            }
+            put("showSuppressed", settings.showSuppressed)
+            put("showUnreached", settings.showUnreached)
+        }
+        val graphStr = json.encodeToString(augmentedGraph)
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onGraphUpdate($graphStr)")
     }
 
     override fun sendIssuesForFile(filePath: String, issues: List<Issue>) {
-        val payload = json.encodeToString(mapOf("filePath" to filePath, "issues" to issues))
-        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onIssuesForFile($payload)")
+        val augmented = augmentIssues(issues)
+        val settings = GhostDebuggerSettings.getInstance().snapshot()
+        val payload = buildJsonObject {
+            put("filePath", filePath)
+            put("issues", JsonArray(augmented))
+            put("showSuppressed", settings.showSuppressed)
+            put("showUnreached", settings.showUnreached)
+        }
+        val payloadStr = json.encodeToString(payload)
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onIssuesForFile($payloadStr)")
     }
 
     fun sendIssueExplanation(issueId: String, explanation: String) {

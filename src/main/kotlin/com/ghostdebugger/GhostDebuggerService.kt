@@ -6,6 +6,10 @@ import com.ghostdebugger.bridge.UIEvent
 import com.ghostdebugger.graph.InMemoryGraph
 import com.ghostdebugger.model.Issue
 import com.ghostdebugger.model.ProjectGraph
+import com.ghostdebugger.store.RuntimeEvidenceStore
+import com.ghostdebugger.store.SuppressionMemoryService
+import com.ghostdebugger.store.TestRunObserver
+import com.ghostdebugger.store.DebugObserver
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
@@ -55,9 +59,16 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     internal fun updateIssues(newIssues: List<Issue>) {
         currentIssues = newIssues
         issuesByFile = newIssues.groupBy { it.filePath.replace("\\", "/") }
+        
+        // V2.0 orphan GC
+        val activeFingerprints = newIssues.map { it.fingerprint() }.toSet()
+        RuntimeEvidenceStore.getInstance(project).clearOrphans(activeFingerprints)
     }
 
     // ── Bridge accessors ───────────────────────────────────────────────────
+
+    fun runtimeEvidenceStore(): RuntimeEvidenceStore = RuntimeEvidenceStore.getInstance(project)
+    fun suppressionMemory(): SuppressionMemoryService = SuppressionMemoryService.getInstance(project)
 
     /**
      * Returns the bridge surface that exposes only [BridgeChannel] methods. Tests can
@@ -79,6 +90,10 @@ class GhostDebuggerService(private val project: Project) : Disposable {
         bridge.initialize()
         FileChangeWatcher.getInstance(project).start()
         DebugSessionCoordinator.getInstance(project).start()
+        
+        // V2.0: Start observers
+        TestRunObserver.getInstance(project).start()
+        DebugObserver.getInstance(project).start()
     }
 
     fun handleUIEvent(event: UIEvent) = UIEventRouter.getInstance(project).handle(event)
@@ -88,6 +103,13 @@ class GhostDebuggerService(private val project: Project) : Disposable {
     fun cancelAnalysis() {
         AnalysisOrchestrator.getInstance(project).cancelAnalysis()
         FileChangeWatcher.getInstance(project).cancelAutoRefresh()
+    }
+
+    fun refreshIssuesUI() {
+        val bridge = jcefBridge() ?: return
+        issuesByFile.forEach { (filePath, fileIssues) ->
+            bridge.sendIssuesForFile(filePath, fileIssues)
+        }
     }
 
     // ── Test seams (package-private; used only by BasePlatformTestCase tests) ──

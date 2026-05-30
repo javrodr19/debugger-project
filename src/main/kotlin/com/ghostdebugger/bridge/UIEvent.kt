@@ -27,6 +27,11 @@ sealed class UIEvent {
     data class BreakpointRemoved(val filePath: String, val line: Int) : UIEvent()
     object ExportReportRequested : UIEvent()
 
+    // V2.0 Suppression events
+    data class DismissIssue(val issueId: String) : UIEvent()
+    data class UnsuppressIssue(val issueId: String) : UIEvent()
+    object ToggleShowSuppressed : UIEvent()
+
     // Debug step controls
     object DebugStepOver : UIEvent()
     object DebugStepInto : UIEvent()
@@ -75,6 +80,15 @@ object UIEventParser {
                 )
                 "EXPORT_REPORT" -> UIEvent.ExportReportRequested
                 
+                // V2.0 Suppression events
+                "DISMISS_ISSUE" -> UIEvent.DismissIssue(
+                    issueId = envelope.payload?.get("issueId")?.jsonPrimitive?.content ?: ""
+                )
+                "UNSUPPRESS_ISSUE" -> UIEvent.UnsuppressIssue(
+                    issueId = envelope.payload?.get("issueId")?.jsonPrimitive?.content ?: ""
+                )
+                "TOGGLE_SHOW_SUPPRESSED" -> UIEvent.ToggleShowSuppressed
+
                 // Debug step controls
                 "DEBUG_STEP_OVER" -> UIEvent.DebugStepOver
                 "DEBUG_STEP_INTO" -> UIEvent.DebugStepInto

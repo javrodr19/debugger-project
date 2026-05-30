@@ -49,7 +49,7 @@ class NeuroMapPanel(
             browser = jbBrowser
             
             val service = GhostDebuggerService.getInstance(project)
-            val bridge = JcefBridge(jbBrowser) { event ->
+            val bridge = JcefBridge(project, jbBrowser) { event ->
                 service.handleUIEvent(event)
             }
             Disposer.register(parentDisposable, bridge)

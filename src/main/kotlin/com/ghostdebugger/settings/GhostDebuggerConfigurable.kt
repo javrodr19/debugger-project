@@ -27,6 +27,10 @@ class GhostDebuggerConfigurable : Configurable {
     private var showInfoIssuesBox: JCheckBox? = null
     private var analyzeOnlyChangedFilesBox: JCheckBox? = null
     private var maxComplexitySpinner: JSpinner? = null
+    private var coverageModeCombo: JComboBox<String>? = null
+    private var suppressionThresholdSpinner: JSpinner? = null
+    private var showUnreachedBox: JCheckBox? = null
+    private var showSuppressedBox: JCheckBox? = null
 
     override fun getDisplayName(): String = "Aegis Debug"
 
@@ -152,6 +156,31 @@ class GhostDebuggerConfigurable : Configurable {
         val changedFilesOnlyBox = JCheckBox("Only analyze changed files", settings.analyzeOnlyChangedFiles)
         this.analyzeOnlyChangedFilesBox = changedFilesOnlyBox
 
+        // V2.0 Dynamic Validation settings
+        val coverageModeCombo = JComboBox(arrayOf("Always", "Ask each time", "Never")).apply {
+            selectedItem = settings.coverageMode
+        }
+        this.coverageModeCombo = coverageModeCombo
+        val coverageModePanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("Use coverage for test runs:"))
+            add(coverageModeCombo)
+        }
+
+        val suppressionSpinner = JSpinner(SpinnerNumberModel(settings.suppressionThreshold, 1, 10, 1)).apply {
+            preferredSize = Dimension(85, 28)
+        }
+        this.suppressionThresholdSpinner = suppressionSpinner
+        val suppressionPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("Suppression threshold (dismissals):"))
+            add(suppressionSpinner)
+        }
+
+        val showUnreachedBox = JCheckBox("Show unreached findings (needs coverage)", settings.showUnreached)
+        this.showUnreachedBox = showUnreachedBox
+
+        val showSuppressedBox = JCheckBox("Show suppressed findings", settings.showSuppressed)
+        this.showSuppressedBox = showSuppressedBox
+
         formPanel.add(Box.createVerticalStrut(10))
         formPanel.add(JLabel("<html><b>Aegis Debug Configuration</b></html>"))
         formPanel.add(Box.createVerticalStrut(15))
@@ -169,6 +198,14 @@ class GhostDebuggerConfigurable : Configurable {
         formPanel.add(autoAnalyzeBox)
         formPanel.add(showInfoBox)
         formPanel.add(changedFilesOnlyBox)
+        
+        formPanel.add(Box.createVerticalStrut(15))
+        formPanel.add(JLabel("<html><b>Dynamic Validation (V2.0)</b></html>"))
+        formPanel.add(Box.createVerticalStrut(10))
+        formPanel.add(coverageModePanel)
+        formPanel.add(suppressionPanel)
+        formPanel.add(showUnreachedBox)
+        formPanel.add(showSuppressedBox)
 
         mainPanel.add(formPanel, BorderLayout.NORTH)
         panel = mainPanel
@@ -194,6 +231,10 @@ class GhostDebuggerConfigurable : Configurable {
             || s.showInfoIssues != showInfoIssuesBox?.isSelected
             || s.analyzeOnlyChangedFiles != analyzeOnlyChangedFilesBox?.isSelected
             || s.maxComplexity != maxComplexitySpinner?.value
+            || s.coverageMode != coverageModeCombo?.selectedItem
+            || s.suppressionThreshold != suppressionThresholdSpinner?.value
+            || s.showUnreached != showUnreachedBox?.isSelected
+            || s.showSuppressed != showSuppressedBox?.isSelected
     }
 
     override fun apply() {
@@ -215,6 +256,20 @@ class GhostDebuggerConfigurable : Configurable {
             showInfoIssues = showInfoIssuesBox?.isSelected ?: true
             analyzeOnlyChangedFiles = analyzeOnlyChangedFilesBox?.isSelected ?: false
             (maxComplexitySpinner?.value as? Int)?.let { maxComplexity = it }
+            // V2.0 Settings
+            (coverageModeCombo?.selectedItem as? String)?.let { coverageMode = it }
+            (suppressionThresholdSpinner?.value as? Int)?.let { suppressionThreshold = it }
+            showUnreached = showUnreachedBox?.isSelected ?: false
+            showSuppressed = showSuppressedBox?.isSelected ?: false
+        }
+
+        // V2.0 live UI refresh on applying settings
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+            com.intellij.openapi.project.ProjectManager.getInstance().openProjects.forEach { project ->
+                if (!project.isDisposed) {
+                    com.ghostdebugger.GhostDebuggerService.getInstance(project).refreshIssuesUI()
+                }
+            }
         }
     }
 
@@ -235,5 +290,10 @@ class GhostDebuggerConfigurable : Configurable {
         showInfoIssuesBox?.isSelected = s.showInfoIssues
         analyzeOnlyChangedFilesBox?.isSelected = s.analyzeOnlyChangedFiles
         maxComplexitySpinner?.value = s.maxComplexity
+        // V2.0 Settings reset
+        coverageModeCombo?.selectedItem = s.coverageMode
+        suppressionThresholdSpinner?.value = s.suppressionThreshold
+        showUnreachedBox?.isSelected = s.showUnreached
+        showSuppressedBox?.isSelected = s.showSuppressed
     }
 }

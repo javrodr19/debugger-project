@@ -129,6 +129,22 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.GhostDebuggerService"/>
 
+        <!-- V2.0: Runtime Evidence Store -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.store.RuntimeEvidenceStore"/>
+
+        <!-- V2.0: Suppression Memory Service -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.store.SuppressionMemoryService"/>
+
+        <!-- V2.0: Test Run Observer -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.store.TestRunObserver"/>
+
+        <!-- V2.0: Debug Observer -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.store.DebugObserver"/>
+
         <!-- V1.5: VFS listener for auto-refresh on file save -->
         <projectService
                 serviceImplementation="com.ghostdebugger.FileChangeWatcher"/>

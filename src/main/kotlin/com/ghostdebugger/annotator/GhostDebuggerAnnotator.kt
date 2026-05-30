@@ -20,14 +20,18 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
     data class FileIssues(
         val filePath: String,
         val issues: List<Issue>,
-        val document: Document
+        val document: Document,
+        val virtualFile: com.intellij.openapi.vfs.VirtualFile,
+        val project: Project
     )
 
     data class AnnotationInfo(
         val severity: HighlightSeverity,
         val message: String,
         val line: Int,
-        val description: String
+        val description: String,
+        val issue: Issue,
+        val fix: com.ghostdebugger.model.CodeFix?
     )
 
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): FileIssues? {
@@ -53,13 +57,15 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
 
         if (fileIssues.isEmpty()) return null
 
-        return FileIssues(filePath, fileIssues, document)
+        return FileIssues(filePath, fileIssues, document, virtualFile, project)
     }
 
     override fun doAnnotate(collectedInfo: FileIssues?): List<AnnotationInfo>? {
         if (collectedInfo == null) return emptyList()
 
         val lineCount = collectedInfo.document.lineCount
+        val fixDeriver = com.ghostdebugger.fix.FixDeriver(collectedInfo.project)
+        val fileContent = collectedInfo.document.text
 
         return collectedInfo.issues.mapNotNull { issue ->
             com.intellij.openapi.progress.ProgressManager.checkCanceled()
@@ -70,11 +76,19 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
                 IssueSeverity.INFO -> HighlightSeverity.WEAK_WARNING
             }
 
+            val fix = try {
+                fixDeriver.derive(issue, collectedInfo.virtualFile, fileContent)
+            } catch (e: Exception) {
+                null
+            }
+
             AnnotationInfo(
                 severity = severity,
                 message = "Aegis Debug: ${issue.title}",
                 line = line,
-                description = issue.description
+                description = issue.description,
+                issue = issue,
+                fix = fix
             )
         }
     }
@@ -93,11 +107,17 @@ class GhostDebuggerAnnotator : ExternalAnnotator<GhostDebuggerAnnotator.FileIssu
             if (startOffset >= endOffset) continue
 
             try {
-                holder.newAnnotation(info.severity, info.message)
-                    .range(file.findElementAt(startOffset)?.textRange ?: continue)
+                val range = file.findElementAt(startOffset)?.textRange ?: continue
+                val builder = holder.newAnnotation(info.severity, info.message)
+                    .range(range)
                     .tooltip("${info.message}\n\n${info.description}")
                     .needsUpdateOnTyping(false)
-                    .create()
+
+                if (info.fix != null) {
+                    builder.withFix(com.ghostdebugger.fix.AegisQuickFixIntentionAction(info.issue, info.fix))
+                }
+
+                builder.create()
             } catch (_: Exception) {
                 // Silently skip if annotation creation fails (e.g. bad range)
             }

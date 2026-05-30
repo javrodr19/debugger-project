@@ -18,6 +18,12 @@ interface Analyzer {
     val description: String
 
     fun analyze(context: AnalysisContext): List<Issue>
+
+    /**
+     * Returns the expression string to evaluate in the current debug frame, or null if this
+     * analyzer's findings cannot be debug-confirmed. Default implementation returns null.
+     */
+    fun debugProbe(issue: Issue): String? = null
 }
 
 /** Marker for analyzers that must run before all others so the engine can

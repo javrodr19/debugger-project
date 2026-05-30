@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronDown, ChevronRight, AlertCircle, AlertTriangle, Info,
-  Eye, Wand2, Copy, Check, Loader2, FileCode, Activity, Layers
+  Eye, Wand2, Copy, Check, Loader2, FileCode, Activity, Layers,
+  EyeOff, Trash2
 } from 'lucide-react'
 import type { GraphNode, Issue, CodeFix, IssueSeverity, ProjectGraph, AnalysisMetrics, IssueSource } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 import { bridge } from '../../bridge/pluginBridge'
+import { ConfidencePill } from '../ConfidencePill'
 
 // ─── Color tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -343,7 +345,12 @@ function IssuesContent({
   explanations: Record<string, string>
   onSelectIssue: (i: Issue) => void
 }) {
-  if (issues.length === 0) {
+  const { state } = useAppStore()
+
+  const suppressedCount = issues.filter(i => i.suppressed).length
+  const visibleIssues = issues.filter(i => !i.suppressed || state.showSuppressed)
+
+  if (visibleIssues.length === 0 && suppressedCount === 0) {
     return (
       <div style={{ padding: '12px', background: C.bg }}>
         <div style={{
@@ -357,24 +364,85 @@ function IssuesContent({
     )
   }
 
-  const sorted = [...issues].sort((a, b) => {
-    const aRuntime = a.sources?.includes('RUNTIME_CONFIRMED') ? 1 : 0
-    const bRuntime = b.sources?.includes('RUNTIME_CONFIRMED') ? 1 : 0
-    if (aRuntime !== bRuntime) {
-      return bRuntime - aRuntime
+  const confidenceRank = (c?: string): number => {
+    switch (c) {
+      case 'CONFIRMED': return 0
+      case 'LIKELY': return 1
+      case 'UNCONFIRMED': return 2
+      case 'DEMOTED': return 3
+      case 'UNREACHED': return 4
+      default: return 2
     }
-    
-    const severityOrder = { ERROR: 0, WARNING: 1, INFO: 2 }
-    const sevDiff = severityOrder[a.severity] - severityOrder[b.severity]
+  }
+
+  const sorted = [...visibleIssues].sort((a, b) => {
+    const order = { ERROR: 0, WARNING: 1, INFO: 2 }
+    const sevDiff = order[a.severity] - order[b.severity]
     if (sevDiff !== 0) return sevDiff
-    
-    const aConf = a.confidence ?? 0.7
-    const bConf = b.confidence ?? 0.7
-    return bConf - aConf
+
+    const confDiff = confidenceRank(a.dynamicConfidence) - confidenceRank(b.dynamicConfidence)
+    if (confDiff !== 0) return confDiff
+
+    if (a.suppressed && !b.suppressed) return 1
+    if (!a.suppressed && b.suppressed) return -1
+
+    return a.line - b.line
   })
+
+  const renderSuppressedBanner = suppressedCount > 0 && !state.showSuppressed ? (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      background: 'rgba(107, 114, 128, 0.08)',
+      border: `1px solid ${C.border}`,
+      padding: '6px 10px',
+      marginBottom: 6,
+    }}>
+      <span style={{ color: C.text3, fontSize: 9, fontWeight: 600 }}>
+        🔒 {suppressedCount} finding{suppressedCount > 1 ? 's' : ''} auto-hidden
+      </span>
+      <button
+        onClick={() => bridge.toggleShowSuppressed()}
+        style={{
+          background: 'none', border: 'none',
+          color: C.accent, fontSize: 9, fontWeight: 700,
+          cursor: 'pointer', padding: 0, textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        [Show]
+      </button>
+    </div>
+  ) : null
+
+  const renderHideSuppressedBanner = suppressedCount > 0 && state.showSuppressed ? (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      background: 'rgba(107, 114, 128, 0.08)',
+      border: `1px solid ${C.border}`,
+      padding: '6px 10px',
+      marginBottom: 6,
+    }}>
+      <span style={{ color: C.text2, fontSize: 9, fontWeight: 600 }}>
+        🔓 Showing suppressed findings
+      </span>
+      <button
+        onClick={() => bridge.toggleShowSuppressed()}
+        style={{
+          background: 'none', border: 'none',
+          color: C.accent, fontSize: 9, fontWeight: 700,
+          cursor: 'pointer', padding: 0, textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        [Hide]
+      </button>
+    </div>
+  ) : null
 
   return (
     <div style={{ background: C.bg, padding: '8px 12px 12px' }}>
+      {renderSuppressedBanner}
+      {renderHideSuppressedBanner}
       {sorted.map((issue, idx) => (
         <IssueRow
           key={issue.id}
@@ -410,6 +478,7 @@ function IssueRow({
         cursor: 'pointer',
         overflow: 'hidden',
         transition: 'border-color 0.15s',
+        opacity: issue.suppressed ? 0.5 : 1,
       }}
       onClick={() => onSelect(issue)}
       onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = C.borderFg }}
@@ -425,7 +494,7 @@ function IssueRow({
           <div style={{ color: C.text2, fontSize: 9, marginTop: 2, lineHeight: 1.5 }} className="line-clamp-2">
             {issue.description}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 6, gap: 4, flexWrap: 'wrap' }}>
             {issue.line > 0 && (
               <span style={{
                 color: C.text3, background: C.elevated,
@@ -436,8 +505,24 @@ function IssueRow({
                 L{issue.line}
               </span>
             )}
+            <ConfidencePill confidence={issue.dynamicConfidence} />
+            {issue.suppressed && (
+              <span style={{
+                background: '#374151',
+                color: '#9CA3AF',
+                fontSize: '7px',
+                fontWeight: 700,
+                padding: '1px 4px',
+                borderRadius: '2px',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                verticalAlign: 'middle',
+              }}>
+                SUPPRESSED
+              </span>
+            )}
             {issue.sources && issue.sources.length > 0 && (
-              <span style={{ display: 'inline-flex', gap: 3, marginLeft: 4, flexShrink: 0 }}>
+              <span style={{ display: 'inline-flex', gap: 3, flexShrink: 0 }}>
                 {issue.sources.map(src => (
                   <ProvenanceBadge key={src} source={src} />
                 ))}
@@ -490,6 +575,48 @@ function IssueRow({
                   <Loader2 size={10} className="animate-spin" />
                   <span style={{ fontSize: 9 }}>Fetching explanation...</span>
                 </div>
+              )}
+            </div>
+
+            {/* Actions panel */}
+            <div style={{
+              padding: '6px 10px',
+              borderTop: `1px solid ${C.border}`,
+              background: C.surface,
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 6,
+            }}>
+              {issue.suppressed ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    bridge.unsuppressIssue(issue.id)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: C.okBg, border: `1px solid ${C.okBdr}`,
+                    color: C.okText, fontSize: 8, fontWeight: 700,
+                    padding: '3px 8px', cursor: 'pointer', borderRadius: 0,
+                  }}
+                >
+                  <Eye size={10} /> Un-suppress finding
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    bridge.dismissIssue(issue.id)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: C.elevated, border: `1px solid ${C.border}`,
+                    color: C.text3, fontSize: 8, fontWeight: 700,
+                    padding: '3px 8px', cursor: 'pointer', borderRadius: 0,
+                  }}
+                >
+                  <EyeOff size={10} /> Dismiss finding
+                </button>
               )}
             </div>
           </motion.div>
@@ -570,6 +697,7 @@ function SolutionsContent({
         <span style={{ color: C.text2, fontSize: 9, flex: 1 }} className="truncate">
           {selectedIssue.title}
         </span>
+        <ConfidencePill confidence={selectedIssue.dynamicConfidence} />
         <span style={{ color: C.text3, fontSize: 8, fontFamily: 'var(--font-code)' }}>L{selectedIssue.line}</span>
       </div>
 

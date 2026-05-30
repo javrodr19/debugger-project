@@ -32,7 +32,13 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         var analyzeOnlyChangedFiles: Boolean = false,
         var aiCacheMaxEntries: Int = 256,
         var maxDependentsToReanalyze: Int = 20,
-        var maxComplexity: Int = 10
+        var maxComplexity: Int = 10,
+        // --- V2.0 Settings ---
+        var coverageMode: String = "Ask each time",
+        var suppressionThreshold: Int = 3,
+        var showUnreached: Boolean = false,
+        var showSuppressed: Boolean = false,
+        var nudgeShownOnce: Boolean = false
     )
 
     private var myState = State()
@@ -60,6 +66,9 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         if (aiCacheMaxEntries <= 0) aiCacheMaxEntries = 256
         if (maxDependentsToReanalyze < 0) maxDependentsToReanalyze = 0
         if (maxComplexity < 1) maxComplexity = 10
+        if (suppressionThreshold < 1) suppressionThreshold = 3
+        if (suppressionThreshold > 10) suppressionThreshold = 10
+        if (coverageMode !in setOf("Always", "Ask each time", "Never")) coverageMode = "Ask each time"
         return this
     }
 

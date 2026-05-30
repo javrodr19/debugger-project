@@ -56,6 +56,9 @@ internal class UIEventRouter(private val project: Project) {
             is UIEvent.BreakpointSet -> handleBreakpointSet(event.filePath, event.line)
             is UIEvent.BreakpointRemoved -> handleBreakpointRemoved(event.filePath, event.line)
             is UIEvent.ExportReportRequested -> ReportExporter(project).export(service().currentGraph)
+            is UIEvent.DismissIssue -> handleDismissIssue(event.issueId)
+            is UIEvent.UnsuppressIssue -> handleUnsuppressIssue(event.issueId)
+            is UIEvent.ToggleShowSuppressed -> handleToggleShowSuppressed()
             is UIEvent.DebugStepOver -> DebugSessionCoordinator.getInstance(project).stepOver()
             is UIEvent.DebugStepInto -> DebugSessionCoordinator.getInstance(project).stepInto()
             is UIEvent.DebugStepOut -> DebugSessionCoordinator.getInstance(project).stepOut()
@@ -317,6 +320,31 @@ internal class UIEventRouter(private val project: Project) {
 
             Configure an AI provider in Settings → Tools → Aegis Debug for deeper analysis.
         """.trimIndent()
+    }
+
+    private fun handleDismissIssue(issueId: String) {
+        val svc = service()
+        val issue = svc.currentIssues.firstOrNull { it.id == issueId } ?: return
+        svc.suppressionMemory().recordDismissal(issue.fingerprint())
+        svc.refreshIssuesUI()
+        svc.currentGraph?.let { svc.jcefBridge()?.sendGraphData(it) }
+    }
+
+    private fun handleUnsuppressIssue(issueId: String) {
+        val svc = service()
+        val issue = svc.currentIssues.firstOrNull { it.id == issueId } ?: return
+        svc.suppressionMemory().reset(issue.fingerprint())
+        svc.refreshIssuesUI()
+        svc.currentGraph?.let { svc.jcefBridge()?.sendGraphData(it) }
+    }
+
+    private fun handleToggleShowSuppressed() {
+        GhostDebuggerSettings.getInstance().update {
+            showSuppressed = !showSuppressed
+        }
+        val svc = service()
+        svc.refreshIssuesUI()
+        svc.currentGraph?.let { svc.jcefBridge()?.sendGraphData(it) }
     }
 
     companion object {

@@ -48,6 +48,8 @@ export interface Issue {
   sources?:    IssueSource[]
   providers?:  EngineProvider[]
   confidence?: number
+  dynamicConfidence?: string
+  suppressed?: boolean
 }
 
 export interface CodeFix {
@@ -120,6 +122,8 @@ export interface ProjectGraph {
   nodes: GraphNode[]
   edges: GraphEdge[]
   metadata: GraphMetadata
+  showSuppressed?: boolean
+  showUnreached?: boolean
 }
 
 export interface AnalysisMetrics {

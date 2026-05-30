@@ -10,6 +10,15 @@ class NullSafetyAnalyzer : Analyzer {
     override val defaultSeverity = IssueSeverity.ERROR
     override val description = "Detects property access on variables initialized as null/undefined without a guarding null check."
 
+    override fun debugProbe(issue: Issue): String? {
+        val prefix = "Null reference: "
+        val suffix = " may be null"
+        if (issue.title.startsWith(prefix) && issue.title.endsWith(suffix)) {
+            return issue.title.removePrefix(prefix).removeSuffix(suffix)
+        }
+        return null
+    }
+
     override fun analyze(context: AnalysisContext): List<Issue> {
         val issues = mutableListOf<Issue>()
 

@@ -168,6 +168,11 @@ class PluginBridge {
   setBreakpoint(filePath: string, line: number) { this.sendEvent('BREAKPOINT_SET', { filePath, line }) }
   removeBreakpoint(filePath: string, line: number) { this.sendEvent('BREAKPOINT_REMOVED', { filePath, line }) }
 
+  // V2.0 Suppression actions
+  dismissIssue(issueId: string) { this.sendEvent('DISMISS_ISSUE', { issueId }) }
+  unsuppressIssue(issueId: string) { this.sendEvent('UNSUPPRESS_ISSUE', { issueId }) }
+  toggleShowSuppressed() { this.sendEvent('TOGGLE_SHOW_SUPPRESSED') }
+
   // Debug step controls
   debugStepOver() { this.sendEvent('DEBUG_STEP_OVER') }
   debugStepInto() { this.sendEvent('DEBUG_STEP_INTO') }

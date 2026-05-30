@@ -24,6 +24,8 @@ export interface AppState {
   isAutoRefreshing: boolean
   viewMode: ViewMode
   focusedNodeId: string | null  // node whose expanded panel should be on top
+  showSuppressed: boolean
+  showUnreached: boolean
 }
 
 export type AppAction =
@@ -50,7 +52,7 @@ export type AppAction =
   | { type: 'SET_AUTO_REFRESHING'; payload: boolean }
   | { type: 'SET_VIEW_MODE'; payload: ViewMode }
   | { type: 'SET_FOCUSED_NODE'; payload: string | null }
-  | { type: 'SET_ISSUES_FOR_FILE'; payload: { filePath: string; issues: Issue[] } }
+  | { type: 'SET_ISSUES_FOR_FILE'; payload: { filePath: string; issues: Issue[]; showSuppressed?: boolean; showUnreached?: boolean } }
 
 export const initialState: AppState = {
   graph: null,
@@ -73,12 +75,22 @@ export const initialState: AppState = {
   isAutoRefreshing: false,
   viewMode: 'neuromap',
   focusedNodeId: null,
+  showSuppressed: false,
+  showUnreached: false,
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_GRAPH':
-      return { ...state, graph: action.payload, isAnalyzing: false, analysisProgress: null, isAutoRefreshing: false }
+      return {
+        ...state,
+        graph: action.payload,
+        isAnalyzing: false,
+        analysisProgress: null,
+        isAutoRefreshing: false,
+        showSuppressed: action.payload.showSuppressed ?? state.showSuppressed,
+        showUnreached: action.payload.showUnreached ?? state.showUnreached
+      }
 
     case 'SELECT_NODE': {
       const node = action.payload
@@ -185,7 +197,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_ISSUES_FOR_FILE': {
       if (!state.graph) return state
-      const { filePath, issues } = action.payload
+      const { filePath, issues, showSuppressed, showUnreached } = action.payload
       const updatedNodes = state.graph.nodes.map(n =>
         n.filePath === filePath ? { ...n, issues } : n
       )
@@ -204,7 +216,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state, 
         graph: { ...state.graph, nodes: updatedNodes },
         selectedNode: updatedSelectedNode,
-        selectedIssue: updatedSelectedIssue
+        selectedIssue: updatedSelectedIssue,
+        showSuppressed: showSuppressed ?? state.showSuppressed,
+        showUnreached: showUnreached ?? state.showUnreached
       }
     }
 

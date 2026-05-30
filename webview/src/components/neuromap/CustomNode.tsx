@@ -62,6 +62,24 @@ function CustomNodeComponent({ data }: CustomNodeProps) {
 
   const errorCount = node.issues.filter((i: Issue) => i.severity === 'ERROR').length
   const warnCount  = node.issues.filter((i: Issue) => i.severity === 'WARNING').length
+
+  const confirmed = node.issues.filter((i: Issue) => i.dynamicConfidence === 'CONFIRMED').length
+  const likely = node.issues.filter((i: Issue) => i.dynamicConfidence === 'LIKELY').length
+  const unconfirmed = node.issues.filter((i: Issue) => !i.dynamicConfidence || i.dynamicConfidence === 'UNCONFIRMED').length
+  const demoted = node.issues.filter((i: Issue) => i.dynamicConfidence === 'DEMOTED').length
+  const unreached = node.issues.filter((i: Issue) => i.dynamicConfidence === 'UNREACHED').length
+
+  const tooltipParts = []
+  if (confirmed > 0) tooltipParts.push(`● ${confirmed} CONFIRMED`)
+  if (likely > 0) tooltipParts.push(`● ${likely} LIKELY`)
+  if (unconfirmed > 0) tooltipParts.push(`● ${unconfirmed} UNCONFIRMED`)
+  if (demoted > 0) tooltipParts.push(`● ${demoted} DEMOTED`)
+  if (unreached > 0) tooltipParts.push(`● ${unreached} NEEDS COVERAGE`)
+
+  const tooltipText = tooltipParts.length > 0
+    ? `${node.name}\n${tooltipParts.join(' · ')}`
+    : node.name
+
   const hasSymbols = node.functions.length > 0 || node.variables.length > 0
 
   const bpKey = (line: number) => `${node.filePath}:${line}`
@@ -198,7 +216,7 @@ function CustomNodeComponent({ data }: CustomNodeProps) {
       <div style={{ padding: '6px 8px' }}>
         <div
           style={{ color: C.text1, fontSize: 11, fontWeight: 600, marginBottom: 2 }}
-          title={node.name}
+          title={tooltipText}
         >
           {node.name.length > 22 ? node.name.slice(0, 20) + '…' : node.name}
         </div>
