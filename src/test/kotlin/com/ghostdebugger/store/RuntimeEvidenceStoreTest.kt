@@ -59,6 +59,55 @@ class RuntimeEvidenceStoreTest : BasePlatformTestCase() {
         Assert.assertEquals(1, pathFrames.size)
         Assert.assertEquals("Baz.js", pathFrames[0].fileName)
         Assert.assertEquals(88, pathFrames[0].line)
+
+        // Jest standard parenthesized trace
+        val jestTrace = "at Object.<anonymous> (/home/user/src/utils/math.test.ts:42:12)"
+        val jestFrames = StackTraceParser.parse(jestTrace)
+        Assert.assertEquals(1, jestFrames.size)
+        Assert.assertEquals("math.test.ts", jestFrames[0].fileName)
+        Assert.assertEquals(42, jestFrames[0].line)
+
+        // Vitest spec trace
+        val vitestTrace = "at Context.<anonymous> (test/index.spec.js:15:10)"
+        val vitestFrames = StackTraceParser.parse(vitestTrace)
+        Assert.assertEquals(1, vitestFrames.size)
+        Assert.assertEquals("index.spec.js", vitestFrames[0].fileName)
+        Assert.assertEquals(15, vitestFrames[0].line)
+
+        // Raw suffix traces (Mocha/Karma style)
+        val mochaTrace = "test/index.spec.js:15:10"
+        val mochaFrames = StackTraceParser.parse(mochaTrace)
+        Assert.assertEquals(1, mochaFrames.size)
+        Assert.assertEquals("index.spec.js", mochaFrames[0].fileName)
+        Assert.assertEquals(15, mochaFrames[0].line)
+
+        // Native ESM file URLs
+        val esmTrace = "at file:///home/user/project/src/main.ts:88:12"
+        val esmFrames = StackTraceParser.parse(esmTrace)
+        Assert.assertEquals(1, esmFrames.size)
+        Assert.assertEquals("main.ts", esmFrames[0].fileName)
+        Assert.assertEquals(88, esmFrames[0].line)
+
+        // Paths with spaces in directories
+        val spacesTrace = "at Object.run (/Users/user/My Projects/src/main.ts:88:12)"
+        val spacesFrames = StackTraceParser.parse(spacesTrace)
+        Assert.assertEquals(1, spacesFrames.size)
+        Assert.assertEquals("main.ts", spacesFrames[0].fileName)
+        Assert.assertEquals(88, spacesFrames[0].line)
+
+        // Webpack nested source-maps
+        val webpackTrace = "at Object.webpackContext [as keys] (webpack:///./src/utils/math.ts:25:9)"
+        val webpackFrames = StackTraceParser.parse(webpackTrace)
+        Assert.assertEquals(1, webpackFrames.size)
+        Assert.assertEquals("math.ts", webpackFrames[0].fileName)
+        Assert.assertEquals(25, webpackFrames[0].line)
+
+        // Deduplication: overlapping matches on a single frame
+        val overlappingTrace = "at Object.<anonymous> (/src/main.ts:42:12)"
+        val overlappingFrames = StackTraceParser.parse(overlappingTrace)
+        Assert.assertEquals(1, overlappingFrames.size)
+        Assert.assertEquals("main.ts", overlappingFrames[0].fileName)
+        Assert.assertEquals(42, overlappingFrames[0].line)
     }
 
     // ── Layer 2: Persistence and PSC Serialization Tests ───────────────────
