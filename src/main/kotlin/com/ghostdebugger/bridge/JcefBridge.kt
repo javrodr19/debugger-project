@@ -145,6 +145,15 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onExplanation($explanationEscaped)")
     }
 
+    fun sendIssueExplanationChunk(issueId: String, chunk: String, isComplete: Boolean) {
+        val payload = json.encodeToString(mapOf(
+            "issueId" to issueId,
+            "chunk" to chunk,
+            "isComplete" to isComplete.toString()
+        ))
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onExplanationChunk($payload)")
+    }
+
     fun sendFixSuggestion(fix: CodeFix) {
         val fixJson = json.encodeToString(fix)
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onFixSuggestion($fixJson)")

@@ -43,6 +43,7 @@ export type AppAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_SYSTEM_EXPLANATION'; payload: string }
   | { type: 'SET_EXPLANATION'; payload: { issueId: string; explanation: string } }
+  | { type: 'APPEND_EXPLANATION_CHUNK'; payload: { issueId: string; chunk: string; isComplete: boolean } }
   | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: NodeStatus } }
   | { type: 'SET_HIGHLIGHTED'; payload: string[] }
   | { type: 'TOGGLE_BREAKPOINT'; payload: string }
@@ -142,6 +143,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_EXPLANATION': {
       const { issueId, explanation } = action.payload
+      const updatedGraph = state.graph ? updateIssueExplanation(state.graph, issueId, explanation) : state.graph
+      const updatedSelectedIssue = state.selectedIssue?.id === issueId
+        ? { ...state.selectedIssue, explanation }
+        : state.selectedIssue
+      return {
+        ...state,
+        graph: updatedGraph,
+        selectedIssue: updatedSelectedIssue,
+        explanations: { ...state.explanations, [issueId]: explanation },
+      }
+    }
+
+    case 'APPEND_EXPLANATION_CHUNK': {
+      const { issueId, chunk, isComplete } = action.payload
+      const current = (chunk === '' && !isComplete) ? '' : (state.explanations[issueId] || '')
+      const explanation = current + chunk
       const updatedGraph = state.graph ? updateIssueExplanation(state.graph, issueId, explanation) : state.graph
       const updatedSelectedIssue = state.selectedIssue?.id === issueId
         ? { ...state.selectedIssue, explanation }

@@ -23,4 +23,14 @@ interface AIService {
     suspend fun explainIssue(issue: Issue, codeSnippet: String): String
     suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix
     suspend fun explainSystem(graph: ProjectGraph): String
+
+    suspend fun explainIssueStreaming(
+        issue: Issue,
+        codeSnippet: String,
+        onToken: (String) -> Unit
+    ): String {
+        val result = explainIssue(issue, codeSnippet)
+        onToken(result)
+        return result
+    }
 }

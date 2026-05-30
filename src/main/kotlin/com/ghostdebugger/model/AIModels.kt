@@ -8,7 +8,8 @@ data class ChatCompletionRequest(
     val messages: List<ChatMessage>,
     val max_tokens: Int = 4096,
     val temperature: Double = 0.3,
-    val response_format: ResponseFormat? = null
+    val response_format: ResponseFormat? = null,
+    val stream: Boolean = false
 )
 
 @Serializable
@@ -56,4 +57,20 @@ data class CodeContext(
     val fileContent: String,
     val surroundingCode: String,
     val relatedFiles: List<String>
+)
+
+@Serializable
+data class ChatCompletionChunk(
+    val choices: List<ChatChunkChoice>
+)
+
+@Serializable
+data class ChatChunkChoice(
+    val delta: ChatMessageDelta,
+    val finish_reason: String? = null
+)
+
+@Serializable
+data class ChatMessageDelta(
+    val content: String? = null
 )

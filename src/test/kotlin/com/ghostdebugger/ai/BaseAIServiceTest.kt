@@ -33,6 +33,16 @@ class BaseAIServiceTest {
             lastJsonMode = jsonMode
             return response
         }
+
+        override suspend fun callModelStreaming(
+            systemPrompt: String,
+            userPrompt: String,
+            onToken: (String) -> Unit
+        ): String {
+            invocationCount.incrementAndGet()
+            onToken(response)
+            return response
+        }
     }
 
     private fun issue(): Issue = Issue(
@@ -54,6 +64,21 @@ class BaseAIServiceTest {
         svc.explainIssue(i, "snippet")
         svc.explainIssue(i, "snippet")
         assertEquals(1, svc.invocationCount.get(), "second call should hit cache")
+    }
+
+    @Test
+    fun `explainIssueStreaming cache hit short-circuits callModel`() = runBlocking {
+        val svc = RecordingService(cacheEnabled = true)
+        val i = issue()
+        var tokensReceived1 = ""
+        svc.explainIssueStreaming(i, "snippet") { tokensReceived1 += it }
+        
+        var tokensReceived2 = ""
+        svc.explainIssueStreaming(i, "snippet") { tokensReceived2 += it }
+        
+        assertEquals(1, svc.invocationCount.get(), "second streaming call should hit cache")
+        assertEquals("EXPLANATION: ok\n```ts\nfix\n```", tokensReceived1)
+        assertEquals("EXPLANATION: ok\n```ts\nfix\n```", tokensReceived2)
     }
 
     @Test

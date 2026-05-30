@@ -528,7 +528,7 @@ function IssueRow({
                 ))}
               </span>
             )}
-            <ConfidencePill issue={issue} />
+            <StaticConfidencePill issue={issue} />
           </div>
         </div>
       </div>
@@ -1345,7 +1345,7 @@ function TrustBadge({ isDeterministic }: { isDeterministic?: boolean }) {
   )
 }
 
-function ConfidencePill({ issue }: { issue: Issue }) {
+function StaticConfidencePill({ issue }: { issue: Issue }) {
   let label = 'UNCONFIRMED'
   let color = 'var(--fg-muted)'
   let bg = 'rgba(122, 117, 112, 0.06)'

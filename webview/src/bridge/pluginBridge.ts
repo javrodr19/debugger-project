@@ -7,6 +7,7 @@ interface AegisAPI {
   onGraphUpdate: (data: ProjectGraph) => void
   onIssuesForFile: (data: { filePath: string; issues: Issue[] }) => void
   onExplanation: (data: { issueId: string; explanation: string }) => void
+  onExplanationChunk: (data: { issueId: string; chunk: string; isComplete: string }) => void
   onFixSuggestion: (fix: CodeFix) => void
   onNodeUpdate: (data: { nodeId: string; status: NodeStatus }) => void
   onAnalysisStart: () => void
@@ -35,6 +36,7 @@ class PluginBridge {
   private graphHandlers: EventHandler<ProjectGraph>[] = []
   private issuesForFileHandlers: EventHandler<{ filePath: string; issues: Issue[] }>[] = []
   private explanationHandlers: EventHandler<{ issueId: string; explanation: string }>[] = []
+  private explanationChunkHandlers: EventHandler<{ issueId: string; chunk: string; isComplete: boolean }>[] = []
   private fixHandlers: EventHandler<CodeFix>[] = []
   private nodeUpdateHandlers: EventHandler<{ nodeId: string; status: NodeStatus }>[] = []
   private analysisStartHandlers: EventHandler<void>[] = []
@@ -59,6 +61,11 @@ class PluginBridge {
       onGraphUpdate: (data) => this.graphHandlers.forEach(h => h(data)),
       onIssuesForFile: (data) => this.issuesForFileHandlers.forEach(h => h(data)),
       onExplanation: (data) => this.explanationHandlers.forEach(h => h(data)),
+      onExplanationChunk: (data) => this.explanationChunkHandlers.forEach(h => h({
+        issueId: data.issueId,
+        chunk: data.chunk,
+        isComplete: data.isComplete === 'true' || (data.isComplete as any) === true
+      })),
       onFixSuggestion: (fix) => this.fixHandlers.forEach(h => h(fix)),
       onNodeUpdate: (data) => this.nodeUpdateHandlers.forEach(h => h(data)),
       onAnalysisStart: () => this.analysisStartHandlers.forEach(h => h()),
@@ -89,6 +96,10 @@ class PluginBridge {
   onExplanation(handler: EventHandler<{ issueId: string; explanation: string }>) {
     this.explanationHandlers.push(handler)
     return () => { this.explanationHandlers = this.explanationHandlers.filter(h => h !== handler) }
+  }
+  onExplanationChunk(handler: EventHandler<{ issueId: string; chunk: string; isComplete: boolean }>) {
+    this.explanationChunkHandlers.push(handler)
+    return () => { this.explanationChunkHandlers = this.explanationChunkHandlers.filter(h => h !== handler) }
   }
   onFixSuggestion(handler: EventHandler<CodeFix>) {
     this.fixHandlers.push(handler)

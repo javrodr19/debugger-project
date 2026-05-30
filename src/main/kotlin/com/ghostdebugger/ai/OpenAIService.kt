@@ -1,5 +1,6 @@
 package com.ghostdebugger.ai
 
+import com.ghostdebugger.model.ChatCompletionChunk
 import com.ghostdebugger.model.ChatCompletionRequest
 import com.ghostdebugger.model.ChatCompletionResponse
 import com.ghostdebugger.model.ChatMessage
@@ -64,5 +65,59 @@ internal class OpenAIService(
             completionResponse.choices.firstOrNull()?.message?.content
                 ?: throw RuntimeException("No content in OpenAI response")
         }
+    }
+
+    override suspend fun callModelStreaming(
+        systemPrompt: String,
+        userPrompt: String,
+        onToken: (String) -> Unit
+    ): String = withContext(Dispatchers.IO) {
+        val requestBody = json.encodeToString(
+            ChatCompletionRequest(
+                model = model,
+                messages = listOf(
+                    ChatMessage(role = "system", content = systemPrompt.trimIndent()),
+                    ChatMessage(role = "user", content = userPrompt)
+                ),
+                max_tokens = 2000,
+                temperature = 0.2,
+                stream = true
+            )
+        ).toRequestBody("application/json".toMediaType())
+
+        val httpRequest = Request.Builder()
+            .url("$baseUrl/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        val fullText = StringBuilder()
+        httpClient.newCall(httpRequest).execute().use { response ->
+            if (!response.isSuccessful) {
+                val body = response.body?.string() ?: "Unknown error"
+                log.error("OpenAI API error: ${response.code} - $body")
+                throw RuntimeException("OpenAI API failure: ${response.code} - $body")
+            }
+            val source = response.body?.source() ?: throw RuntimeException("Empty response")
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (line.startsWith("data: ")) {
+                    val data = line.removePrefix("data: ").trim()
+                    if (data == "[DONE]") break
+                    try {
+                        val chunk = json.decodeFromString<ChatCompletionChunk>(data)
+                        val text = chunk.choices.firstOrNull()?.delta?.content ?: ""
+                        if (text.isNotEmpty()) {
+                            fullText.append(text)
+                            onToken(text)
+                        }
+                    } catch (e: Exception) {
+                        // ignore malformed chunks
+                    }
+                }
+            }
+        }
+        fullText.toString()
     }
 }

@@ -42,6 +42,12 @@ internal abstract class BaseAIService(
         jsonMode: Boolean
     ): String
 
+    protected abstract suspend fun callModelStreaming(
+        systemPrompt: String,
+        userPrompt: String,
+        onToken: (String) -> Unit
+    ): String
+
     override suspend fun detectIssues(
         filePath: String,
         fileContent: String,
@@ -71,6 +77,30 @@ internal abstract class BaseAIService(
         cached(codeSnippet + issue.type.name, "explain") {
             callModel(SystemPrompts.DEBUGGER, PromptTemplates.explainIssue(issue, codeSnippet), jsonMode = false)
         }
+
+    override suspend fun explainIssueStreaming(
+        issue: Issue,
+        codeSnippet: String,
+        onToken: (String) -> Unit
+    ): String {
+        val cacheKey = if (cacheEnabled) cache.computeKey(codeSnippet + issue.type.name, "explain") else null
+        if (cacheKey != null) {
+            val cached = cache.get(cacheKey)
+            if (cached != null) {
+                onToken(cached)
+                return cached
+            }
+        }
+        val response = callModelStreaming(
+            SystemPrompts.DEBUGGER,
+            PromptTemplates.explainIssue(issue, codeSnippet),
+            onToken
+        )
+        if (cacheKey != null) {
+            cache.put(cacheKey, response)
+        }
+        return response
+    }
 
     override suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
         val raw = cached(codeSnippet + issue.type.name, "fix") {

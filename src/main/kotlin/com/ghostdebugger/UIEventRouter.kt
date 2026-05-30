@@ -100,17 +100,26 @@ internal class UIEventRouter(private val project: Project) {
         scope.launch {
             try {
                 val ai = aiService ?: resolveAiService() ?: return@launch
-                val explanation = ai.explainIssue(issue, issue.codeSnippet)
+                // Send an empty complete chunk to clear any stale UI explanation state
+                withContext(Dispatchers.Swing) {
+                    svc.jcefBridge()?.sendIssueExplanationChunk(issue.id, "", isComplete = false)
+                }
+                val explanation = ai.explainIssueStreaming(issue, issue.codeSnippet) { token ->
+                    scope.launch(Dispatchers.Swing) {
+                        svc.jcefBridge()?.sendIssueExplanationChunk(issue.id, token, isComplete = false)
+                    }
+                }
                 updateIssueExplanation(issue.id, explanation)
                 withContext(Dispatchers.Swing) {
-                    svc.jcefBridge()?.sendIssueExplanation(issue.id, explanation)
+                    svc.jcefBridge()?.sendIssueExplanationChunk(issue.id, "", isComplete = true)
                 }
             } catch (e: Exception) {
                 log.error("Failed to explain issue", e)
                 withContext(Dispatchers.Swing) {
-                    svc.jcefBridge()?.sendIssueExplanation(
+                    svc.jcefBridge()?.sendIssueExplanationChunk(
                         issue.id,
-                        "Error fetching explanation: ${e.message}"
+                        "Error fetching explanation: ${e.message}",
+                        isComplete = true
                     )
                 }
             }

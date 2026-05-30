@@ -17,6 +17,9 @@ export default function App() {
     const unsubExpl     = bridge.onExplanation(({ issueId, explanation }) =>
       dispatch({ type: 'SET_EXPLANATION', payload: { issueId, explanation } })
     )
+    const unsubExplChunk = bridge.onExplanationChunk(({ issueId, chunk, isComplete }) =>
+      dispatch({ type: 'APPEND_EXPLANATION_CHUNK', payload: { issueId, chunk, isComplete } })
+    )
     const unsubFix      = bridge.onFixSuggestion(fix => dispatch({ type: 'SET_FIX', payload: fix }))
     const unsubNode     = bridge.onNodeUpdate(({ nodeId, status }) =>
       dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } })
@@ -56,7 +59,7 @@ export default function App() {
     )
 
     return () => {
-      unsubGraph(); unsubExpl(); unsubFix(); unsubNode();
+      unsubGraph(); unsubExpl(); unsubExplChunk(); unsubFix(); unsubNode();
       unsubStart(); unsubProg(); unsubComplete(); unsubError(); unsubSystem();
       unsubImpact(); unsubFrame(); unsubEnd(); unsubState(); unsubAuto();
       unsubIssues(); unsubEngineStatus(); unsubFixApplied();
