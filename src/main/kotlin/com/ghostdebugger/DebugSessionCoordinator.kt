@@ -139,7 +139,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
     }
 
     internal fun extractVariableName(title: String, description: String): String? {
-        val varRegex = "Variable '([^']+)'|Nullable '([^']+)'|Expression '([^']+)'|Null reference: (\\w+)".toRegex()
+        val varRegex = "Variable '([^']+)'|Field '([^']+)'|Property '([^']+)'|Nullable '([^']+)'|Expression '([^']+)'|Null reference: (\\w+)".toRegex()
         val match = varRegex.find(description) ?: varRegex.find(title) ?: return null
         for (i in 1 until match.groupValues.size) {
             val valStr = match.groupValues[i]
@@ -157,19 +157,23 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
         val relevantIssues = service.currentIssues.filter {
             it.filePath.replace("\\", "/") == normalizedPath &&
             it.line == line &&
-            it.type == com.ghostdebugger.model.IssueType.NULL_SAFETY
+            (it.type == com.ghostdebugger.model.IssueType.NULL_SAFETY || it.type == com.ghostdebugger.model.IssueType.STATE_BEFORE_INIT)
         }
 
         for (issue in relevantIssues) {
             val varName = extractVariableName(issue.title, issue.description) ?: continue
-            log.info("Cross-checking null-safety for variable '$varName' on line $line")
+            log.info("Cross-checking variable '$varName' on line $line")
 
             evaluator.evaluate(varName, object : com.intellij.xdebugger.evaluation.XDebuggerEvaluator.XEvaluationCallback {
                 override fun evaluated(result: com.intellij.xdebugger.frame.XValue) {
                     result.computePresentation(object : com.intellij.xdebugger.frame.XValueNode {
                         override fun setPresentation(icon: javax.swing.Icon?, type: String?, value: String, hasChildren: Boolean) {
-                            val isNull = value == "null" || value == "undefined"
-                            updateIssueWithDebuggerResult(issue, isNull)
+                            val isConfirmed = if (issue.type == com.ghostdebugger.model.IssueType.STATE_BEFORE_INIT) {
+                                value.contains("uninitialized", ignoreCase = true) || value.contains("not initialized", ignoreCase = true)
+                            } else {
+                                value == "null" || value == "undefined"
+                            }
+                            updateIssueWithDebuggerResult(issue, isConfirmed)
                         }
 
                         override fun setPresentation(icon: javax.swing.Icon?, presentation: com.intellij.xdebugger.frame.presentation.XValuePresentation, hasChildren: Boolean) {
@@ -186,8 +190,12 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                                 override fun renderNumericValue(text: String) { sb.append(text) }
                             })
                             val textValue = sb.toString()
-                            val isNull = textValue == "null" || textValue == "undefined"
-                            updateIssueWithDebuggerResult(issue, isNull)
+                            val isConfirmed = if (issue.type == com.ghostdebugger.model.IssueType.STATE_BEFORE_INIT) {
+                                textValue.contains("uninitialized", ignoreCase = true) || textValue.contains("not initialized", ignoreCase = true)
+                            } else {
+                                textValue == "null" || textValue == "undefined"
+                            }
+                            updateIssueWithDebuggerResult(issue, isConfirmed)
                         }
 
                         override fun setFullValueEvaluator(fullValueEvaluator: com.intellij.xdebugger.frame.XFullValueEvaluator) {}
@@ -202,7 +210,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
         }
     }
 
-    internal fun updateIssueWithDebuggerResult(issue: com.ghostdebugger.model.Issue, isNull: Boolean) {
+    internal fun updateIssueWithDebuggerResult(issue: com.ghostdebugger.model.Issue, isConfirmed: Boolean) {
         scope.launch {
             val service = GhostDebuggerService.getInstance(project)
             val currentList = service.currentIssues
@@ -211,7 +219,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
 
             val existingIssue = currentList[existingIndex]
 
-            val newSources = if (isNull) {
+            val newSources = if (isConfirmed) {
                 if (existingIssue.sources.contains(com.ghostdebugger.model.IssueSource.RUNTIME_CONFIRMED)) {
                     existingIssue.sources
                 } else {
@@ -221,7 +229,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                 existingIssue.sources - com.ghostdebugger.model.IssueSource.RUNTIME_CONFIRMED
             }
 
-            val newConfidence = if (isNull) 1.0 else 0.1
+            val newConfidence = if (isConfirmed) 1.0 else 0.1
 
             val updatedIssue = existingIssue.copy(
                 sources = newSources,

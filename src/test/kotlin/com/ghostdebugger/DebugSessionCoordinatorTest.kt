@@ -30,6 +30,17 @@ class DebugSessionCoordinatorTest : BasePlatformTestCase() {
             "Data is nullable"
         ))
 
+        // State before init patterns (JVM / JS / TS)
+        assertEquals("count", coordinator.extractVariableName(
+            "Variable 'count' read before assignment",
+            "Variable 'count' is accessed before it is assigned a value."
+        ))
+
+        assertEquals("value", coordinator.extractVariableName(
+            "Field 'value' accessed before initialization",
+            "Field 'value' is accessed before it has been initialized."
+        ))
+
         assertNull(coordinator.extractVariableName("Compilation error", "Syntax is broken"))
     }
 }
