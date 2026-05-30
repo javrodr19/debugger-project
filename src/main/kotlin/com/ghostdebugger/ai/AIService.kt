@@ -33,4 +33,13 @@ interface AIService {
         onToken(result)
         return result
     }
+
+    suspend fun explainSystemStreaming(
+        graph: ProjectGraph,
+        onToken: (String) -> Unit
+    ): String {
+        val result = explainSystem(graph)
+        onToken(result)
+        return result
+    }
 }

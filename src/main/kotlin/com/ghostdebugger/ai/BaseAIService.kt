@@ -114,6 +114,29 @@ internal abstract class BaseAIService(
             callModel(SystemPrompts.DEBUGGER, PromptTemplates.explainSystem(graph), jsonMode = false)
         }
 
+    override suspend fun explainSystemStreaming(
+        graph: ProjectGraph,
+        onToken: (String) -> Unit
+    ): String {
+        val cacheKey = if (cacheEnabled) cache.computeKey(graph.metadata.projectName + graph.nodes.size, "system") else null
+        if (cacheKey != null) {
+            val cached = cache.get(cacheKey)
+            if (cached != null) {
+                onToken(cached)
+                return cached
+            }
+        }
+        val response = callModelStreaming(
+            SystemPrompts.DEBUGGER,
+            PromptTemplates.explainSystem(graph),
+            onToken
+        )
+        if (cacheKey != null) {
+            cache.put(cacheKey, response)
+        }
+        return response
+    }
+
     private suspend fun cached(seed: Any, kind: String, produce: suspend () -> String): String {
         val key = if (cacheEnabled) cache.computeKey(seed.toString(), kind) else null
         if (key != null) cache.get(key)?.let { return it }

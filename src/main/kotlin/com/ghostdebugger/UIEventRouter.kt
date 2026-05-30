@@ -291,9 +291,17 @@ internal class UIEventRouter(private val project: Project) {
                     }
                     return@launch
                 }
-                val summary = ai.explainSystem(graph)
+                // Send an empty complete chunk to clear any stale UI explanation state
                 withContext(Dispatchers.Swing) {
-                    svc.jcefBridge()?.sendSystemExplanation(summary)
+                    svc.jcefBridge()?.sendSystemExplanationChunk("", isComplete = false)
+                }
+                val summary = ai.explainSystemStreaming(graph) { token ->
+                    scope.launch(Dispatchers.Swing) {
+                        svc.jcefBridge()?.sendSystemExplanationChunk(token, isComplete = false)
+                    }
+                }
+                withContext(Dispatchers.Swing) {
+                    svc.jcefBridge()?.sendSystemExplanationChunk("", isComplete = true)
                 }
             } catch (e: Exception) {
                 log.error("System explanation failed", e)

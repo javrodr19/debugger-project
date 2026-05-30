@@ -205,6 +205,14 @@ class JcefBridge(
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onSystemExplanation($escaped)")
     }
 
+    fun sendSystemExplanationChunk(chunk: String, isComplete: Boolean) {
+        val payload = json.encodeToString(mapOf(
+            "chunk" to chunk,
+            "isComplete" to isComplete.toString()
+        ))
+        executeJS("window.__aegis_debug__ && window.__aegis_debug__.onSystemExplanationChunk($payload)")
+    }
+
     fun sendImpactAnalysis(nodeId: String, affectedNodes: List<String>) {
         val payload = buildJsonObject {
             put("nodeId", nodeId)
