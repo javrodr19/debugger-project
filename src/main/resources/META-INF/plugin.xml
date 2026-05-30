@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.ghostdebugger</id>
     <name>Aegis Debug</name>
-    <version>2.0.0-alpha.2</version>
+    <version>2.0.0-alpha.3</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
     <idea-version since-build="243.0" until-build="261.*"/>
@@ -39,6 +39,14 @@
 ]]></description>
 
     <change-notes><![CDATA[
+    <h3>2.0.0-alpha.3 — Third V2 milestone: Inspection Profile integration</h3>
+    <ul>
+        <li><strong>Inspection Profile Integration.</strong> Fully integrated all 11 Aegis rule IDs natively into the <code>Settings &rarr; Editor &rarr; Inspections</code> configuration panel under the "Aegis Debug" group. Rules can now be toggled, customized with custom severities, and mapped to native quick-fixes directly in the IDE.</li>
+        <li><strong>Annotator Deprecated.</strong> Completely replaced the legacy <code>GhostDebuggerAnnotator</code> with native inspection visitor patterns to prevent duplicate rendering and respect profile settings dynamically.</li>
+        <li><strong>Roadmap Alignment.</strong> Streamlined scope by removing Python support references from the roadmap, concentrating language breadth entirely on native, out-of-the-box IntelliJ languages (Kotlin, Java, JS, TS).</li>
+        <li><em>Internal:</em> Created robust test suites asserting that inspection line offsets map accurately to active elements and fallback gracefully in plain-text test environments.</li>
+    </ul>
+
     <h3>2.0.0-alpha.2 — Second V2 milestone: native integration and test validation</h3>
     <ul>
         <li><strong>Native Problems tool window emit.</strong> Aegis findings are now fully published to the IDE's native Problems view via <code>WolfTheProblemSolver</code>. Real-time background sync adds, updates, and clears problems as files are analyzed, providing a seamless keyboard-driven experience.</li>
@@ -187,9 +195,94 @@
                 displayName="Aegis Debug"
                 parentId="tools"/>
 
-        <!-- ExternalAnnotator for Problems window — registered for all languages -->
-        <externalAnnotator language=""
-                           implementationClass="com.ghostdebugger.annotator.GhostDebuggerAnnotator"/>
+        <!-- V2.0.0-alpha.3: Aegis Local Inspections (grouped under Aegis Debug) -->
+        <localInspection
+                shortName="AegisSyntaxInspection"
+                displayName="Aegis: Syntax Error Detection"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="com.ghostdebugger.inspections.AegisSyntaxInspection"/>
+
+        <localInspection
+                shortName="AegisCompileInspection"
+                displayName="Aegis: Compilation Error Detection"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="com.ghostdebugger.inspections.AegisCompileInspection"/>
+
+        <localInspection
+                shortName="AegisNullSafetyInspection"
+                displayName="Aegis: Null Safety Check (TS/JS)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisNullSafetyInspection"/>
+
+        <localInspection
+                shortName="AegisKotlinNullSafetyInspection"
+                displayName="Aegis: Null Safety Check (Kotlin)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisKotlinNullSafetyInspection"/>
+
+        <localInspection
+                shortName="AegisStateInitInspection"
+                displayName="Aegis: Uninitialized State Check (TS/JS)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisStateInitInspection"/>
+
+        <localInspection
+                shortName="AegisAsyncFlowInspection"
+                displayName="Aegis: Async Flow Check (TS/JS)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisAsyncFlowInspection"/>
+
+        <localInspection
+                shortName="AegisCircularDependencyInspection"
+                displayName="Aegis: Circular Dependency Detection"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisCircularDependencyInspection"/>
+
+        <localInspection
+                shortName="AegisComplexityInspection"
+                displayName="Aegis: Code Complexity Analysis"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WEAK_WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisComplexityInspection"/>
+
+        <localInspection
+                shortName="AegisKotlinUnsafeCastInspection"
+                displayName="Aegis: Unsafe Cast Detection (Kotlin)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisKotlinUnsafeCastInspection"/>
+
+        <localInspection
+                shortName="AegisKotlinTypeMismatchInspection"
+                displayName="Aegis: Type Mismatch Detection (Kotlin)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="com.ghostdebugger.inspections.AegisKotlinTypeMismatchInspection"/>
+
+        <localInspection
+                shortName="AegisKotlinRedundantLetInspection"
+                displayName="Aegis: Redundant Let Check (Kotlin)"
+                groupName="Aegis Debug"
+                enabledByDefault="true"
+                level="WEAK_WARNING"
+                implementationClass="com.ghostdebugger.inspections.AegisKotlinRedundantLetInspection"/>
 
         <!-- Aegis Quick-Fix Intention Action -->
         <intentionAction>
