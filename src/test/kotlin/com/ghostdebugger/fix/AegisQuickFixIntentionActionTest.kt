@@ -1,4 +1,4 @@
-package com.ghostdebugger.annotator
+package com.ghostdebugger.fix
 
 import com.ghostdebugger.fix.AegisQuickFixIntentionAction
 import com.ghostdebugger.model.CodeFix
