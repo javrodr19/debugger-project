@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Aegis Debug — a privacy-first static-analysis plugin for JetBrains IDEs. Eleven deterministic analyzers, five PSI-validated fixers, optional local AI, zero telemetry. By Javier Rodríguez.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Aegis Debug — static-first debugging for JetBrains IDEs">
+  <meta property="og:description" content="Eleven deterministic analyzers. Five PSI-validated fixers. Optional local AI. Zero telemetry.">
+  <meta property="og:image" content="assets/og-image.png">
+  <meta property="og:url" content="https://javrodr19.github.io/debugger-project/">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Aegis Debug — static-first debugging for JetBrains IDEs">
+  <meta name="twitter:description" content="Eleven deterministic analyzers. Five PSI-validated fixers. Optional local AI. Zero telemetry.">
+  <meta name="twitter:image" content="assets/og-image.png">
+
+  <title>Aegis Debug — static-first debugging for JetBrains IDEs</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/svg+xml" href="assets/plugin-icon.svg">
+</head>
+<body>
+  <a class="skip-link" href="#top">Skip to content</a>
+  <header class="site-nav">
+    <a class="brand" href="#top">AEGIS DEBUG</a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#case-studies">Case studies</a>
+      <a href="#about">About</a>
+      <a href="https://github.com/javrodr19/debugger-project" rel="noopener" target="_blank">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-headline">
+      <div class="shell hero-grid">
+        <div class="hero-text">
+          <p class="eyebrow">An IntelliJ IDEA plugin <span class="dot" aria-hidden="true">·</span> by Javier Rodríguez</p>
+          <h1 id="hero-headline" class="headline">
+            Static-first debugging that <span class="accent">never leaves your machine.</span>
+          </h1>
+          <p class="sub">
+            Eleven deterministic analyzers. Five PSI-validated fixers.
+            Optional local AI. Zero telemetry.
+          </p>
+          <div class="cta-row">
+            <a class="cta cta-primary" href="https://github.com/javrodr19/debugger-project/releases" rel="noopener" target="_blank">Install</a>
+            <a class="cta cta-secondary" href="#case-studies">Read the case studies <span aria-hidden="true">→</span></a>
+          </div>
+          <p class="person-row">
+            <a href="https://github.com/javrodr19" rel="noopener" target="_blank">GitHub</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="https://www.linkedin.com/in/javier-rodriguez-gil/" rel="noopener" target="_blank">LinkedIn</a>
+          </p>
+        </div>
+
+        <aside class="code-panel" aria-label="Example analyzer output">
+          <div class="code-panel-hdr">UserService.kt — analyzer output</div>
+          <pre class="code-panel-body"><span class="lineno">42</span><span class="comment">// inferred: String?</span>
+<span class="lineno">43</span><span class="kw">val</span> name = user.name
+<span class="lineno">44</span>
+<span class="lineno"></span><span class="rule">▸ AEG-NULL-KT-001</span> · unsafe deref
+<span class="lineno"></span><span class="pass">✓ fix available</span> · convert to <span class="kw">?.</span></pre>
+        </aside>
+      </div>
+    </section>
+
+    <section id="features" class="features reveal" aria-labelledby="features-heading">
+      <div class="shell">
+        <h2 id="features-heading" class="section-title">What it does</h2>
+        <p class="section-lead">Three things, deliberately scoped. Aegis Debug runs every analysis through deterministic static analyzers first, then optionally augments with AI.</p>
+
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-badge">01</div>
+            <h3>Static-first analysis</h3>
+            <p>Eleven analyzers across TypeScript, JavaScript, Kotlin, and Java — null safety, state-before-init, async flow, complexity, circular dependencies, syntax, and compilation errors.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-badge">02</div>
+            <h3>Deterministic fixers</h3>
+            <p>Five one-click fixers with PSI-validity guarantees: every produced edit parses or the fixer returns null and falls back to AI.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-badge">03</div>
+            <h3>Privacy by default</h3>
+            <p>No telemetry. No cloud uploads without explicit opt-in. Optional local Ollama or cloud OpenAI for AI augmentation. API keys stored in IntelliJ PasswordSafe.</p>
+          </article>
+        </div>
+
+        <figure class="screenshot">
+          <img src="assets/neuromap-hero.png" alt="NeuroMap view of an Aegis Debug analysis — project graph with per-file issue overlay" loading="lazy" width="1600" height="1000">
+          <figcaption>NeuroMap — the project graph view, with per-file issue overlay.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="how-it-works reveal" aria-labelledby="how-heading">
+      <div class="shell">
+        <h2 id="how-heading" class="section-title">How it works</h2>
+
+        <div class="how-grid">
+          <div class="how-prose">
+            <p>
+              Aegis Debug runs every analysis through deterministic static analyzers first, then optionally augments with AI. Static findings are PSI-backed and type-aware — the Kotlin analyzers use the Kotlin Analysis API; the Java analyzers use PSI directly.
+            </p>
+            <p>
+              AI is a fallback path, only if you opt in. Every finding carries a provenance badge so engine-verified results look distinct from local-AI or cloud-AI results. The reader always knows what they're trusting.
+            </p>
+          </div>
+
+          <figure class="architecture">
+            <svg viewBox="0 0 560 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arch-title arch-desc">
+              <title id="arch-title">Aegis Debug analysis pipeline</title>
+              <desc id="arch-desc">Source file flows through PSI parse, early syntax/compile pass, deterministic static analyzers, optional AI augmentation, and ends at an issue list plus NeuroMap overlay.</desc>
+
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#f3ead3" />
+                </marker>
+                <marker id="arrow-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#c9a96a" />
+                </marker>
+              </defs>
+
+              <!-- nodes -->
+              <g font-family="IBM Plex Sans, sans-serif" font-size="12" fill="#f3ead3">
+                <rect x="200" y="10"  width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="280" y="34"  text-anchor="middle">Source file</text>
+
+                <rect x="200" y="72"  width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="280" y="96"  text-anchor="middle">PSI parse</text>
+
+                <rect x="20"  y="72"  width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="100" y="96"  text-anchor="middle">Early pass (syntax / compile)</text>
+
+                <rect x="200" y="142" width="160" height="44" rx="4" fill="#1a2436" stroke="#c9a96a" stroke-width="2"/>
+                <text x="280" y="160" text-anchor="middle">Static analyzers</text>
+                <text x="280" y="176" text-anchor="middle" font-size="10" fill="#c9a96a">deterministic · engine badge</text>
+
+                <rect x="200" y="218" width="160" height="44" rx="4" fill="#1a2436" stroke="#243049" stroke-dasharray="4 3"/>
+                <text x="280" y="236" text-anchor="middle" fill="#f3ead3cc">AI augmentation</text>
+                <text x="280" y="252" text-anchor="middle" font-size="10" fill="#f3ead380">optional · local or cloud</text>
+
+                <rect x="200" y="294" width="160" height="38" rx="4" fill="#1a2436" stroke="#243049"/>
+                <text x="280" y="318" text-anchor="middle">Issue list + NeuroMap</text>
+              </g>
+
+              <!-- edges -->
+              <g stroke="#f3ead3" stroke-width="1.2" fill="none">
+                <line x1="280" y1="48" x2="280" y2="68" marker-end="url(#arrow)"/>
+                <line x1="200" y1="91" x2="184" y2="91" marker-end="url(#arrow)"/>
+              </g>
+              <g stroke="#c9a96a" stroke-width="1.4" fill="none">
+                <line x1="280" y1="110" x2="280" y2="138" marker-end="url(#arrow-gold)"/>
+              </g>
+              <g stroke="#f3ead3" stroke-width="1.2" fill="none" stroke-dasharray="4 3">
+                <line x1="280" y1="186" x2="280" y2="214" marker-end="url(#arrow)"/>
+              </g>
+              <g stroke="#f3ead3" stroke-width="1.2" fill="none">
+                <line x1="280" y1="262" x2="280" y2="290" marker-end="url(#arrow)"/>
+              </g>
+            </svg>
+            <figcaption>Solid path: deterministic. Dashed path: optional AI augmentation.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="case-studies" class="case-studies reveal" aria-labelledby="cs-heading">
+      <div class="shell">
+        <h2 id="cs-heading" class="section-title">Engineering case studies</h2>
+        <p class="section-lead">Three different kinds of work from the V1 → V1.5 cycle: a migration, a debugging dig, and a deliberate refactor.</p>
+
+        <div class="tabs-wrap">
+          <div class="tabs" role="tablist" aria-label="Case studies">
+            <button type="button" role="tab" class="tab" id="tab-k2"        aria-controls="panel-k2"        aria-selected="true"  tabindex="0">K2 migration</button>
+            <button type="button" role="tab" class="tab" id="tab-hang"      aria-controls="panel-hang"      aria-selected="false" tabindex="-1">The hanging tests</button>
+            <button type="button" role="tab" class="tab" id="tab-refactor"  aria-controls="panel-refactor"  aria-selected="false" tabindex="-1">Pre-V2 refactor</button>
+          </div>
+
+          <article role="tabpanel" id="panel-k2" aria-labelledby="tab-k2" class="tab-panel" data-active>
+            <p class="cs-hook">
+              Name-based matching was producing the wrong answers on smart-cast variables. The fix was to stop matching names and start asking the compiler.
+            </p>
+
+            <div class="cs-section">
+              <h3>The investigation</h3>
+              <p>V1.1.x's Kotlin null-safety analyzer used a regex-and-name-table approach: scan the file, build a table of which identifiers had been null-checked in scope, flag dereferences of identifiers not in the table. It produced false positives on every <code>if (x != null) { x.foo() }</code> idiom because the table never captured the narrowing — name-based matching can't see types.</p>
+              <p>I considered the <code>BindingContext</code> API first; rejected because it's deprecated under K2. The Kotlin Analysis API's <code>analyze(ktFile) { … }</code> block exposes smart-cast and type-inference data directly, but its session-bound values throw <code>KaInvalidLifetimeOwnerAccessException</code> if they escape the block. Catching that consistently across analyzers needed a chokepoint.</p>
+            </div>
+
+            <div class="cs-section">
+              <h3>The fix</h3>
+              <p>One helper, used by every Kotlin analyzer. Wraps <code>analyze { }</code>, rethrows <code>ProcessCanceledException</code> immediately (so the IDE's cancel button works), and returns <code>null</code> on any other Analysis API failure:</p>
+<pre class="cs-code"><span class="kw">internal inline fun</span> &lt;<span class="type">T</span>&gt; <span class="fn">withKtAnalysis</span>(
+    file: <span class="type">KtFile</span>,
+    block: <span class="type">KaSession</span>.(<span class="type">KtFile</span>) -&gt; <span class="type">T</span>
+): <span class="type">T</span>? = <span class="kw">try</span> {
+    <span class="fn">analyze</span>(file) { <span class="fn">block</span>(file) }
+} <span class="kw">catch</span> (e: <span class="type">ProcessCanceledException</span>) {
+    <span class="kw">throw</span> e
+} <span class="kw">catch</span> (e: <span class="type">Exception</span>) {
+    log.<span class="fn">warn</span>(<span class="str">"Analysis API failure for ${file.virtualFilePath}"</span>, e)
+    <span class="kw">null</span>
+}</pre>
+            </div>
+
+            <div class="cs-section">
+              <h3>Why it matters</h3>
+              <p>Funnelling every analyzer through one chokepoint means new Analysis API exceptions surface in one file. A reviewer who adds a Kotlin analyzer and forgets to call <code>withKtAnalysis</code> is immediately spottable in code review — every direct <code>analyze { }</code> call outside the helper is suspicious by definition. Documented in <code>CLAUDE.md</code> so future contributors inherit the convention without reading the V1.3 PR.</p>
+            </div>
+          </article>
+          <article role="tabpanel" id="panel-hang" aria-labelledby="tab-hang" class="tab-panel" hidden>
+            <p class="cs-hook">
+              A transitive <code>kotlinx-coroutines-core</code> was shadowing IntelliJ's forked variant of the same jar. Five <code>BasePlatformTestCase</code> tests had been silently disabled for a release cycle.
+            </p>
+
+            <div class="cs-section">
+              <h3>The investigation</h3>
+              <p>Symptom: <code>IndexingTestUtil.waitUntilIndexesAreReady</code> polled forever. The test daemon never threw, never logged, never finished. My first hypothesis was test-framework wiring — I upgraded the IntelliJ Platform Gradle Plugin from 2.2.1 to 2.14.0 and re-ran. The hang persisted.</p>
+              <p>The real root cause sat one layer deeper. Stock <code>kotlinx-coroutines-core:1.9.0</code> was being pulled transitively (including via <code>mockk</code>) and was winning classpath resolution over IntelliJ's forked <code>kotlinx-coroutines-core-jvm-*-intellij.jar</code>. The fork exposes platform-only methods like <code>runBlockingWithParallelismCompensation</code> that <code>UnindexedFilesScanner</code> invokes during test setup. The stock jar threw <code>NoSuchMethodError</code> inside the scanning coroutine, which the scanner caught and converted to "still indexing" — silent forever.</p>
+            </div>
+
+            <div class="cs-section">
+              <h3>The fix</h3>
+              <p>Demote <code>kotlinx-coroutines-core</code> to <code>compileOnly</code> and apply a configuration-level <code>exclude</code> on both runtime classpaths. Per-dependency excludes weren't enough — <code>mockk</code> re-introduces the jar transitively, so the exclude has to live at the configuration level:</p>
+<pre class="cs-code"><span class="fn">configurations</span> {
+    <span class="fn">all</span> {
+        <span class="fn">exclude</span>(group = <span class="str">"org.jetbrains.kotlinx"</span>,
+                module = <span class="str">"kotlinx-coroutines-core"</span>)
+    }
+}
+
+<span class="fn">dependencies</span> {
+    <span class="fn">compileOnly</span>(<span class="str">"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"</span>)
+    <span class="comment">// IntelliJ's forked jar wins at runtime now</span>
+}</pre>
+            </div>
+
+            <div class="cs-section">
+              <h3>Why it matters</h3>
+              <p>Test-infrastructure failures that masquerade as "indexing slowness" can hide silent test-suite regressions across releases — in this case, five tests had been disabled since V1.1 without anyone noticing. The platform's forked-jar trick is invisible from outside JetBrains; finding the root cause required reading Gradle dependency-resolution output, the IntelliJ Community source, and the coroutine scanner's catch block.</p>
+            </div>
+          </article>
+          <article role="tabpanel" id="panel-refactor" aria-labelledby="tab-refactor" class="tab-panel" hidden>
+            <p class="cs-hook">
+              Every V2 feature would land code inside or adjacent to <code>GhostDebuggerService</code>. Splitting now means V2 lands on a clean seam; splitting later means V3 inherits a worse problem.
+            </p>
+
+            <div class="cs-section">
+              <h3>The investigation</h3>
+              <p>By V1.4.1, <code>GhostDebuggerService</code> was 918 lines and held five distinct responsibilities: analysis orchestration, VFS-listener plumbing, debug-event subscription, UI-event routing, and report export. V2's roadmap adds five capabilities — test-runner cross-check, debug-session cross-check, problems-tool-window integration, IntentionAction quick-fixes, streaming AI — and every one of them would land in or adjacent to that class.</p>
+              <p>Mapping each V2 feature to its eventual home revealed four natural seams: analysis state, UI events, VFS plumbing, debug events. The decision was whether to split before V2 (paying the refactor cost on a stable baseline) or after (paying it on top of new features). Splitting before means each V2 feature lands on a clean seam. Splitting after means V3 inherits a 1500-line god class.</p>
+            </div>
+
+            <div class="cs-section">
+              <h3>The fix</h3>
+              <p>Facade pattern. The class keeps its name and <code>getInstance(project)</code> entry point — six external callers depend on that signature — but the body becomes a thin delegator over four new project-scoped services. State stays on the facade; collaborators read it through the facade and write it through one internal mutator:</p>
+<pre class="cs-code"><span class="comment">// One writer, many readers. Invariant documented in CLAUDE.md.</span>
+<span class="kw">internal fun</span> <span class="fn">updateIssues</span>(issues: <span class="type">List</span>&lt;<span class="type">Issue</span>&gt;) {
+    currentIssues = issues
+    issuesByFile = issues.<span class="fn">groupBy</span> { it.file }
+}
+
+<span class="comment">// Collaborator side — reads through facade, never assigns directly.</span>
+<span class="kw">class</span> <span class="type">AnalysisOrchestrator</span>(<span class="kw">private val</span> service: <span class="type">GhostDebuggerService</span>) {
+    <span class="kw">fun</span> <span class="fn">currentIssueCount</span>(): <span class="type">Int</span> = service.currentIssues.size
+}</pre>
+            </div>
+
+            <div class="cs-section">
+              <h3>Why it matters</h3>
+              <p>State ownership matters in a multi-collaborator system. If each collaborator owned its own copy of the issue list, the views drift and the user sees stale or contradictory findings across surfaces. One writer (the facade), many readers (collaborators) is the invariant that prevents that — and it's documented in <code>CLAUDE.md</code> precisely so V2's new collaborators inherit the rule instead of re-litigating it.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="stats" class="stats reveal" aria-labelledby="stats-heading">
+      <div class="shell">
+        <h2 id="stats-heading" class="section-title">By the numbers</h2>
+
+        <dl class="stat-grid">
+          <div class="stat"><dt>Analyzers</dt><dd>11</dd></div>
+          <div class="stat"><dt>Deterministic fixers</dt><dd>5</dd></div>
+          <div class="stat"><dt>Languages</dt><dd>TS · JS · Kotlin · Java</dd></div>
+          <div class="stat"><dt>Release cadence</dt><dd>V1.0 → V1.5 in under a month</dd></div>
+          <div class="stat"><dt>Tests · verifier</dt><dd>~257 green · Compatible across 4 IDE versions</dd></div>
+        </dl>
+
+        <p class="roadmap">
+          <strong>What's next.</strong> V2 is fully shipped — featuring runtime-confirmed findings via test-suite and debug-session cross-checks, native Problems view reporting, quick-fix intention actions, and full Inspection Profile integration. V3 is now in design focusing on custom rule authoring and advanced fixers.
+          <a href="https://github.com/javrodr19/debugger-project/blob/main/docs/aegis_debug_roadmap_v2_to_v5.md" rel="noopener" target="_blank">See the roadmap <span aria-hidden="true">→</span></a>
+        </p>
+      </div>
+    </section>
+
+    <section id="about" class="about reveal" aria-labelledby="about-heading">
+      <div class="shell about-shell">
+        <h2 id="about-heading" class="section-title">About the author</h2>
+
+        <p class="bio">
+          I'm <strong>Javier Rodríguez</strong>. I build developer tools — currently a JetBrains plugin for static analysis, the project you're looking at. I care about deterministic-first systems, deliberate API design, and writing code that reads well a year after I wrote it. I'm open to roles and collaborations on Aegis Debug or adjacent work in developer tooling and IDE/language ecosystems.
+        </p>
+
+        <div class="author-cta-row">
+          <a class="cta cta-primary" href="https://github.com/javrodr19" rel="noopener" target="_blank">
+            <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 005.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>
+            </svg>
+            GitHub
+          </a>
+          <a class="cta cta-secondary" href="https://www.linkedin.com/in/javier-rodriguez-gil/" rel="noopener" target="_blank">
+            <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path fill="currentColor" d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854V1.146zm4.943 12.248V6.169H2.542v7.225h2.401zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248-.822 0-1.359.54-1.359 1.248 0 .694.521 1.248 1.327 1.248h.016zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225h2.4z"/>
+            </svg>
+            LinkedIn
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-row footer-install">
+        <strong>Aegis Debug</strong> v2.0.0 — <a href="https://github.com/javrodr19/debugger-project/releases" rel="noopener" target="_blank">install from GitHub <span aria-hidden="true">↗</span></a>.
+      </div>
+      <div class="footer-row footer-links">
+        <a href="https://github.com/javrodr19/debugger-project" rel="noopener" target="_blank">Repo</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="https://github.com/javrodr19/debugger-project/blob/main/CHANGELOG.md" rel="noopener" target="_blank">CHANGELOG</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="https://github.com/javrodr19/debugger-project/tree/main/docs/superpowers/specs" rel="noopener" target="_blank">Spec docs</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="https://github.com/javrodr19/debugger-project/blob/main/LICENSE" rel="noopener" target="_blank">License (MIT)</a>
+      </div>
+      <div class="footer-row footer-sign">
+        Made by Javier Rodríguez <span class="sep" aria-hidden="true">·</span> 2026 <span class="sep" aria-hidden="true">·</span> This page has zero analytics.
+      </div>
+    </div>
+  </footer>
+
+  <script src="main.js" defer></script>
+</body>
+</html>
