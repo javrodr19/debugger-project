@@ -44,6 +44,10 @@ class SuppressionMemoryService(private val project: Project) :
         dismissCounts.size
     }
 
+    fun getDismissCounts(): Map<String, Int> = synchronized(lock) {
+        dismissCounts.toMap()
+    }
+
     override fun getState(): State = synchronized(lock) {
         State(version = 1, dismissCounts = dismissCounts.toMutableMap())
     }

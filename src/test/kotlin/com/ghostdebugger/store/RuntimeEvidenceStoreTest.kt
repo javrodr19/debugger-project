@@ -165,17 +165,21 @@ class RuntimeEvidenceStoreTest : BasePlatformTestCase() {
         val fingerprint = "null-safety:file.kt:10"
         
         Assert.assertFalse(suppression.shouldAutoHide(fingerprint))
+        Assert.assertEquals(0, suppression.getDismissCounts().size)
         
         // Default threshold is 3. Let's record 3 dismissals.
         suppression.recordDismissal(fingerprint)
+        Assert.assertEquals(1, suppression.getDismissCounts()[fingerprint])
         suppression.recordDismissal(fingerprint)
         suppression.recordDismissal(fingerprint)
         
         Assert.assertTrue(suppression.shouldAutoHide(fingerprint))
+        Assert.assertEquals(3, suppression.getDismissCounts()[fingerprint])
         
         // Reset dismissal
         suppression.reset(fingerprint)
         Assert.assertFalse(suppression.shouldAutoHide(fingerprint))
+        Assert.assertFalse(suppression.getDismissCounts().containsKey(fingerprint))
     }
 
     fun testStoreDebouncedListener() {
