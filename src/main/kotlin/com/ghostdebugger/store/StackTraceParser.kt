@@ -10,28 +10,39 @@ data class ParsedFrame(
 
 object StackTraceParser {
     private val log = logger<StackTraceParser>()
-    private val regex = Regex("""([a-zA-Z0-9_\-\./]+)\.(kt|java|ts|js|tsx|jsx):(\d+)""")
+    
+    // Highly robust regex patterns represent:
+    // 1. Parenthesized traces (e.g. Jest, Vitest, Node ESM, Webpack): at foo (webpack:///./src/Foo.ts:125:7)
+    // 2. Bare prefixed traces (e.g. Node, Webpack bare): at /home/user/src/Foo.ts:125:7
+    // 3. Raw path traces (e.g. Mocha, Karma): test/index.spec.js:15:10
+    private val patterns = listOf(
+        Regex("""\((?:file:///)?(?:webpack:///)?([^()]+?)\.(kt|java|ts|js|tsx|jsx):(\d+)(?::\d+)?\)"""),
+        Regex("""\bat\s+(?:file:///)?(?:webpack:///)?([^\s()]+?)\.(kt|java|ts|js|tsx|jsx):(\d+)(?::\d+)?\b"""),
+        Regex("""\b([^\s()]+?)\.(kt|java|ts|js|tsx|jsx):(\d+)(?::\d+)?\b""")
+    )
 
     fun parse(stackTrace: String?): List<ParsedFrame> {
         if (stackTrace.isNullOrBlank()) return emptyList()
         val frames = mutableListOf<ParsedFrame>()
         try {
-            val matches = regex.findAll(stackTrace)
-            for (match in matches) {
-                val path = match.groupValues[1]
-                val ext = match.groupValues[2]
-                val lineStr = match.groupValues[3]
-                val line = lineStr.toIntOrNull()
-                if (line != null) {
-                    val fullFileName = "$path.$ext"
-                    val simpleName = fullFileName.substringAfterLast('/')
-                    frames.add(ParsedFrame(simpleName, line))
+            for (pattern in patterns) {
+                val matches = pattern.findAll(stackTrace)
+                for (match in matches) {
+                    val path = match.groupValues[1]
+                    val ext = match.groupValues[2]
+                    val lineStr = match.groupValues[3]
+                    val line = lineStr.toIntOrNull()
+                    if (line != null) {
+                        val fullFileName = "$path.$ext"
+                        val simpleName = fullFileName.substringAfterLast('/')
+                        frames.add(ParsedFrame(simpleName, line))
+                    }
                 }
             }
         } catch (e: Exception) {
             if (e is ProcessCanceledException) throw e
             log.warn("Failed to parse stacktrace", e)
         }
-        return frames
+        return frames.distinctBy { Pair(it.fileName, it.line) }
     }
 }
