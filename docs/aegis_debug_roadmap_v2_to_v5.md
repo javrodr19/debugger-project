@@ -35,7 +35,7 @@ Explicit boundary: dynamic validation is **non-destructive**. It only reads runt
 
 ### Other V2 scope
 
-- **Python support** — full analyzer pipeline (None safety, async flow, complexity, circular deps). Primary tier, same treatment as TS/JS.
+- ~~**Python support**~~ — *Discarded in V2.0.0-alpha.3 (limited to native out-of-the-box IntelliJ languages).*
 - **IntelliJ Problems tool window** — all issues also surface in the native Problems panel so keyboard-driven users aren't locked into the Aegis tool window.
 - **Quick-fix intention actions** — expose the three existing fixers as `IntentionAction` entries so `Alt+Enter` on a flagged line offers the same fix we show in the detail panel.
 - **Inspection profile integration** — our rules become togglable in `Settings → Editor → Inspections`, respecting per-project severity overrides.
