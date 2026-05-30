@@ -5,6 +5,7 @@ import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.Messages
 import javax.swing.*
 import javax.swing.border.EmptyBorder
+import javax.swing.table.DefaultTableModel
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
@@ -31,6 +32,9 @@ class GhostDebuggerConfigurable : Configurable {
     private var suppressionThresholdSpinner: JSpinner? = null
     private var showUnreachedBox: JCheckBox? = null
     private var showSuppressedBox: JCheckBox? = null
+    private var suppressionTable: JTable? = null
+    private var suppressionModel: javax.swing.table.DefaultTableModel? = null
+    private var noSuppressionsLabel: JLabel? = null
 
     override fun getDisplayName(): String = "Aegis Debug"
 
@@ -207,6 +211,101 @@ class GhostDebuggerConfigurable : Configurable {
         formPanel.add(showUnreachedBox)
         formPanel.add(showSuppressedBox)
 
+        formPanel.add(Box.createVerticalStrut(20))
+        formPanel.add(JLabel("<html><b>Active Suppressions & Dismissals Management</b></html>"))
+        formPanel.add(Box.createVerticalStrut(10))
+
+        val model = DefaultTableModel(
+            arrayOf("Project", "File Path", "Rule/Type", "Line", "Dismissals", "fingerprint"), 0
+        )
+        suppressionModel = model
+
+        val table = com.intellij.ui.table.JBTable(model).apply {
+            setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION)
+            // Hide fingerprint column from view
+            columnModel.getColumn(5).minWidth = 0
+            columnModel.getColumn(5).maxWidth = 0
+            columnModel.getColumn(5).width = 0
+        }
+        suppressionTable = table
+
+        val scrollPane = com.intellij.ui.components.JBScrollPane(table).apply {
+            preferredSize = java.awt.Dimension(600, 150)
+            border = BorderFactory.createLineBorder(java.awt.Color.GRAY)
+        }
+
+        val noSuppressionsLabel = JLabel("No active dismissals or suppressions.").apply {
+            font = font.deriveFont(java.awt.Font.ITALIC)
+        }
+        this.noSuppressionsLabel = noSuppressionsLabel
+
+        val suppressionListPanel = JPanel(BorderLayout()).apply {
+            add(scrollPane, BorderLayout.CENTER)
+            add(noSuppressionsLabel, BorderLayout.NORTH)
+        }
+        formPanel.add(suppressionListPanel)
+        formPanel.add(Box.createVerticalStrut(8))
+
+        val resetSelectedBtn = JButton("Unsuppress Selected").apply {
+            addActionListener {
+                val selectedRows = suppressionTable?.selectedRows ?: return@addActionListener
+                if (selectedRows.isEmpty()) {
+                    Messages.showInfoMessage("Please select one or more items to unsuppress.", "No Selection")
+                    return@addActionListener
+                }
+                val openProjects = com.intellij.openapi.project.ProjectManager.getInstance().openProjects
+                val toReset = selectedRows.map { row ->
+                    val modelRow = suppressionTable?.convertRowIndexToModel(row) ?: -1
+                    if (modelRow >= 0) {
+                        val projName = suppressionModel?.getValueAt(modelRow, 0) as? String
+                        val fingerprint = suppressionModel?.getValueAt(modelRow, 5) as? String
+                        Pair(projName, fingerprint)
+                    } else null
+                }.filterNotNull()
+
+                toReset.forEach { (projName, fingerprint) ->
+                    if (fingerprint != null) {
+                        val project = openProjects.find { it.name == projName }
+                        if (project != null && !project.isDisposed) {
+                            val suppressionSvc = com.ghostdebugger.store.SuppressionMemoryService.getInstance(project)
+                            suppressionSvc.reset(fingerprint)
+                            com.ghostdebugger.GhostDebuggerService.getInstance(project).refreshIssuesUI()
+                        }
+                    }
+                }
+                loadActiveSuppressions()
+            }
+        }
+
+        val resetAllBtn = JButton("Reset All").apply {
+            addActionListener {
+                val confirm = Messages.showYesNoDialog(
+                    "Are you sure you want to reset all active issue dismissals/suppressions across all open projects?",
+                    "Reset All Suppressions",
+                    Messages.getQuestionIcon()
+                )
+                if (confirm == Messages.YES) {
+                    com.intellij.openapi.project.ProjectManager.getInstance().openProjects.forEach { project ->
+                        if (!project.isDisposed) {
+                            val suppressionSvc = com.ghostdebugger.store.SuppressionMemoryService.getInstance(project)
+                            suppressionSvc.resetAll()
+                            com.ghostdebugger.GhostDebuggerService.getInstance(project).refreshIssuesUI()
+                        }
+                    }
+                    loadActiveSuppressions()
+                }
+            }
+        }
+
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+            add(resetSelectedBtn)
+            add(Box.createHorizontalStrut(10))
+            add(resetAllBtn)
+        }
+        formPanel.add(buttonPanel)
+
+        loadActiveSuppressions()
+
         mainPanel.add(formPanel, BorderLayout.NORTH)
         panel = mainPanel
         return mainPanel
@@ -295,5 +394,31 @@ class GhostDebuggerConfigurable : Configurable {
         suppressionThresholdSpinner?.value = s.suppressionThreshold
         showUnreachedBox?.isSelected = s.showUnreached
         showSuppressedBox?.isSelected = s.showSuppressed
+        
+        loadActiveSuppressions()
+    }
+
+    private fun loadActiveSuppressions() {
+        val model = suppressionModel ?: return
+        model.rowCount = 0
+        var hasSuppressions = false
+        com.intellij.openapi.project.ProjectManager.getInstance().openProjects.forEach { project ->
+            if (!project.isDisposed) {
+                val suppressionSvc = com.ghostdebugger.store.SuppressionMemoryService.getInstance(project)
+                suppressionSvc.getDismissCounts().forEach { (fingerprint, count) ->
+                    val parts = fingerprint.split(":")
+                    val rule = parts.getOrNull(0) ?: "UNKNOWN"
+                    val filePath = parts.getOrNull(1) ?: ""
+                    val line = parts.getOrNull(2) ?: "0"
+                    model.addRow(arrayOf(project.name, filePath, rule, line, count, fingerprint))
+                    hasSuppressions = true
+                }
+            }
+        }
+        
+        suppressionTable?.isVisible = hasSuppressions
+        noSuppressionsLabel?.isVisible = !hasSuppressions
+        suppressionTable?.parent?.parent?.revalidate()
+        suppressionTable?.parent?.parent?.repaint()
     }
 }
