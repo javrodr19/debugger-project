@@ -37,6 +37,10 @@ export default function App() {
       dispatch({ type: 'SET_SYSTEM_EXPLANATION', payload: explanation })
     )
 
+    const unsubSystemChunk = bridge.onSystemExplanationChunk(({ chunk, isComplete }) =>
+      dispatch({ type: 'APPEND_SYSTEM_EXPLANATION_CHUNK', payload: { chunk, isComplete } })
+    )
+
     const unsubImpact   = bridge.onImpactAnalysis(({ nodeId, affectedNodes }) => {
       dispatch({ type: 'SET_HIGHLIGHTED', payload: [nodeId, ...affectedNodes] })
     })
@@ -61,6 +65,7 @@ export default function App() {
     return () => {
       unsubGraph(); unsubExpl(); unsubExplChunk(); unsubFix(); unsubNode();
       unsubStart(); unsubProg(); unsubComplete(); unsubError(); unsubSystem();
+      unsubSystemChunk();
       unsubImpact(); unsubFrame(); unsubEnd(); unsubState(); unsubAuto();
       unsubIssues(); unsubEngineStatus(); unsubFixApplied();
     }

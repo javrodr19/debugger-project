@@ -42,6 +42,7 @@ export type AppAction =
   | { type: 'SET_ENGINE_STATUS'; payload: EngineStatusPayload }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_SYSTEM_EXPLANATION'; payload: string }
+  | { type: 'APPEND_SYSTEM_EXPLANATION_CHUNK'; payload: { chunk: string; isComplete: boolean } }
   | { type: 'SET_EXPLANATION'; payload: { issueId: string; explanation: string } }
   | { type: 'APPEND_EXPLANATION_CHUNK'; payload: { issueId: string; chunk: string; isComplete: boolean } }
   | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: NodeStatus } }
@@ -140,6 +141,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_SYSTEM_EXPLANATION':
       return { ...state, systemExplanation: action.payload }
+
+    case 'APPEND_SYSTEM_EXPLANATION_CHUNK': {
+      const { chunk, isComplete } = action.payload
+      const current = (chunk === '' && !isComplete) ? '' : (state.systemExplanation || '')
+      return {
+        ...state,
+        systemExplanation: current + chunk
+      }
+    }
 
     case 'SET_EXPLANATION': {
       const { issueId, explanation } = action.payload

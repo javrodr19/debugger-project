@@ -15,6 +15,7 @@ interface AegisAPI {
   onAnalysisComplete: (metrics: AnalysisMetrics) => void
   onError: (message: string) => void
   onSystemExplanation: (explanation: string) => void
+  onSystemExplanationChunk: (data: { chunk: string; isComplete: string }) => void
   onImpactAnalysis: (data: ImpactAnalysis) => void
   onDebugFrame: (data: DebugFrame) => void
   onDebugSessionEnded: () => void
@@ -44,6 +45,7 @@ class PluginBridge {
   private analysisCompleteHandlers: EventHandler<AnalysisMetrics>[] = []
   private errorHandlers: EventHandler<string>[] = []
   private systemExplanationHandlers: EventHandler<string>[] = []
+  private systemExplanationChunkHandlers: EventHandler<{ chunk: string; isComplete: boolean }>[] = []
   private impactHandlers: EventHandler<ImpactAnalysis>[] = []
   private debugFrameHandlers: EventHandler<DebugFrame>[] = []
   private debugSessionEndedHandlers: EventHandler<void>[] = []
@@ -73,6 +75,10 @@ class PluginBridge {
       onAnalysisComplete: (metrics) => this.analysisCompleteHandlers.forEach(h => h(metrics)),
       onError: (msg) => this.errorHandlers.forEach(h => h(msg)),
       onSystemExplanation: (exp) => this.systemExplanationHandlers.forEach(h => h(exp)),
+      onSystemExplanationChunk: (data) => this.systemExplanationChunkHandlers.forEach(h => h({
+        chunk: data.chunk,
+        isComplete: data.isComplete === 'true' || (data.isComplete as any) === true
+      })),
       onImpactAnalysis: (data) => this.impactHandlers.forEach(h => h(data)),
       onDebugFrame: (data) => this.debugFrameHandlers.forEach(h => h(data)),
       onDebugSessionEnded: () => this.debugSessionEndedHandlers.forEach(h => h()),
@@ -128,6 +134,10 @@ class PluginBridge {
   onSystemExplanation(handler: EventHandler<string>) {
     this.systemExplanationHandlers.push(handler)
     return () => { this.systemExplanationHandlers = this.systemExplanationHandlers.filter(h => h !== handler) }
+  }
+  onSystemExplanationChunk(handler: EventHandler<{ chunk: string; isComplete: boolean }>) {
+    this.systemExplanationChunkHandlers.push(handler)
+    return () => { this.systemExplanationChunkHandlers = this.systemExplanationChunkHandlers.filter(h => h !== handler) }
   }
   onImpactAnalysis(handler: EventHandler<ImpactAnalysis>) {
     this.impactHandlers.push(handler)
