@@ -11,7 +11,11 @@ import com.ghostdebugger.parser.DependencyResolver
 import com.ghostdebugger.parser.FileScanner
 import com.ghostdebugger.parser.SymbolExtractor
 import com.ghostdebugger.settings.GhostDebuggerSettings
+import com.ghostdebugger.model.IssueSource
+import com.ghostdebugger.store.StackTraceParser
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.execution.testframework.AbstractTestProxy
+import com.intellij.execution.testframework.TestStatusListener
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -377,6 +381,91 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
             val ch = svc.bridgeChannel()
             ch?.sendNodeUpdate(depId, status)
             ch?.sendIssuesForFile(node.filePath, emptyList())
+        }
+    }
+
+    internal fun handleTestSuiteFinished(root: AbstractTestProxy) {
+        val failedLeaves = mutableListOf<AbstractTestProxy>()
+        collectFailedLeafTests(root, failedLeaves)
+        if (failedLeaves.isEmpty()) return
+
+        val svc = service()
+        val currentIssues = svc.currentIssues
+        if (currentIssues.isEmpty()) return
+
+        val toUpdate = currentIssues.toMutableList()
+        var changed = false
+
+        for (leaf in failedLeaves) {
+            val stacktrace = leaf.stacktrace ?: continue
+            val frames = StackTraceParser.parse(stacktrace)
+            if (frames.isEmpty()) continue
+
+            for (frame in frames) {
+                for (i in toUpdate.indices) {
+                    val issue = toUpdate[i]
+                    if (issue.line == frame.line && 
+                        issue.filePath.replace("\\", "/").endsWith(frame.fileName)
+                    ) {
+                        val isConfirmed = issue.sources.contains(IssueSource.RUNTIME_CONFIRMED)
+                        if (!isConfirmed || issue.confidence != 1.0) {
+                            val newSources = if (!isConfirmed) issue.sources + IssueSource.RUNTIME_CONFIRMED else issue.sources
+                            toUpdate[i] = issue.copy(sources = newSources, confidence = 1.0)
+                            changed = true
+                        }
+                    }
+                }
+            }
+        }
+
+        if (changed) {
+            svc.updateIssues(toUpdate)
+            
+            // Also notify the JCEF bridge of the updated issues
+            val jcef = svc.jcefBridge()
+            if (jcef != null) {
+                // Update graph and affected files
+                val inMemoryGraph = svc.lastInMemoryGraph
+                if (inMemoryGraph != null) {
+                    for (issue in toUpdate) {
+                        val nodeId = com.ghostdebugger.graph.GraphBuilder().normalizeId(issue.filePath)
+                        val node = inMemoryGraph.getNode(nodeId)
+                        if (node != null) {
+                            val updatedNodeIssues = node.issues.map { old ->
+                                toUpdate.find { it.id == old.id } ?: old
+                            }
+                            inMemoryGraph.updateNode(node.copy(issues = updatedNodeIssues))
+                        }
+                    }
+                    val projectGraph = inMemoryGraph.toProjectGraph(project.name)
+                    svc.currentGraph = projectGraph
+                    jcef.sendGraphData(projectGraph)
+                }
+                
+                // Group updated issues by file and push
+                val grouped = toUpdate.groupBy { it.filePath }
+                for ((filePath, fileIssues) in grouped) {
+                    jcef.sendIssuesForFile(filePath, fileIssues)
+                }
+            }
+        }
+    }
+
+    private fun collectFailedLeafTests(
+        proxy: AbstractTestProxy,
+        result: MutableList<AbstractTestProxy>
+    ) {
+        if (proxy.isLeaf) {
+            if (!proxy.isPassed) {
+                result.add(proxy)
+            }
+        } else {
+            val children = proxy.children
+            if (children != null) {
+                for (child in children) {
+                    collectFailedLeafTests(child, result)
+                }
+            }
         }
     }
 
