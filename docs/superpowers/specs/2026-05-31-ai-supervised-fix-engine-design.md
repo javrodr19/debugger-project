@@ -84,14 +84,18 @@ fun attemptFix(issue: Issue, file: PsiFile, plan: FixPlan): VerifiedFix?   // nu
 `attemptFix` (one plan):
 1. **Compose**: apply each op's `TextEdit` to an in-memory copy of the file content (edits applied
    in descending offset order so earlier offsets stay valid). No disk write.
-2. **Verify gate (deterministic):**
-   - (a) the candidate content is **PSI-valid** (parses; no `PsiErrorElement`);
-   - (b) re-running the issue's analyzer on the candidate → the target issue's **fingerprint is
-     gone**;
-   - (c) re-running → **no new fingerprints** versus the pre-fix baseline for that file.
-   Verification reuses the existing analysis stack: build a single-file `AnalysisContext` from the
-   candidate content (in-memory PSI via `PsiFileFactory`, mirroring `JavaPsiSymbolExtractor`) and run
-   `AnalysisEngine.analyzeStaticOnly`. Kotlin analyzers go through `withKtAnalysis` as usual.
+2. **Verify gate — two tiers:**
+   - **Tier 1 — PSI-validity (Phase 1).** The candidate parses with no `PsiErrorElement`. Achievable
+     offline and synchronously via `PsiFileFactory` for languages with a Community PSI (Kotlin/Java);
+     for TS/JS (no Community PSI) it is a structural no-op, matching today's behavior. Reuses the
+     parse-check-and-revert that `FixApplicator` already performs at write time.
+   - **Tier 2 — re-analysis (Phase 2).** (b) re-running the issue's analyzer on the candidate → the
+     target **fingerprint is gone**; (c) → **no new fingerprints** vs. the pre-fix baseline.
+     **Caveat discovered during planning:** TS/JS analyzers are content-based (trivial to re-run on
+     candidate content), but Kotlin analyzers resolve via the in-module PSI
+     (`PsiManager.findFile(virtualFile)`) for K2 type resolution, so re-analyzing *unsaved candidate*
+     Kotlin content needs the transient-document approach (apply→commit→analyze→accept/revert,
+     extending `FixApplicator`'s pattern). This is a Phase 2 design item, not Phase 1.
 3. Returns `VerifiedFix(edits, evidence)` or a typed `RejectedFix(reason)` (e.g. `NotPsiValid`,
    `IssueStillPresent`, `IntroducedIssues(list)`, `OperationInapplicable`).
 
@@ -172,17 +176,24 @@ and offline. No base-path capability gains a network dependency.
 
 ## 9. Phasing
 
-**Phase 1 — offline engine + verify gate (no AI changes).**
-`FixOperation` catalog (initial set), `FixPlan`, `FixEngine` + verify gate, adapters for the 5
-existing fixers, and re-routing all fix entry points through `FixEngine`. The current
-`AIService.suggestFix` fallback is left in place untouched for this phase. Deliverable: every
-deterministic fix is now verified before apply, fully offline.
+**Phase 1 — offline engine + Tier-1 (PSI-validity) gate (no AI changes).**
+`TextEdit`, `FixOperation` (sealed; initial op = `ReplaceRange`), `FixPlan`, a `FixPlanApplicator`
+(applies a plan's edits with the PSI-validity check + revert), `FixEngine` as the single fix entry
+point, an adapter turning each existing fixer's `CodeFix` into a single-op `FixPlan`, and re-routing
+all fix entry points (`UIEventRouter`, `AegisQuickFixIntentionAction`, `AegisLocalQuickFix`) through
+`FixEngine`. The current `AIService.suggestFix` fallback is left in place untouched. Deliverable:
+all fixing flows through the engine + `FixPlan` abstraction, PSI-validity-gated, fully offline — the
+seam Phase 2 plugs into. (The richer semantic operations beyond `ReplaceRange` arrive in Phase 2
+with their consumer, the AI planner — YAGNI for Phase 1.)
 
-**Phase 2 — AI supervisor.**
-`FixPlanner` (catalog-schema prompt → `FixPlan` JSON), the bounded orchestration loop with verify
-feedback, and the AI semantic-review step. Remove `suggestFix`/`parseFixResponse` free-form code
-generation. Deliverable: AI composes + supervises engine operations for issues no single fixer
-covers, with every edit deterministic and every fix verified.
+**Phase 2 — AI supervisor + Tier-2 (re-analysis) gate.**
+The semantic operation catalog (`AddElvisReturn`, `ConvertToSafeCast`, `InsertImport`,
+`SurroundWithTryCatch`, `AddTimerCleanup`, …), the Tier-2 re-analysis gate (incl. the transient-
+document approach for Kotlin type resolution), `FixPlanner` (catalog-schema prompt → `FixPlan` JSON),
+the bounded orchestration loop with verify feedback, and the AI semantic-review step. Remove
+`suggestFix`/`parseFixResponse` free-form code generation. Deliverable: AI composes + supervises
+engine operations for issues no single fixer covers, with every edit deterministic and every fix
+verified.
 
 ## 10. Risks / open questions
 
