@@ -12,8 +12,10 @@ import com.ghostdebugger.model.NodeStatus
 import com.ghostdebugger.model.ProjectGraph
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
@@ -36,12 +38,16 @@ import kotlinx.coroutines.withContext
  * The facade is the single writer surface; this router is a reader + delegating-writer.
  */
 @Service(Service.Level.PROJECT)
-internal class UIEventRouter(private val project: Project) {
+internal class UIEventRouter(private val project: Project) : Disposable {
 
     private val log = logger<UIEventRouter>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var aiService: AIService? = null
     private val fixApplicator = FixApplicator()
+
+    init {
+        Disposer.register(project, this)
+    }
 
     fun handle(event: UIEvent) {
         when (event) {
@@ -362,6 +368,13 @@ internal class UIEventRouter(private val project: Project) {
         val svc = service()
         svc.refreshIssuesUI()
         svc.currentGraph?.let { svc.jcefBridge()?.sendGraphData(it) }
+    }
+
+    override fun dispose() {
+        // Cancel the scope so background coroutines stop and the captured Project is released on
+        // project close. This is a project @Service with a custom SupervisorJob scope but was not
+        // Disposable, so the scope (and the disposed Project reference) leaked indefinitely. BUG-25.
+        scope.cancel()
     }
 
     companion object {

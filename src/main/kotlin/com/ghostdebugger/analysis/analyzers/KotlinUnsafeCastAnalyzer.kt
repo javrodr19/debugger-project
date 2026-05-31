@@ -59,7 +59,9 @@ class KotlinUnsafeCastAnalyzer : KotlinAnalyzer() {
                 findings.add(
                     Issue(
                         id = UUID.randomUUID().toString(),
-                        type = IssueType.NULL_SAFETY,
+                        // An unsafe `as` downcast is a compile/runtime cast error, not a null-safety
+                        // issue — categorize it so UI groupings aren't misleading. See BUG-21.
+                        type = IssueType.COMPILATION_ERROR,
                         severity = IssueSeverity.ERROR,
                         title = "Unsafe cast: '${cast.text}'",
                         description = "This `as` downcast will throw `ClassCastException` at runtime when the receiver is not of the target type. Use `as?` with an Elvis fallback (`?: return`, `?: throw …`).",

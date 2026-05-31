@@ -34,7 +34,11 @@ object StackTraceParser {
                     val line = lineStr.toIntOrNull()
                     if (line != null) {
                         val fullFileName = "$path.$ext"
-                        val simpleName = fullFileName.substringAfterLast('/')
+                        // Strip both separators. Windows traces (e.g. C:\proj\src\File.ts) contain
+                        // no '/', so substringAfterLast('/') alone left the full backslash path as
+                        // the "filename", which never matched slash-normalized issue paths in the
+                        // TestRunObserver cross-checker. See BUG-18.
+                        val simpleName = fullFileName.substringAfterLast('/').substringAfterLast('\\')
                         frames.add(ParsedFrame(simpleName, line))
                     }
                 }

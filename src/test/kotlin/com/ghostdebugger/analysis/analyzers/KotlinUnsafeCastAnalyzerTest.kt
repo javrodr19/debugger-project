@@ -1,6 +1,7 @@
 package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
+import com.ghostdebugger.model.IssueType
 
 class KotlinUnsafeCastAnalyzerTest : AegisKotlinAnalysisTestCase() {
 
@@ -15,6 +16,8 @@ class KotlinUnsafeCastAnalyzerTest : AegisKotlinAnalysisTestCase() {
         val issues = analyzeKt(src)
         assertEquals(1, issues.size)
         assertEquals("AEG-CAST-KT-001", issues.single().ruleId)
+        // Unsafe casts are compilation errors, not null-safety issues. Regression for BUG-21.
+        assertEquals(IssueType.COMPILATION_ERROR, issues.single().type)
     }
 
     fun testSafeCastIsNotFlagged() {

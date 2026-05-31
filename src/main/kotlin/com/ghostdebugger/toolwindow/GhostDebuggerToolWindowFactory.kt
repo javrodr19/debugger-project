@@ -32,8 +32,11 @@ class GhostDebuggerToolWindowFactory : ToolWindowFactory, DumbAware {
             private var wasVisible = toolWindow.isVisible
 
             override fun stateChanged(toolWindowManager: ToolWindowManager) {
-                val tw = toolWindowManager.getToolWindow("GhostDebugger") ?: return
-                val isVisible = tw.isVisible
+                // Observe THIS tool window via the captured reference, not a hardcoded id string.
+                // The id must match plugin.xml's <toolWindow id="GhostDebugger">, NOT the display
+                // title "Aegis Debug" — a future id rename would have silently broken cancel-on-
+                // hide. The captured reference can't drift. See BUG-09.
+                val isVisible = toolWindow.isVisible
                 if (wasVisible && !isVisible) {
                     GhostDebuggerService.getInstance(project).cancelAnalysis()
                 }

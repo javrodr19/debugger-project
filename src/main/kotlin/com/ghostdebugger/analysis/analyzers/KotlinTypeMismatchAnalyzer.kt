@@ -54,7 +54,9 @@ class KotlinTypeMismatchAnalyzer : KotlinAnalyzer() {
                 findings.add(
                     Issue(
                         id = UUID.randomUUID().toString(),
-                        type = IssueType.NULL_SAFETY,
+                        // A declared/initializer type mismatch is a compilation error, not a
+                        // null-safety issue — categorize it correctly for UI grouping. See BUG-22.
+                        type = IssueType.COMPILATION_ERROR,
                         severity = IssueSeverity.ERROR,
                         title = "Type mismatch on '${prop.name}'",
                         description = "Declared type is not assignable from the initializer's type. Declared: $declared. Initializer: $actual.",

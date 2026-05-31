@@ -23,7 +23,12 @@ internal abstract class BaseAIService(
     protected val cache = AICache(cacheTtlSeconds, cacheMaxEntries)
     protected val json = Json { ignoreUnknownKeys = true }
 
-    protected val httpClient: OkHttpClient = OkHttpClient.Builder()
+    // Derive from ONE shared client (OkHttp's own guidance). AIServiceFactory builds a fresh
+    // service on every analysis run; the old per-instance OkHttpClient.Builder()...build() spun up
+    // a new connection pool + dispatcher thread executor each time and never shut it down, leaking
+    // threads/sockets. newBuilder() reuses the shared pool + threads while applying per-instance
+    // timeouts. See BUG-20.
+    protected val httpClient: OkHttpClient = SHARED_HTTP_CLIENT.newBuilder()
         .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
@@ -164,5 +169,11 @@ internal abstract class BaseAIService(
             isDeterministic = false,
             confidence = 0.7
         )
+    }
+
+    companion object {
+        // One client for the plugin's lifetime; subclasses call newBuilder() for per-instance
+        // timeouts. Shares the connection pool + dispatcher thread executor across all services.
+        private val SHARED_HTTP_CLIENT = OkHttpClient()
     }
 }

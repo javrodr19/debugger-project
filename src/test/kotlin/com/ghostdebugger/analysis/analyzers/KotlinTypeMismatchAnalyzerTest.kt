@@ -1,6 +1,7 @@
 package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
+import com.ghostdebugger.model.IssueType
 
 class KotlinTypeMismatchAnalyzerTest : AegisKotlinAnalysisTestCase() {
 
@@ -12,7 +13,10 @@ class KotlinTypeMismatchAnalyzerTest : AegisKotlinAnalysisTestCase() {
                 val x: Int = ""
             }
         """.trimIndent()
-        assertEquals(1, analyzeKt(src).size)
+        val issues = analyzeKt(src)
+        assertEquals(1, issues.size)
+        // Type mismatches are compilation errors, not null-safety issues. Regression for BUG-22.
+        assertEquals(IssueType.COMPILATION_ERROR, issues.single().type)
     }
 
     fun testAssignableTypeIsNotFlagged() {

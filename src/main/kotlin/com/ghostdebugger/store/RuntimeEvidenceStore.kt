@@ -10,6 +10,7 @@ import com.intellij.openapi.components.Storage
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.util.concurrency.AppExecutorUtil
 import java.util.concurrent.TimeUnit
 
@@ -80,6 +81,12 @@ class RuntimeEvidenceStore(private val project: Project) :
         synchronized(listeners) {
             listeners.add(listener)
         }
+        // Honor parentDisposable: remove the listener when the subscriber's lifetime ends.
+        // Previously the parameter was ignored and listeners were only cleared on store dispose
+        // (project close), so transient UI panels/actions leaked their listeners. See BUG-17.
+        Disposer.register(parentDisposable, Disposable {
+            synchronized(listeners) { listeners.remove(listener) }
+        })
     }
 
     private fun fireListeners(affected: Set<String>) {

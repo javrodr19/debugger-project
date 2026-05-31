@@ -108,6 +108,14 @@ class RuntimeEvidenceStoreTest : BasePlatformTestCase() {
         Assert.assertEquals(1, overlappingFrames.size)
         Assert.assertEquals("main.ts", overlappingFrames[0].fileName)
         Assert.assertEquals(42, overlappingFrames[0].line)
+
+        // Windows absolute paths: backslash separators, no '/'. The simple filename must still be
+        // extracted so it matches slash-normalized issue paths in the cross-checker. Regression for BUG-18.
+        val windowsTrace = "at Aegis.run (C:\\Users\\dev\\project\\src\\Widget.ts:42:7)"
+        val windowsFrames = StackTraceParser.parse(windowsTrace)
+        Assert.assertEquals(1, windowsFrames.size)
+        Assert.assertEquals("Widget.ts", windowsFrames[0].fileName)
+        Assert.assertEquals(42, windowsFrames[0].line)
     }
 
     // ── Layer 2: Persistence and PSC Serialization Tests ───────────────────

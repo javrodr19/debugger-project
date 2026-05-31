@@ -21,40 +21,20 @@ import com.intellij.util.IncorrectOperationException
  */
 class AegisQuickFixIntentionAction : PsiElementBaseIntentionAction(), IntentionAction {
 
-    private var activeIssue: Issue? = null
+    // Display-only: title of the issue most recently seen by isAvailable(), used for the menu text.
+    // @Volatile (atomic read/write) and NEVER read by invoke() — invoke() recomputes the issue from
+    // the live caret, so a stale display title can never cause the wrong fix to apply. The previous
+    // `activeIssue` field WAS read by invoke(), which is what made the race a correctness bug. BUG-23.
+    @Volatile private var displayTitle: String? = null
 
-    override fun getText(): String {
-        val issue = activeIssue
-        return if (issue != null) {
-            "Aegis Debug: Fix '${issue.title}'"
-        } else {
-            "Aegis Debug: Apply Quick-Fix"
-        }
-    }
+    override fun getText(): String =
+        displayTitle?.let { "Aegis Debug: Fix '$it'" } ?: "Aegis Debug: Apply Quick-Fix"
 
     override fun getFamilyName(): String = "Aegis Debug Fixes"
 
     override fun isAvailable(project: Project, editor: Editor?, element: PsiElement): Boolean {
-        if (editor == null) return false
-        val psiFile = element.containingFile ?: return false
-        val virtualFile = psiFile.virtualFile ?: return false
-
-        val service = try {
-            GhostDebuggerService.getInstance(project)
-        } catch (e: Exception) {
-            return false
-        }
-
-        val normalizedPath = virtualFile.path.replace("\\", "/")
-        val fileIssues = service.issuesByFile[normalizedPath] ?: return false
-        if (fileIssues.isEmpty()) return false
-
-        val document = editor.document
-        val offset = editor.caretModel.offset
-        val line = document.getLineNumber(offset) + 1
-
-        val issue = fileIssues.find { it.line == line && FixerRegistry.forIssue(it) != null }
-        activeIssue = issue
+        val issue = findFixableIssue(project, editor, element)
+        displayTitle = issue?.title
         return issue != null
     }
 
@@ -64,7 +44,10 @@ class AegisQuickFixIntentionAction : PsiElementBaseIntentionAction(), IntentionA
         val psiFile = element.containingFile ?: return
         val virtualFile = psiFile.virtualFile ?: return
 
-        val issue = activeIssue ?: return
+        // Recompute from the current caret rather than reading a shared field. This intention is a
+        // singleton reused across editors/carets, and isAvailable() runs frequently on background
+        // threads — a mutable activeIssue field raced and could apply the wrong fix or none. BUG-23.
+        val issue = findFixableIssue(project, editor, element) ?: return
         val content = psiFile.text
 
         val codeFix = FixDeriver(project).derive(issue, virtualFile, content) ?: return
@@ -73,6 +56,30 @@ class AegisQuickFixIntentionAction : PsiElementBaseIntentionAction(), IntentionA
         if (result is com.ghostdebugger.fix.FixApplyResult.Success) {
             AnalysisOrchestrator.getInstance(project).reanalyzeFile(virtualFile.path)
         }
+    }
+
+    /** Stateless lookup of the fixable issue at the current caret, or null. Safe to call from any thread. */
+    private fun findFixableIssue(project: Project, editor: Editor?, element: PsiElement): Issue? {
+        if (editor == null) return null
+        val psiFile = element.containingFile ?: return null
+        val virtualFile = psiFile.virtualFile ?: return null
+
+        val service = try {
+            GhostDebuggerService.getInstance(project)
+        } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+            return null
+        }
+
+        val normalizedPath = virtualFile.path.replace("\\", "/")
+        val fileIssues = service.issuesByFile[normalizedPath] ?: return null
+        if (fileIssues.isEmpty()) return null
+
+        val document = editor.document
+        val offset = editor.caretModel.offset
+        val line = document.getLineNumber(offset) + 1
+
+        return fileIssues.find { it.line == line && FixerRegistry.forIssue(it) != null }
     }
 
     override fun startInWriteAction(): Boolean = false

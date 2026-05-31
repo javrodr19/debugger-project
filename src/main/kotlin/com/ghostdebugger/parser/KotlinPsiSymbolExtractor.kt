@@ -29,7 +29,14 @@ class KotlinPsiSymbolExtractor(private val project: Project?) {
             log.info("Kotlin PSI unavailable for ${parsedFile.path}; using regex fallback")
             return extractWithRegex(parsedFile)
         }
-        return runCatching { fromPsi(psi, parsedFile) }
+        // fromPsi() walks PSI and opens a KaSession (withKtAnalysis) — both require a read action.
+        // extract() runs on a background thread in AnalysisOrchestrator without one, so the PSI
+        // access threw ReadAccessException and Kotlin extraction always silently degraded to the
+        // regex fallback. runReadAction is reentrant, so wrapping here is safe even when a caller
+        // already holds the lock. See BUG-15.
+        return runCatching {
+            ApplicationManager.getApplication().runReadAction<ParsedFile> { fromPsi(psi, parsedFile) }
+        }
             .onFailure { e ->
                 if (e is ProcessCanceledException) throw e
                 log.warn("Kotlin PSI extract failed for ${parsedFile.path}, falling back to regex", e)

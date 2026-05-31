@@ -38,8 +38,14 @@ class JcefBridge(
         encodeDefaults = true
     }
     private var query: JBCefJSQuery? = null
+    private var loadHandler: CefLoadHandlerAdapter? = null
 
     fun initialize() {
+        // Idempotent: a second call would orphan the first JBCefJSQuery (leaked, never disposed)
+        // and register a duplicate load handler that injects the bridge script twice per page
+        // load. NeuroMapPanel + GhostDebuggerService.setBridge both used to call this. See BUG-01.
+        if (query != null) return
+
         query = JBCefJSQuery.create(browser as JBCefBrowserBase)
         query!!.addHandler { message ->
             try {
@@ -47,18 +53,21 @@ class JcefBridge(
                 log.info("JcefBridge received event: ${event::class.simpleName}")
                 onEvent(event)
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.error("Failed to parse UI event: $message", e)
             }
             JBCefJSQuery.Response("ok")
         }
 
-        browser.jbCefClient.addLoadHandler(object : CefLoadHandlerAdapter() {
+        val handler = object : CefLoadHandlerAdapter() {
             override fun onLoadEnd(cefBrowser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
                 if (frame?.isMain == true) {
                     injectBridgeScript()
                 }
             }
-        }, browser.cefBrowser)
+        }
+        loadHandler = handler
+        browser.jbCefClient.addLoadHandler(handler, browser.cefBrowser)
     }
 
     private fun injectBridgeScript() {
@@ -146,11 +155,14 @@ class JcefBridge(
     }
 
     fun sendIssueExplanationChunk(issueId: String, chunk: String, isComplete: Boolean) {
-        val payload = json.encodeToString(mapOf(
-            "issueId" to issueId,
-            "chunk" to chunk,
-            "isComplete" to isComplete.toString()
-        ))
+        // isComplete MUST be a JSON boolean, not the string "true"/"false": the TS receiver does a
+        // strict `payload.isComplete === true` check. buildJsonObject.put(String, Boolean) emits a
+        // real boolean (the old mapOf(... to isComplete.toString()) emitted "true"). See BUG-12.
+        val payload = buildJsonObject {
+            put("issueId", issueId)
+            put("chunk", chunk)
+            put("isComplete", isComplete)
+        }
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onExplanationChunk($payload)")
     }
 
@@ -206,10 +218,11 @@ class JcefBridge(
     }
 
     fun sendSystemExplanationChunk(chunk: String, isComplete: Boolean) {
-        val payload = json.encodeToString(mapOf(
-            "chunk" to chunk,
-            "isComplete" to isComplete.toString()
-        ))
+        // Same boolean-on-the-wire fix as sendIssueExplanationChunk. See BUG-12.
+        val payload = buildJsonObject {
+            put("chunk", chunk)
+            put("isComplete", isComplete)
+        }
         executeJS("window.__aegis_debug__ && window.__aegis_debug__.onSystemExplanationChunk($payload)")
     }
 
@@ -253,11 +266,18 @@ class JcefBridge(
         try {
             browser.cefBrowser.executeJavaScript(script, browser.cefBrowser.url ?: "about:blank", 0)
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.warn("Failed to execute JavaScript", e)
         }
     }
 
     override fun dispose() {
+        // Remove the load handler explicitly. Disposal is LIFO under the shared parentDisposable:
+        // the bridge is registered after the browser, so it disposes first and the client is still
+        // alive here. See BUG-11. (The browser-owned client would also release it on its own
+        // disposal, so this is deterministic cleanup rather than a permanent-leak fix.)
+        loadHandler?.let { browser.jbCefClient.removeLoadHandler(it, browser.cefBrowser) }
+        loadHandler = null
         query?.dispose()
         query = null
     }

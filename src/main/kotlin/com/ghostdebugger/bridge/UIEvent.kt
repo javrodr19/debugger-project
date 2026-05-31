@@ -99,6 +99,7 @@ object UIEventParser {
                 else -> UIEvent.Unknown(message)
             }
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             UIEvent.Unknown(message)
         }
     }

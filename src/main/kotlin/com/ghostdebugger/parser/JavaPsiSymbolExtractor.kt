@@ -25,7 +25,13 @@ class JavaPsiSymbolExtractor(private val project: Project?) {
             log.info("Java PSI unavailable for ${parsedFile.path}; using regex fallback")
             return extractWithRegex(parsedFile)
         }
-        return runCatching { fromPsi(psi, parsedFile) }
+        // fromPsi() walks PSI off the EDT in AnalysisOrchestrator without a read action, so it
+        // threw ReadAccessException and Java extraction always silently degraded to the regex
+        // fallback. runReadAction is reentrant, so nesting under an existing read action is safe.
+        // See BUG-16.
+        return runCatching {
+            ApplicationManager.getApplication().runReadAction<ParsedFile> { fromPsi(psi, parsedFile) }
+        }
             .onFailure { e ->
                 if (e is ProcessCanceledException) throw e
                 log.warn("Java PSI extract failed for ${parsedFile.path}, falling back to regex", e)

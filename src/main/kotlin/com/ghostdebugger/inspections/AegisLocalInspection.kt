@@ -1,7 +1,9 @@
 package com.ghostdebugger.inspections
 
+import com.ghostdebugger.AnalysisOrchestrator
 import com.ghostdebugger.GhostDebuggerService
 import com.ghostdebugger.fix.FixApplicator
+import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
@@ -23,7 +25,13 @@ class AegisLocalQuickFix(
     override fun getName(): String = "Aegis: Fix '${issue.title}'"
     override fun getFamilyName(): String = "Aegis Debug Quick-Fixes"
     override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
-        applicator.apply(fix, project)
+        val result = applicator.apply(fix, project)
+        // Re-run targeted analysis so the corrected issue clears from currentIssues + the NeuroMap,
+        // matching the other two fix paths (UIEventRouter, AegisQuickFixIntentionAction). Without
+        // this the fixed issue stayed visible until a manual full re-analysis. See BUG-24.
+        if (result is FixApplyResult.Success) {
+            AnalysisOrchestrator.getInstance(project).reanalyzeFile(issue.filePath)
+        }
     }
 }
 

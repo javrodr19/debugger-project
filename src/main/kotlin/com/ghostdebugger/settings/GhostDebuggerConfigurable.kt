@@ -398,6 +398,34 @@ class GhostDebuggerConfigurable : Configurable {
         loadActiveSuppressions()
     }
 
+    override fun disposeUIResources() {
+        // Release strong references to the Swing hierarchy so it can be GC'd when the Settings
+        // dialog closes; the Configurable instance can outlive the dialog. See BUG-26.
+        panel = null
+        apiKeyField = null
+        modelCombo = null
+        maxFilesSpinner = null
+        maxAiFilesSpinner = null
+        providerCombo = null
+        ollamaEndpointField = null
+        ollamaModelField = null
+        allowCloudUploadBox = null
+        cacheEnabledBox = null
+        cacheTtlSpinner = null
+        aiTimeoutSpinner = null
+        autoAnalyzeOnOpenBox = null
+        showInfoIssuesBox = null
+        analyzeOnlyChangedFilesBox = null
+        maxComplexitySpinner = null
+        coverageModeCombo = null
+        suppressionThresholdSpinner = null
+        showUnreachedBox = null
+        showSuppressedBox = null
+        suppressionTable = null
+        suppressionModel = null
+        noSuppressionsLabel = null
+    }
+
     private fun loadActiveSuppressions() {
         val model = suppressionModel ?: return
         model.rowCount = 0

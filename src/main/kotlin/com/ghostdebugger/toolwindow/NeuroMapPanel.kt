@@ -53,10 +53,12 @@ class NeuroMapPanel(
                 service.handleUIEvent(event)
             }
             Disposer.register(parentDisposable, bridge)
-            bridge.initialize()
+            // initialize() is invoked by service.setBridge(bridge) below; calling it here too
+            // created a second JBCefJSQuery (the first orphaned/leaked) plus a duplicate load
+            // handler. See BUG-01. (initialize() is idempotent now as a backstop.)
             service.setBridge(bridge)
 
-            jbBrowser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
+            val displayHandler = object : CefDisplayHandlerAdapter() {
                 override fun onConsoleMessage(
                     browser: CefBrowser?,
                     level: org.cef.CefSettings.LogSeverity?,
@@ -67,11 +69,18 @@ class NeuroMapPanel(
                     log.warn("JCEF Console [${level?.name}]: $message - $source:$line")
                     return false
                 }
-            }, jbBrowser.cefBrowser)
+            }
+            jbBrowser.jbCefClient.addDisplayHandler(displayHandler, jbBrowser.cefBrowser)
+            // Remove the handler deterministically on teardown. Registered after the browser, so
+            // LIFO disposal removes it while the client is still alive. See BUG-04.
+            Disposer.register(parentDisposable, Disposable {
+                jbBrowser.jbCefClient.removeDisplayHandler(displayHandler, jbBrowser.cefBrowser)
+            })
 
             add(jbBrowser.component, BorderLayout.CENTER)
             log.info("NeuroMapPanel: JCEF browser initialized successfully")
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.error("Failed to initialize JCEF browser", e)
             add(
                 JLabel("<html><center>Failed to load NeuroMap.<br>${e.message}</center></html>", SwingConstants.CENTER),
@@ -155,7 +164,11 @@ class NeuroMapPanel(
      */
     private fun extractAllWebResources(): String {
         val tempDir = Files.createTempDirectory("ghostdebugger-web").toFile()
-        tempDir.deleteOnExit()
+        // deleteOnExit() only removes EMPTY directories, so the extracted HTML/JS/CSS leaked on
+        // disk across IDE restarts. Delete the whole tree when the panel's parentDisposable is
+        // torn down. Registered before the browser, so LIFO disposal tears the browser down first,
+        // then deletes the directory it was reading from. See BUG-06.
+        Disposer.register(parentDisposable, Disposable { tempDir.deleteRecursively() })
 
         val classLoader = javaClass.classLoader
         
@@ -190,9 +203,12 @@ class NeuroMapPanel(
                         // Fallback: Use the classpath resource and try to find the JAR file manually
                         val resource = classLoader.getResource("web/index.html")
                         if (resource?.protocol == "jar") {
-                            val rawJarPath = resource.path.substringAfter("file:").substringBefore("!")
-                            // Use URI carefully to handle spaces and Unicode
-                            val jarFile = File(java.net.URI(resource.path.substringBefore("!")))
+                            // jarFileURL is a well-formed URL; URL#toURI() -> File decodes spaces
+                            // and Unicode correctly. The old code built a URI from resource.path
+                            // (raw, partially-decoded) and threw URISyntaxException on spaces, and
+                            // computed an unused rawJarPath. See BUG-05.
+                            val jarFileUrl = (resource.openConnection() as java.net.JarURLConnection).jarFileURL
+                            val jarFile = File(jarFileUrl.toURI())
                             log.info("NeuroMapPanel: Extracting resources from classpath JAR: ${jarFile.absolutePath}")
                             extractFromJar(jarFile, tempDir)
                         } else if (resource?.protocol == "file") {
@@ -234,11 +250,4 @@ class NeuroMapPanel(
         }
     }
 
-    private fun verifyExtraction(tempDir: File) {
-        val assetsDir = File(tempDir, "assets")
-        if (assetsDir.isDirectory) {
-            val assetFiles = assetsDir.listFiles()?.map { it.name } ?: emptyList()
-            log.info("Extracted assets: $assetFiles")
-        }
-    }
 }

@@ -8,6 +8,7 @@ import com.intellij.coverage.CoverageDataManager
 import com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener
 import com.intellij.execution.testframework.sm.runner.SMTestProxy
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProcessCanceledException
@@ -111,22 +112,18 @@ class TestRunObserver(private val project: Project) : Disposable {
         val localFileSystem = LocalFileSystem.getInstance()
 
         for (issue in activeIssues) {
-            val virtualFile = localFileSystem.findFileByPath(issue.filePath)
-            val keys = mutableListOf<String>()
-            if (virtualFile != null) {
-                val psiFile = psiManager.findFile(virtualFile)
+            // PSI access (findFile + psiFile.classes + qualifiedName) requires a read action.
+            // onTestingFinished() runs on a background thread without one, so this threw
+            // ReadAccessException and silently disabled coverage harvesting entirely. See BUG-19.
+            val keys = ApplicationManager.getApplication().runReadAction<List<String>> {
+                val virtualFile = localFileSystem.findFileByPath(issue.filePath)
+                val psiFile = virtualFile?.let { psiManager.findFile(it) }
                 if (psiFile is PsiClassOwner) {
-                    psiFile.classes.forEach { psiClass ->
-                        val qName = psiClass.qualifiedName
-                        if (!qName.isNullOrBlank()) {
-                            keys.add(qName)
-                        }
-                    }
+                    psiFile.classes.mapNotNull { it.qualifiedName?.takeIf(String::isNotBlank) }
+                } else {
+                    emptyList()
                 }
-            }
-            if (keys.isEmpty()) {
-                keys.add(issue.filePath)
-            }
+            }.ifEmpty { listOf(issue.filePath) }
 
             var isCovered = false
             var classFound = false
