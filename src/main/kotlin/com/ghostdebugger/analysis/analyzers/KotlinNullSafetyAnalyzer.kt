@@ -7,6 +7,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.types.KaErrorType
+import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
@@ -57,10 +58,28 @@ class KotlinNullSafetyAnalyzer : KotlinAnalyzer() {
                 val type = effectiveTypeWithStructuralSmartCast(receiver) ?: return@with
                 if (type is KaErrorType) return@with        // F3 — type unknown, don't flag
                 if (!type.isMarkedNullable) return@with     // smart-cast or non-nullable
+                if (callsNullSafeReceiverFunction(access)) return@with  // e.g. x.isNullOrBlank()
                 findings.add(buildIssue(parsedFile, receiver, lineOf(access.textOffset)))
             }
         }
         return findings
+    }
+
+    /**
+     * True when the selector calls a stdlib function declared on a NULLABLE receiver
+     * (`CharSequence?.isNullOrBlank()`, `Collection<*>?.isNullOrEmpty()`, `String?.orEmpty()`,
+     * `Any?.toString()` / `hashCode()`). Calling these on a nullable with a plain dot is the
+     * null-SAFE idiom, not an unsafe access — flagging them was the false positive.
+     *
+     * Name-based by design: it avoids fragile Analysis-API call resolution and only ever suppresses
+     * this fixed, known-safe set, so it cannot hide a real member-access bug (`x.length`,
+     * `x.isEmpty()`, …). Generalising to user-defined `T?` extensions via receiver-nullability
+     * resolution is a possible future enhancement.
+     */
+    private fun callsNullSafeReceiverFunction(access: KtDotQualifiedExpression): Boolean {
+        val call = access.selectorExpression as? KtCallExpression ?: return false
+        val callee = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
+        return callee in NULL_SAFE_RECEIVER_FUNCTIONS
     }
 
     private fun buildIssue(parsedFile: ParsedFile, receiver: KtExpression, line: Int): Issue {
@@ -87,5 +106,13 @@ class KotlinNullSafetyAnalyzer : KotlinAnalyzer() {
         val start = maxOf(0, line - 3)
         val end = minOf(lines.size, line + 2)
         return lines.subList(start, end).joinToString("\n")
+    }
+
+    companion object {
+        // stdlib functions whose receiver is nullable (T?/CharSequence?/Collection?/Map?/Any?),
+        // so a plain-dot call on a nullable is null-safe rather than an unsafe dereference.
+        private val NULL_SAFE_RECEIVER_FUNCTIONS = setOf(
+            "isNullOrBlank", "isNullOrEmpty", "orEmpty", "toString", "hashCode"
+        )
     }
 }

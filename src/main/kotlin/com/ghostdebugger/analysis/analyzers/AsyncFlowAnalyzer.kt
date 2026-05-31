@@ -121,7 +121,11 @@ class AsyncFlowAnalyzer : Analyzer {
 
             if (blockStart != null) {
                 val blockLines = lines.subList(blockStart, minOf(lines.size, lineIndex + 20))
-                val hasCleanup = blockLines.any { it.contains("return") && (it.contains("clearInterval") || it.contains("clearTimeout")) }
+                // A clear* call anywhere in the effect block means cleanup is handled. The old check
+                // required `return` and `clearInterval` on the SAME line, which missed the idiomatic
+                // multi-line cleanup `return () => { clearInterval(id) }` and false-flagged it.
+                // Conservative-miss bias (CLAUDE.md): presence of a clear* call → assume cleanup.
+                val hasCleanup = blockLines.any { it.contains("clearInterval") || it.contains("clearTimeout") }
 
                 if (!hasCleanup) {
                     val snippet = lines.subList(maxOf(0, lineIndex - 2), minOf(lines.size, lineIndex + 3))

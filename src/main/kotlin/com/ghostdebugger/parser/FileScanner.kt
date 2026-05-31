@@ -45,7 +45,17 @@ class FileScanner(private val project: Project) {
                     if (fileIndex.isExcluded(file)) {
                         return false
                     }
-                    
+
+                    // Analyze PRODUCTION code only. Test sources legitimately use patterns the
+                    // analyzers would otherwise flag (intentional downcasts in assertions, fixtures,
+                    // reflection) and on a real project they dominated the report and tanked the
+                    // health score. Pruning test dirs/files here helps every analyzer, not just
+                    // unsafe-cast. (For a test source root this returns false on the directory,
+                    // skipping the whole subtree.)
+                    if (fileIndex.isInTestSourceContent(file)) {
+                        return false
+                    }
+
                     if (file.isDirectory) {
                         return true
                     }

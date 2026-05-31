@@ -188,4 +188,36 @@ class KotlinNullSafetyAnalyzerTest : AegisKotlinAnalysisTestCase() {
         // and the analyzer must not throw.
         analyzeKt(src)
     }
+
+    // ── Nullable-receiver extension calls — must NOT be flagged. These are the null-SAFE idiom,
+    //    not an unsafe access. Calling `x.isNullOrBlank()` on a `String?` is exactly what you're
+    //    supposed to do; flagging it was a false positive that violated the no-false-positive bias.
+
+    fun testIsNullOrBlankCallOnNullableIsNotFlagged() {
+        val src = """
+            fun run(): Boolean {
+                val x: String? = null
+                return !x.isNullOrBlank()
+            }
+        """.trimIndent()
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    fun testIsNullOrEmptyCallOnNullableIsNotFlagged() {
+        val src = """
+            fun run(): Boolean {
+                val xs: List<String>? = null
+                return xs.isNullOrEmpty()
+            }
+        """.trimIndent()
+        assertEquals(0, analyzeKt(src).size)
+    }
+
+    fun testNullableExtensionCallOnCallResultIsNotFlagged() {
+        val src = """
+            fun fetch(): String? = null
+            fun has(): Boolean = !fetch().isNullOrBlank()
+        """.trimIndent()
+        assertEquals(0, analyzeKt(src).size)
+    }
 }

@@ -2,6 +2,7 @@ package com.ghostdebugger.graph
 
 import com.ghostdebugger.model.*
 import com.ghostdebugger.parser.DependencyRelation
+import com.ghostdebugger.parser.TsJsRegexSymbolExtractor
 import java.io.File
 
 class GraphBuilder {
@@ -24,7 +25,7 @@ class GraphBuilder {
                 filePath = file.path,
                 lineStart = 1,
                 lineEnd = file.lines.size,
-                complexity = estimateComplexity(file.content),
+                complexity = estimateComplexity(file.content, file.functions.size),
                 status = NodeStatus.HEALTHY,
                 issues = emptyList(),
                 dependencies = emptyList(),
@@ -117,10 +118,18 @@ class GraphBuilder {
             else -> NodeType.MODULE
         }
     }
-private fun estimateComplexity(content: String): Int {
-    return 1 + COMPLEXITY_PATTERNS.sumOf { pattern ->
-        pattern.findAll(content).count()
-    }.coerceAtMost(20)
+internal fun estimateComplexity(content: String, functionCount: Int): Int {
+    // Mask comments and string/char literals so control-flow keywords inside them aren't counted
+    // (reuses the TS/JS extractor's masker, which preserves line structure). A doc comment that
+    // merely mentions "if"/"for" used to inflate the score.
+    val masked = TsJsRegexSymbolExtractor().maskStringsAndComments(content)
+    val decisionPoints = COMPLEXITY_PATTERNS.sumOf { pattern -> pattern.findAll(masked).count() }
+    // Per-function average keeps the McCabe-standard threshold (default 10) meaningful: a large
+    // file of simple functions no longer trips it, while a single very branchy function still does.
+    // Averaging biases toward false negatives over false positives (CLAUDE.md › Analyzer bias).
+    // No `.coerceAtMost(20)` cap — that capped the sum so 27 structurally different files all
+    // reported exactly 21, making the metric unable to rank anything.
+    return 1 + decisionPoints / functionCount.coerceAtLeast(1)
 }
 
 fun normalizeId(path: String): String {
@@ -128,19 +137,23 @@ fun normalizeId(path: String): String {
 }
 
 companion object {
+    // Decision points for a cyclomatic-complexity proxy. Deliberately excludes:
+    //   - `else` (the paired `if` already counts that branch — counting both double-counts)
+    //   - `?.` / `?.let` / `?.also` (safe calls are GOOD null handling, not complexity; `?.let`
+    //     and `?.also` were also subsumed by the `?.` pattern, triple-counting one call)
+    //   - `try {` (the `catch` already counts the exceptional path)
+    // Adds `when` / `case` / `?:` (Elvis) which the old set missed.
     private val COMPLEXITY_PATTERNS = listOf(
         Regex("""\bif\b"""),
-        Regex("""\belse\b"""),
         Regex("""\bfor\b"""),
         Regex("""\bwhile\b"""),
+        Regex("""\bwhen\b"""),
         Regex("""\bswitch\b"""),
+        Regex("""\bcase\b"""),
         Regex("""\bcatch\b"""),
         Regex("""&&"""),
         Regex("""\|\|"""),
-        Regex("""\?\."""),
-        Regex("""\?\.let"""),
-        Regex("""try\s*\{"""),
-        Regex("""\?\.also""")
+        Regex("""\?:""")
     )
 }
 }
