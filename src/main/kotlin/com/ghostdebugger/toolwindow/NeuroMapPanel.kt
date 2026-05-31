@@ -207,10 +207,15 @@ class NeuroMapPanel(
                             // and Unicode correctly. The old code built a URI from resource.path
                             // (raw, partially-decoded) and threw URISyntaxException on spaces, and
                             // computed an unused rawJarPath. See BUG-05.
-                            val jarFileUrl = (resource.openConnection() as java.net.JarURLConnection).jarFileURL
-                            val jarFile = File(jarFileUrl.toURI())
-                            log.info("NeuroMapPanel: Extracting resources from classpath JAR: ${jarFile.absolutePath}")
-                            extractFromJar(jarFile, tempDir)
+                            // `as?` (not `as`): a jar: URL always yields a JarURLConnection, but a
+                            // safe cast avoids an unprovable downcast; if it ever weren't, fall
+                            // through to the index.html-not-found error below.
+                            val jarFileUrl = (resource.openConnection() as? java.net.JarURLConnection)?.jarFileURL
+                            if (jarFileUrl != null) {
+                                val jarFile = File(jarFileUrl.toURI())
+                                log.info("NeuroMapPanel: Extracting resources from classpath JAR: ${jarFile.absolutePath}")
+                                extractFromJar(jarFile, tempDir)
+                            }
                         } else if (resource?.protocol == "file") {
                             File(resource.toURI()).parentFile.copyRecursively(tempDir, overwrite = true)
                         }

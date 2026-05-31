@@ -41,11 +41,14 @@ class ConfidencePill(confidence: Confidence) : JLabel(confidence.name, SwingCons
     }
 
     override fun paintComponent(g: Graphics) {
-        val g2 = g.create() as Graphics2D
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        g2.color = pillBackground
-        g2.fillRoundRect(0, 0, width, height, 8, 8)
-        g2.dispose()
+        // `as?` (not `as`): g.create() is always a Graphics2D during Swing painting, but a safe cast
+        // avoids an unprovable downcast; if it ever weren't, we simply skip the rounded background.
+        (g.create() as? Graphics2D)?.let { g2 ->
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.color = pillBackground
+            g2.fillRoundRect(0, 0, width, height, 8, 8)
+            g2.dispose()
+        }
         super.paintComponent(g)
     }
 }

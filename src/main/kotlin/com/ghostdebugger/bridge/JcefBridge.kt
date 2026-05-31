@@ -96,7 +96,7 @@ class JcefBridge(
             val confidence = ConfidenceCalculator.calculate(evidence)
             val suppressed = suppression.shouldAutoHide(fingerprint)
 
-            val issueJson = json.encodeToJsonElement(Issue.serializer(), issue) as JsonObject
+            val issueJson = json.encodeToJsonElement(Issue.serializer(), issue).jsonObject
             buildJsonObject {
                 issueJson.forEach { key, value -> put(key, value) }
                 put("dynamicConfidence", confidence.name)
@@ -108,7 +108,7 @@ class JcefBridge(
     fun sendGraphData(graph: ProjectGraph) {
         val augmentedNodes = graph.nodes.map { node ->
             val augmentedIssues = augmentIssues(node.issues)
-            val nodeJson = json.encodeToJsonElement(GraphNode.serializer(), node) as JsonObject
+            val nodeJson = json.encodeToJsonElement(GraphNode.serializer(), node).jsonObject
             buildJsonObject {
                 nodeJson.forEach { key, value ->
                     if (key == "issues") {
@@ -119,7 +119,7 @@ class JcefBridge(
                 }
             }
         }
-        val graphJson = json.encodeToJsonElement(ProjectGraph.serializer(), graph) as JsonObject
+        val graphJson = json.encodeToJsonElement(ProjectGraph.serializer(), graph).jsonObject
         val settings = GhostDebuggerSettings.getInstance().snapshot()
         val augmentedGraph = buildJsonObject {
             graphJson.forEach { key, value ->
