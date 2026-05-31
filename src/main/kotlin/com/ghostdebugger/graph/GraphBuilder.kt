@@ -142,7 +142,11 @@ companion object {
     //   - `?.` / `?.let` / `?.also` (safe calls are GOOD null handling, not complexity; `?.let`
     //     and `?.also` were also subsumed by the `?.` pattern, triple-counting one call)
     //   - `try {` (the `catch` already counts the exceptional path)
-    // Adds `when` / `case` / `?:` (Elvis) which the old set missed.
+    //   - `?:` — in TypeScript this is optional-PROPERTY syntax (`prop?: Type`), not Elvis, so it
+    //     inflated pure type files (types/index.ts had 16 optional props -> "complexity" 17) and
+    //     trivial Kotlin Elvis defaults (`?: ""`). Dropping it under-counts Kotlin Elvis slightly,
+    //     which is fine under the conservative-miss bias.
+    // Adds `when` / `case` which the old set missed.
     private val COMPLEXITY_PATTERNS = listOf(
         Regex("""\bif\b"""),
         Regex("""\bfor\b"""),
@@ -152,8 +156,7 @@ companion object {
         Regex("""\bcase\b"""),
         Regex("""\bcatch\b"""),
         Regex("""&&"""),
-        Regex("""\|\|"""),
-        Regex("""\?:""")
+        Regex("""\|\|""")
     )
 }
 }

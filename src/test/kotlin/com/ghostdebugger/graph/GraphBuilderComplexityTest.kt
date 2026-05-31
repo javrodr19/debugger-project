@@ -58,4 +58,20 @@ class GraphBuilderComplexityTest {
         val c = builder.estimateComplexity(src, functionCount = 1)
         assertTrue(c > 10, "a function with 15 branches must exceed threshold 10; got $c")
     }
+
+    @Test
+    fun `TypeScript optional properties are not counted as complexity`() {
+        val src = """
+            export interface Foo {
+              a?: string
+              b?: number
+              c?: boolean
+              d?: string
+              e?: number
+            }
+        """.trimIndent()
+        // `?:` here is optional-PROPERTY syntax, not an Elvis/ternary operator — a pure types file
+        // has zero control flow and must score the baseline, not be inflated to ~6/17.
+        assertEquals(1, builder.estimateComplexity(src, functionCount = 0))
+    }
 }

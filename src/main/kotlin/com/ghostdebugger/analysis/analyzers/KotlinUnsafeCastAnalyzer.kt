@@ -28,7 +28,11 @@ class KotlinUnsafeCastAnalyzer : KotlinAnalyzer() {
 
     override val name = "KotlinUnsafeCastAnalyzer"
     override val ruleId = "AEG-CAST-KT-001"
-    override val defaultSeverity = IssueSeverity.ERROR
+    // WARNING, not ERROR: an `as` downcast is an unprovable RISK, not a guaranteed failure, and in
+    // practice most flagged casts are safe platform/stdlib idioms (encodeToJsonElement(...) as
+    // JsonObject, g.create() as Graphics2D, openConnection() as JarURLConnection). ERROR zeroed the
+    // health score and eroded trust (CLAUDE.md › Analyzer bias). The fixer still offers `as?`.
+    override val defaultSeverity = IssueSeverity.WARNING
     override val description =
         "Flags `as` downcasts that are not provably safe at compile time. Use `as?` with an Elvis fallback instead."
 
@@ -62,7 +66,7 @@ class KotlinUnsafeCastAnalyzer : KotlinAnalyzer() {
                         // An unsafe `as` downcast is a compile/runtime cast error, not a null-safety
                         // issue — categorize it so UI groupings aren't misleading. See BUG-21.
                         type = IssueType.COMPILATION_ERROR,
-                        severity = IssueSeverity.ERROR,
+                        severity = IssueSeverity.WARNING,
                         title = "Unsafe cast: '${cast.text}'",
                         description = "This `as` downcast will throw `ClassCastException` at runtime when the receiver is not of the target type. Use `as?` with an Elvis fallback (`?: return`, `?: throw …`).",
                         filePath = parsedFile.path,

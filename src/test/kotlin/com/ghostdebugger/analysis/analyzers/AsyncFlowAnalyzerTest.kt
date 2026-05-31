@@ -38,6 +38,25 @@ class AsyncFlowAnalyzerTest {
     }
 
     @Test
+    fun `does not flag then with catch after a multi-line then block`() {
+        // The .catch() handler sits several lines below a multi-line .then(() => { ... }) block.
+        // The old check only looked at the line immediately after .then( and false-flagged this.
+        val code = """
+            navigator.clipboard.writeText(prompt)
+              .then(() => {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              })
+              .catch(err => console.error('Clipboard write failed', err))
+        """.trimIndent()
+        val ctx = FixtureFactory.context(
+            listOf(FixtureFactory.parsedFile("/src/Detail.tsx", "tsx", code))
+        )
+        val issues = analyzer.analyze(ctx)
+        assertTrue(issues.none { it.type == IssueType.UNHANDLED_PROMISE }, issues.toString())
+    }
+
+    @Test
     fun `does not flag setInterval with multi-line clearInterval cleanup`() {
         // The idiomatic React cleanup returns a block arrow function, so `return` and
         // `clearInterval` land on DIFFERENT lines. The old same-line check missed this and

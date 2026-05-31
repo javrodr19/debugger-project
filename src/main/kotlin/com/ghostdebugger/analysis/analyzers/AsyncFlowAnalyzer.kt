@@ -47,9 +47,12 @@ class AsyncFlowAnalyzer : Analyzer {
     ) {
         // Find .then() without .catch()
         if (line.contains(".then(") && !line.contains(".catch(")) {
-            // Check if next line contains .catch (simple multi-line check)
-            val nextLine = if (lineIndex + 1 < lines.size) lines[lineIndex + 1] else ""
-            if (nextLine.contains(".catch(")) return
+            // .catch() often sits several lines below a multi-line .then(() => { ... }) block, so
+            // scan a forward window rather than only the immediate next line. Conservative-miss
+            // bias: a .catch anywhere in the chain window means the rejection is handled.
+            val windowEnd = minOf(lines.size, lineIndex + 12)
+            val hasCatch = (lineIndex until windowEnd).any { lines[it].contains(".catch(") }
+            if (hasCatch) return
 
             val snippet = lines.subList(maxOf(0, lineIndex - 1), minOf(lines.size, lineIndex + 3))
                 .joinToString("\n")

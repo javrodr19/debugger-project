@@ -1,6 +1,7 @@
 package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
+import com.ghostdebugger.model.IssueSeverity
 import com.ghostdebugger.model.IssueType
 
 class KotlinUnsafeCastAnalyzerTest : AegisKotlinAnalysisTestCase() {
@@ -18,6 +19,10 @@ class KotlinUnsafeCastAnalyzerTest : AegisKotlinAnalysisTestCase() {
         assertEquals("AEG-CAST-KT-001", issues.single().ruleId)
         // Unsafe casts are compilation errors, not null-safety issues. Regression for BUG-21.
         assertEquals(IssueType.COMPILATION_ERROR, issues.single().type)
+        // An unprovable downcast is a RISK, not a definite failure: WARNING, not ERROR. Flagging
+        // safe-in-practice idioms (encodeToJsonElement(...) as JsonObject, g.create() as Graphics2D)
+        // at ERROR zeroed the health score and eroded trust.
+        assertEquals(IssueSeverity.WARNING, issues.single().severity)
     }
 
     fun testSafeCastIsNotFlagged() {
