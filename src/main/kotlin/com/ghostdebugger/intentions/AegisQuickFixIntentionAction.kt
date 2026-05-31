@@ -2,8 +2,6 @@ package com.ghostdebugger.intentions
 
 import com.ghostdebugger.GhostDebuggerService
 import com.ghostdebugger.AnalysisOrchestrator
-import com.ghostdebugger.fix.FixApplicator
-import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.fix.FixerRegistry
 import com.ghostdebugger.model.Issue
 import com.intellij.codeInsight.intention.IntentionAction
@@ -49,10 +47,7 @@ class AegisQuickFixIntentionAction : PsiElementBaseIntentionAction(), IntentionA
         // threads — a mutable activeIssue field raced and could apply the wrong fix or none. BUG-23.
         val issue = findFixableIssue(project, editor, element) ?: return
         val content = psiFile.text
-
-        val codeFix = FixDeriver(project).derive(issue, virtualFile, content) ?: return
-        val result = FixApplicator().apply(codeFix, project)
-
+        val result = com.ghostdebugger.fix.engine.FixEngine(project).fix(issue, virtualFile, content)
         if (result is com.ghostdebugger.fix.FixApplyResult.Success) {
             AnalysisOrchestrator.getInstance(project).reanalyzeFile(virtualFile.path)
         }

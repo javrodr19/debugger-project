@@ -4,7 +4,6 @@ import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.ai.AIServiceFactory
 import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.bridge.UIEvent
-import com.ghostdebugger.fix.FixApplicator
 import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.fix.FixerRegistry
 import com.ghostdebugger.fix.FixApplyResult
@@ -43,7 +42,6 @@ internal class UIEventRouter(private val project: Project) : Disposable {
     private val log = logger<UIEventRouter>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var aiService: AIService? = null
-    private val fixApplicator = FixApplicator()
 
     init {
         Disposer.register(project, this)
@@ -265,17 +263,24 @@ internal class UIEventRouter(private val project: Project) : Disposable {
 
         svc.suppressUntil = System.currentTimeMillis() + 3000
         scope.launch {
-            val applied = fixApplicator.apply(fix, project)
+            val content = try {
+                java.io.File(issue.filePath).readText()
+            } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                null
+            }
+            val vf = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
+            val applied = if (vf != null && content != null) {
+                com.ghostdebugger.fix.engine.FixEngine(project).fix(issue, vf, content)
+            } else {
+                FixApplyResult.Rejected("Could not read file for fix: ${issue.filePath}")
+            }
             if (applied is FixApplyResult.Success) {
-                withContext(Dispatchers.Swing) {
-                    svc.jcefBridge()?.sendFixApplied(issueId)
-                }
+                withContext(Dispatchers.Swing) { svc.jcefBridge()?.sendFixApplied(issueId) }
                 AnalysisOrchestrator.getInstance(project).reanalyzeFile(issue.filePath)
             } else {
-                val msg = if (applied is FixApplyResult.Rejected) applied.reason else "Fix application failed for issue $issueId."
-                withContext(Dispatchers.Swing) {
-                    svc.jcefBridge()?.sendError(msg)
-                }
+                val msg = (applied as? FixApplyResult.Rejected)?.reason ?: "Fix application failed for issue $issueId."
+                withContext(Dispatchers.Swing) { svc.jcefBridge()?.sendError(msg) }
             }
         }
     }

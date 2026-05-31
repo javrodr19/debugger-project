@@ -2,9 +2,10 @@ package com.ghostdebugger.inspections
 
 import com.ghostdebugger.AnalysisOrchestrator
 import com.ghostdebugger.GhostDebuggerService
-import com.ghostdebugger.fix.FixApplicator
 import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.FixDeriver
+import com.ghostdebugger.fix.engine.FixEngine
+import com.ghostdebugger.fix.engine.toFixPlan
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.codeInspection.LocalInspectionTool
@@ -19,13 +20,17 @@ import com.intellij.psi.PsiFile
 
 class AegisLocalQuickFix(
     private val issue: Issue,
-    private val fix: CodeFix,
-    private val applicator: FixApplicator = FixApplicator()
+    private val fix: CodeFix
 ) : LocalQuickFix {
     override fun getName(): String = "Aegis: Fix '${issue.title}'"
     override fun getFamilyName(): String = "Aegis Debug Quick-Fixes"
     override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
-        val result = applicator.apply(fix, project)
+        val vf = descriptor.psiElement?.containingFile?.virtualFile ?: return
+        val content = com.intellij.openapi.application.ApplicationManager.getApplication()
+            .runReadAction<String?> { com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(vf)?.text }
+            ?: return
+        val plan = fix.toFixPlan(content) ?: return
+        val result = FixEngine(project).apply(plan, vf)
         // Re-run targeted analysis so the corrected issue clears from currentIssues + the NeuroMap,
         // matching the other two fix paths (UIEventRouter, AegisQuickFixIntentionAction). Without
         // this the fixed issue stayed visible until a manual full re-analysis. See BUG-24.
