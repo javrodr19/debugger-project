@@ -11,14 +11,15 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed class FixOperation {
-    abstract fun toEdit(content: String): TextEdit?
+    abstract fun toEdit(ctx: FixContext): TextEdit?
 }
 
 /** Replace the half-open range [startOffset, endOffset) with [text]. */
 @Serializable
 @SerialName("replaceRange")
 data class ReplaceRange(val startOffset: Int, val endOffset: Int, val text: String) : FixOperation() {
-    override fun toEdit(content: String): TextEdit? {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val content = ctx.content
         if (startOffset < 0 || endOffset > content.length || startOffset > endOffset) return null
         return TextEdit(startOffset, endOffset, text)
     }

@@ -29,8 +29,12 @@ class FixPlanApplicator {
                 fdm.getDocument(virtualFile)
             } ?: return FixApplyResult.Rejected("No document for ${virtualFile.path}")
 
-            val edits = plan.toEdits(document.text)
-                ?: return FixApplyResult.Rejected("Plan does not apply to current content (stale offsets).")
+            val edits = ApplicationManager.getApplication().runReadAction<List<TextEdit>?> {
+                val ctx = FixContext(document.text) {
+                    com.intellij.psi.PsiManager.getInstance(project).findFile(virtualFile)
+                }
+                plan.toEdits(ctx)
+            } ?: return FixApplyResult.Rejected("Plan does not apply to current content (stale offsets).")
 
             var succeeded = false
             WriteCommandAction.runWriteCommandAction(project, "Apply Aegis Debug Fix", null, Runnable {

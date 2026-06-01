@@ -8,13 +8,13 @@ import kotlin.test.assertNull
 class FixOperationTest {
     @Test fun `ReplaceRange produces the matching edit when offsets are in range`() {
         val op = ReplaceRange(0, 5, "hello")
-        assertEquals(TextEdit(0, 5, "hello"), op.toEdit("XXXXX world"))
+        assertEquals(TextEdit(0, 5, "hello"), op.toEdit(FixContext("XXXXX world") { null }))
     }
 
     @Test fun `ReplaceRange returns null when offsets are out of range`() {
-        assertNull(ReplaceRange(0, 50, "x").toEdit("short"))
-        assertNull(ReplaceRange(-1, 2, "x").toEdit("short"))
-        assertNull(ReplaceRange(3, 2, "x").toEdit("short")) // start > end
+        assertNull(ReplaceRange(0, 50, "x").toEdit(FixContext("short") { null }))
+        assertNull(ReplaceRange(-1, 2, "x").toEdit(FixContext("short") { null }))
+        assertNull(ReplaceRange(3, 2, "x").toEdit(FixContext("short") { null })) // start > end
     }
 
     @Test fun `FixOperation round-trips through polymorphic JSON`() {

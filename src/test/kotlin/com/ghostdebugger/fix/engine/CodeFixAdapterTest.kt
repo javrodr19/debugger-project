@@ -21,7 +21,7 @@ class CodeFixAdapterTest {
         val content = "val a = 1\nval b = 2\n"          // line2 = "val b = 2" at offset 10..19
         val plan = codeFix(2, 2, "val b = 3").toFixPlan(content)!!
         assertEquals(FixPlan("i1", listOf(ReplaceRange(10, 19, "val b = 3"))), plan)
-        assertEquals("val a = 1\nval b = 3\n", plan.toEdits(content)!!.applyTo(content))
+        assertEquals("val a = 1\nval b = 3\n", plan.toEdits(FixContext(content) { null })!!.applyTo(content))
     }
 
     @Test fun `returns null when the CodeFix line range is out of bounds`() {
