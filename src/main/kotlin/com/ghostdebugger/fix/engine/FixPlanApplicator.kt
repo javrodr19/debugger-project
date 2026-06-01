@@ -3,6 +3,7 @@ package com.ghostdebugger.fix.engine
 import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.model.Issue
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Document
@@ -13,10 +14,33 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.swing.Swing
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
+
+/**
+ * Write-safe EDT dispatcher for IntelliJ write actions invoked from coroutines.
+ *
+ * WHY NOT Dispatchers.Swing:
+ * `kotlinx.coroutines.Dispatchers.Swing` dispatches continuations via
+ * `SwingUtilities.invokeLater`. IntelliJ's `TransactionGuard` tracks which EDT pumps are
+ * write-safe and marks `SwingUtilities.invokeLater` callbacks as write-UNSAFE. Any
+ * `WriteCommandAction.runWriteCommandAction(...)` call executed from such a callback throws
+ * "Write-unsafe context! Model changes are allowed from write-safe contexts only."
+ *
+ * WHY THIS WORKS:
+ * `ApplicationManager.getApplication().invokeLater(block, ModalityState.defaultModalityState())`
+ * is the IntelliJ-native way to schedule work on the EDT. The platform's `TransactionGuard`
+ * considers these callbacks write-SAFE, so `WriteCommandAction` runs without error.
+ * `ModalityState.defaultModalityState()` (NON_MODAL) is the correct state for background-
+ * initiated fix actions; `ModalityState.any()` must NOT be used because it bypasses modality
+ * checks entirely and can corrupt state during modal dialogs.
+ */
+internal val AegisWriteSafeEdt: CoroutineContext = object : CoroutineDispatcher() {
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
+        ApplicationManager.getApplication().invokeLater(block, ModalityState.defaultModalityState())
+    }
+}
 
 /**
  * Applies a [FixPlan] to a file's Document inside a write action and enforces the Tier-1
@@ -113,7 +137,7 @@ class FixPlanApplicator {
         baselineForFile: List<Issue>,
         reanalyze: suspend () -> List<Issue>,
         verifier: FixVerifier = FixVerifier(),
-        edtContext: CoroutineContext = Dispatchers.Swing,
+        edtContext: CoroutineContext = AegisWriteSafeEdt,
     ): FixApplyResult {
         return try {
             val fdm = FileDocumentManager.getInstance()

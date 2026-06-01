@@ -6,8 +6,6 @@ import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.swing.Swing
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -49,7 +47,7 @@ class FixEngine(
         content: String,
         baselineForFile: List<Issue>,
         reanalyze: suspend () -> List<Issue> = { SingleFileStaticReanalysis(project).issuesFor(virtualFile) },
-        edtContext: CoroutineContext = Dispatchers.Swing,
+        edtContext: CoroutineContext = AegisWriteSafeEdt,
     ): FixApplyResult {
         val plan = planFor(issue, virtualFile, content)
             ?: return FixApplyResult.Rejected("No deterministic fix available for ${issue.ruleId}.")
