@@ -1,6 +1,7 @@
 package com.ghostdebugger.fix.engine
 
 import com.ghostdebugger.fix.FixApplyResult
+import com.ghostdebugger.model.Issue
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.logger
@@ -12,6 +13,10 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.swing.Swing
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Applies a [FixPlan] to a file's Document inside a write action and enforces the Tier-1
@@ -83,6 +88,79 @@ class FixPlanApplicator {
 
             if (succeeded) FixApplyResult.Success
             else FixApplyResult.Rejected("The proposed fix would produce invalid code and was not applied.")
+        } catch (e: ProcessCanceledException) {
+            throw e
+        } catch (t: Throwable) {
+            FixApplyResult.Failed(t)
+        }
+    }
+
+    /**
+     * Tier-1 + Tier-2. Applies [plan], runs the PSI-validity gate, then — with the candidate
+     * **committed but unsaved** — invokes [reanalyze] off the EDT to re-analyze the live document
+     * (the transient-document mechanism: Kotlin analyzers resolve PSI from the virtual file, so the
+     * committed candidate is what they see). [verifier] decides; the document is saved on Accept or
+     * reverted on Reject. EDT hops use [edtContext] (overridable in tests).
+     *
+     * Must be called from a coroutine. [reanalyze] must run its own read action and return the
+     * issues for this file under the candidate content.
+     */
+    suspend fun applyVerified(
+        plan: FixPlan,
+        virtualFile: VirtualFile,
+        project: Project,
+        target: Issue,
+        baselineForFile: List<Issue>,
+        reanalyze: suspend () -> List<Issue>,
+        verifier: FixVerifier = FixVerifier(),
+        edtContext: CoroutineContext = Dispatchers.Swing,
+    ): FixApplyResult {
+        return try {
+            val fdm = FileDocumentManager.getInstance()
+            val document = ApplicationManager.getApplication().runReadAction<Document?> {
+                fdm.getDocument(virtualFile)
+            } ?: return FixApplyResult.Rejected("No document for ${virtualFile.path}")
+            val edits = ApplicationManager.getApplication().runReadAction<List<TextEdit>?> {
+                val ctx = FixContext(document.text) {
+                    com.intellij.psi.PsiManager.getInstance(project).findFile(virtualFile)
+                }
+                plan.toEdits(ctx)
+            } ?: return FixApplyResult.Rejected("Plan does not apply to current content (stale offsets).")
+
+            // Tier-1 on the EDT. Reverts itself if the candidate is not PSI-valid.
+            var tier1: Tier1Outcome? = null
+            withContext(edtContext) {
+                WriteCommandAction.runWriteCommandAction(project, "Apply Aegis Debug Fix", null, Runnable {
+                    tier1 = applyAndCheck(document, edits, project)
+                })
+            }
+            val outcome = tier1 ?: return FixApplyResult.Failed(IllegalStateException("Tier-1 produced no outcome"))
+            if (!outcome.ok) {
+                return FixApplyResult.Rejected("The proposed fix would produce invalid code and was not applied.")
+            }
+
+            // Tier-2 off the EDT: the document now holds the committed (unsaved) candidate.
+            val candidateIssues = reanalyze()
+            val decision = verifier.decide(target, baselineForFile, candidateIssues)
+
+            // Commit the decision on the EDT: save on Accept, revert on Reject.
+            var result: FixApplyResult = FixApplyResult.Failed(IllegalStateException("No decision applied"))
+            withContext(edtContext) {
+                WriteCommandAction.runWriteCommandAction(project, "Finalize Aegis Debug Fix", null, Runnable {
+                    when (decision) {
+                        is VerifyDecision.Accept -> {
+                            fdm.saveDocument(document)
+                            result = FixApplyResult.Success
+                        }
+                        is VerifyDecision.Reject -> {
+                            document.setText(outcome.original)
+                            PsiDocumentManager.getInstance(project).commitDocument(document)
+                            result = FixApplyResult.Rejected(decision.reason)
+                        }
+                    }
+                })
+            }
+            result
         } catch (e: ProcessCanceledException) {
             throw e
         } catch (t: Throwable) {
