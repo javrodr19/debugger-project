@@ -73,6 +73,13 @@ contract gives the orchestrator a clean signal to fall back to the AI path, whic
 but also does not corrupt the PSI. Any fixer that is not confident it can produce a parse-clean result for
 every input it accepts must return null rather than guess.
 
+**Fix engine (V3, in progress).** Fix *application* now routes through `FixEngine` (`fix/engine/`):
+a `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by `FixPlanApplicator` with the
+same PSI-validity gate. Phase 1 (the deterministic seam) is merged and behavior-preserving; Phase 2
+makes the AI a *planner/supervisor* that composes deterministic engine operations and verifies them —
+never authoring raw fix code — replacing the free-form AI fallback described above. See
+`docs/superpowers/specs/2026-05-31-ai-supervised-fix-engine-design.md`.
+
 ### Kotlin Analysis API
 
 **Single chokepoint**: `parser/KotlinAnalysisHelpers.withKtAnalysis(KtFile, KaSession.(KtFile) -> T): T?`
@@ -157,6 +164,24 @@ When developing new features or performing extensive refactoring, commit changes
   `effectiveTypeWithStructuralSmartCast` (parent-chain walker introduced in V1.4). Using `expressionType`
   directly on a smart-cast variable will return the declared (non-narrowed) type, causing false positives in
   the null-safety analyzer for code that is actually safe.
+
+## Claude Code automation
+
+Local, per-machine Claude Code aids can live under `.claude/` — see **`.claude/README.md`** for the
+full index and design rationale (mechanical rules → hooks, judgment rules → the subagent). Note
+`.claude/` is gitignored ("never source"), so these are **not committed**; set them up per developer.
+In brief, the current setup provides:
+
+- **Hooks** (`.claude/settings.json` + `.claude/hooks/`): a `PreToolUse` guard blocks
+  `./gradlew test`/`check` when `JAVA_HOME` isn't a JBR (the "Packages does not exist" failure in
+  *Build prerequisites* above), printing the exact export commands. A `PostToolUse` advisory nudges on
+  two Kotlin conventions when you edit `.kt` files — the Analysis-API chokepoint and the PCE rethrow —
+  scoped to *just-inserted* text so existing code never generates noise.
+- **Subagent** (`.claude/agents/aegis-convention-reviewer.md`): on-demand review of changed
+  analyzers/fixers/facade against the five invariants in this file. High-confidence findings only.
+- **Skills** (`.claude/skills/`): `/new-analyzer` scaffolds an analyzer + test in the canonical pattern
+  (extends `KotlinAnalyzer`, registers in `AnalysisEngine`, KaErrorType canary); `/bump-version` bumps
+  `build.gradle.kts` + `plugin.xml` + `CHANGELOG.md` in lockstep (prevents the V1.3 drift).
 
 ## Roadmap pointer
 

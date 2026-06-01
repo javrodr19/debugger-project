@@ -307,6 +307,12 @@ the test-recording stub installed via `setBridgeForTest`).
 - PSI-driven, not regex-on-source. The V1.4.1 audit found a fixer that rewrote
   variable names inside string literals because it used a regex — don't repeat
   that.
+- **Fix engine (V3, in progress):** fix *application* now flows through `FixEngine`
+  (`fix/engine/`) — a `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by
+  `FixPlanApplicator` (same PSI-validity gate). Phase 1 (the deterministic seam) is merged and
+  behavior-preserving. Phase 2 turns the AI into a *planner/supervisor* that composes deterministic
+  engine operations and verifies them — it no longer authors raw fix code. Spec:
+  `docs/superpowers/specs/2026-05-31-ai-supervised-fix-engine-design.md`.
 
 ### 5.6 Tests
 
