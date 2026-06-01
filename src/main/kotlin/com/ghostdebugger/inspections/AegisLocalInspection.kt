@@ -2,10 +2,7 @@ package com.ghostdebugger.inspections
 
 import com.ghostdebugger.AnalysisOrchestrator
 import com.ghostdebugger.GhostDebuggerService
-import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.FixDeriver
-import com.ghostdebugger.fix.engine.FixEngine
-import com.ghostdebugger.fix.engine.toFixPlan
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.codeInspection.LocalInspectionTool
@@ -29,14 +26,9 @@ class AegisLocalQuickFix(
         val content = com.intellij.openapi.application.ApplicationManager.getApplication()
             .runReadAction<String?> { com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(vf)?.text }
             ?: return
-        val plan = fix.toFixPlan(content) ?: return
-        val result = FixEngine(project).apply(plan, vf)
-        // Re-run targeted analysis so the corrected issue clears from currentIssues + the NeuroMap,
-        // matching the other two fix paths (UIEventRouter, AegisQuickFixIntentionAction). Without
-        // this the fixed issue stayed visible until a manual full re-analysis. See BUG-24.
-        if (result is FixApplyResult.Success) {
-            AnalysisOrchestrator.getInstance(project).reanalyzeFile(issue.filePath)
-        }
+        // Route through the Tier-2 verify gate (off-EDT). The orchestrator re-analyzes on success
+        // and surfaces a notification on rejection, matching the other two fix paths. BUG-24.
+        AnalysisOrchestrator.getInstance(project).applyVerifiedFix(issue, vf, content)
     }
 }
 
