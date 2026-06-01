@@ -39,6 +39,16 @@ import kotlinx.coroutines.swing.Swing
 import kotlinx.coroutines.withContext
 
 /**
+ * The file-scoped baseline for the Tier-2 verify gate: the issues already known for [filePath].
+ * Path comparison normalizes `\` to `/` on both sides so Windows and POSIX paths match. Top-level
+ * and pure so it is unit-testable without constructing the @Service.
+ */
+internal fun baselineFor(issues: List<com.ghostdebugger.model.Issue>, filePath: String): List<com.ghostdebugger.model.Issue> {
+    val normalized = filePath.replace("\\", "/")
+    return issues.filter { it.filePath.replace("\\", "/") == normalized }
+}
+
+/**
  * Owns the full analysis lifecycle: full-project analysis, targeted re-analysis after
  * a fix is applied, and the dependent-cascade pass that propagates updates to transitive
  * dependents. Lifted out of GhostDebuggerService in V1.5.
