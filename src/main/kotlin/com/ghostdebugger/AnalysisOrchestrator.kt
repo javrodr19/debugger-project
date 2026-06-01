@@ -1,5 +1,8 @@
 package com.ghostdebugger
 
+import com.ghostdebugger.ai.AIService
+import com.ghostdebugger.ai.AIServiceFactory
+import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.analysis.AnalysisEngine
 import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.engine.FixEngine
@@ -14,6 +17,7 @@ import com.ghostdebugger.model.ParsedFile
 import com.ghostdebugger.parser.DependencyResolver
 import com.ghostdebugger.parser.FileScanner
 import com.ghostdebugger.parser.SymbolExtractor
+import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.ghostdebugger.store.StackTraceParser
 import com.intellij.notification.NotificationGroupManager
@@ -497,7 +501,7 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
         virtualFile: VirtualFile,
         content: String,
         fixVerified: suspend (Issue, VirtualFile, String, List<Issue>) -> FixApplyResult =
-            { i, v, c, b -> FixEngine(project).fixVerified(i, v, c, b) },
+            { i, v, c, b -> FixEngine(project).fixSupervised(i, v, c, b, resolveAiService()) },
     ): Job = scope.launch {
         try {
             val baseline = baselineFor(service().currentIssues, virtualFile.path)
@@ -522,6 +526,13 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
             .getNotificationGroup("GhostDebugger")
             .createNotification("Aegis Debug couldn't apply the fix", reason, NotificationType.WARNING)
             .notify(project)
+    }
+
+    /** Resolve the configured AIService, or null when AI is disabled / unconfigured. */
+    private fun resolveAiService(): AIService? {
+        val settings = GhostDebuggerSettings.getInstance().snapshot()
+        if (settings.aiProvider == AIProvider.NONE) return null
+        return AIServiceFactory.create(settings, ApiKeyManager.getApiKey())
     }
 
     private fun service(): GhostDebuggerService = GhostDebuggerService.getInstance(project)
