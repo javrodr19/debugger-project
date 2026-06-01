@@ -42,4 +42,61 @@ class FixEngineTest : BasePlatformTestCase() {
 
         assertTrue(result.toString(), result is FixApplyResult.Rejected)
     }
+
+    fun testFixVerifiedRejectsWhenNoDeterministicFixer() {
+        val psi = myFixture.configureByText("A.kt", "fun f(): Int { return 1 }\n")
+        val vf = psi.virtualFile
+        val content = runReadAction { myFixture.getDocument(psi).text }
+        val issue = com.ghostdebugger.model.Issue(
+            id = "i", type = com.ghostdebugger.model.IssueType.ARCHITECTURE,
+            severity = com.ghostdebugger.model.IssueSeverity.WARNING,
+            title = "t", description = "", filePath = "A.kt", line = 1, ruleId = "AEG-NO-FIXER-999"
+        )
+
+        val result = kotlinx.coroutines.runBlocking {
+            FixEngine(project).fixVerified(
+                issue, vf, content, baselineForFile = listOf(issue),
+                reanalyze = { emptyList() },
+                edtContext = kotlinx.coroutines.Dispatchers.Unconfined,
+            )
+        }
+
+        assertTrue(result.toString(), result is com.ghostdebugger.fix.FixApplyResult.Rejected)
+    }
+
+    fun testFixVerifiedAppliesAndVerifiesAnInjectedPlan() {
+        val psi = myFixture.configureByText("A.kt", "fun f(): Int { return 1 }\n")
+        val vf = psi.virtualFile
+        val content = runReadAction { myFixture.getDocument(psi).text }
+        val issue = com.ghostdebugger.model.Issue(
+            id = "i", type = com.ghostdebugger.model.IssueType.NULL_SAFETY,
+            severity = com.ghostdebugger.model.IssueSeverity.WARNING,
+            title = "t", description = "", filePath = "A.kt", line = 1, ruleId = "AEG-CAST-KT-001"
+        )
+        // CodeFix uses lineStart/lineEnd (1-based line numbers). lineStart=1, lineEnd=1 replaces the
+        // entire first line (without trailing newline) with fixedCode. fixedCode must be the full
+        // replacement line so that "return 2" appears in the result.
+        val engine = FixEngine(
+            project = project,
+            deriveCodeFix = { _, _, _ ->
+                com.ghostdebugger.model.CodeFix(
+                    id = "f", issueId = issue.id, description = "d",
+                    originalCode = "fun f(): Int { return 1 }",
+                    fixedCode = "fun f(): Int { return 2 }",
+                    filePath = "A.kt", lineStart = 1, lineEnd = 1
+                )
+            },
+        )
+
+        val result = kotlinx.coroutines.runBlocking {
+            engine.fixVerified(
+                issue, vf, content, baselineForFile = listOf(issue),
+                reanalyze = { emptyList() },  // candidate clean -> resolved + no regression
+                edtContext = kotlinx.coroutines.Dispatchers.Unconfined,
+            )
+        }
+
+        assertTrue(result.toString(), result is com.ghostdebugger.fix.FixApplyResult.Success)
+        assertTrue(runReadAction { myFixture.getDocument(psi).text }.contains("return 2"))
+    }
 }

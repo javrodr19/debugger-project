@@ -6,6 +6,9 @@ import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.swing.Swing
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Single entry point for deterministic fixing. Phase 1: derive a [CodeFix] from the registered
@@ -32,5 +35,26 @@ class FixEngine(
         val plan = planFor(issue, virtualFile, content)
             ?: return FixApplyResult.Rejected("No deterministic fix available for ${issue.ruleId}.")
         return apply(plan, virtualFile)
+    }
+
+    /**
+     * Derive + apply with the Tier-2 re-analysis verify gate. Returns Rejected when no deterministic
+     * fixer applies, the candidate is not PSI-valid, or the gate rejects it. [reanalyze] defaults to
+     * a single-file static pass over the live (committed) candidate; [baselineForFile] is the set of
+     * issues already known for the file (its current findings). Must be called from a coroutine.
+     */
+    suspend fun fixVerified(
+        issue: Issue,
+        virtualFile: VirtualFile,
+        content: String,
+        baselineForFile: List<Issue>,
+        reanalyze: suspend () -> List<Issue> = { SingleFileStaticReanalysis(project).issuesFor(virtualFile) },
+        edtContext: CoroutineContext = Dispatchers.Swing,
+    ): FixApplyResult {
+        val plan = planFor(issue, virtualFile, content)
+            ?: return FixApplyResult.Rejected("No deterministic fix available for ${issue.ruleId}.")
+        return applicator.applyVerified(
+            plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext,
+        )
     }
 }
