@@ -209,14 +209,21 @@ is deterministic: `baselineFor(issues, filePath)` filters the in-memory issues t
 only. Deliverable: deterministic, verified fixing on all paths; rejections surface cleanly to
 the user.
 
-**Phase 2c-ii — AI planner + review (remaining work).**
-The semantic operation catalog (`AddElvisReturn`, `ConvertToSafeCast`, `InsertImport`,
-`SurroundWithTryCatch`, `AddTimerCleanup`, …), `FixPlanner` (catalog-schema prompt → `FixPlan`
-JSON via `AiJsonExtractor`), the bounded orchestration loop with verify feedback, and the AI
-semantic-review step. Remove `suggestFix`/`parseFixResponse` free-form code generation
-(`BaseAIService` / `AIService` / `PromptTemplates`, called at `UIEventRouter`). Deliverable: AI
-composes + supervises engine operations for issues no single fixer covers, with every edit
-deterministic and every fix verified.
+**Phase 2c-ii-a — AI planner + supervised loop (DONE).**
+`AIService.proposeFixPlan` emits a `FixPlan` of catalog operations as JSON via
+`PromptTemplates.planFix` + `FixPlanCodec`. `FixEngine.fixSupervised` attempts the deterministic
+plan first, then asks the AI up to N times for revisions, feeding each verify-gate rejection back
+as feedback, applying every candidate through the deterministic Tier-2 gate (no subjective AI
+accept-gate). Wired into the live fix paths via `AnalysisOrchestrator.applyVerifiedFix`; AI-optional
+(falls back to the deterministic verified path when no AI is configured). Deliverable: bounded
+AI-supervised loop with deterministic acceptance; the engine fixes, the AI proposes and revises.
+
+**Phase 2c-ii-b — AI fix suggestion/preview + retire free-form code gen (remaining work).**
+Migrate the AI fix suggestion/preview path (`UIEventRouter.sendFixSuggestion`) to render the
+result of `fixSupervised`/the planner, then retire the free-form `suggestFix` / `parseFixResponse`
+free-form code generation (`AIService` / `BaseAIService` / `PromptTemplates.suggestFix`, called at
+`UIEventRouter`). Deliverable: the suggestion surface uses the same supervised planning as applied
+fixes; no more free-form code output from the AI.
 
 ## 10. Risks / open questions
 
