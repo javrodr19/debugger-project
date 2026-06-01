@@ -89,13 +89,19 @@ fun attemptFix(issue: Issue, file: PsiFile, plan: FixPlan): VerifiedFix?   // nu
      offline and synchronously via `PsiFileFactory` for languages with a Community PSI (Kotlin/Java);
      for TS/JS (no Community PSI) it is a structural no-op, matching today's behavior. Reuses the
      parse-check-and-revert that `FixApplicator` already performs at write time.
-   - **Tier 2 — re-analysis (Phase 2).** (b) re-running the issue's analyzer on the candidate → the
-     target **fingerprint is gone**; (c) → **no new fingerprints** vs. the pre-fix baseline.
-     **Caveat discovered during planning:** TS/JS analyzers are content-based (trivial to re-run on
-     candidate content), but Kotlin analyzers resolve via the in-module PSI
-     (`PsiManager.findFile(virtualFile)`) for K2 type resolution, so re-analyzing *unsaved candidate*
-     Kotlin content needs the transient-document approach (apply→commit→analyze→accept/revert,
-     extending `FixApplicator`'s pattern). This is a Phase 2 design item, not Phase 1.
+   - **Tier 2 — re-analysis (Phase 2b, IMPLEMENTED).** `FixVerifier.decide(target, baselineForFile,
+     candidateForFile)` compares per-`ruleKey` **counts** (not fingerprints), immune to line shifts:
+     the target rule must have strictly fewer occurrences and no rule may increase. Re-analysis runs
+     via `SingleFileStaticReanalysis`, a static-only pass that re-parses the **single fixed file**
+     from its live committed (unsaved) Document — the transient-document mechanism where Kotlin
+     analyzers get full in-module type resolution. The flow (`FixPlanApplicator.applyVerified`):
+     applies on the EDT → commits (so PSI sees the candidate) → re-analyzes off-EDT →
+     accepts (saves) or rejects (reverts) on the EDT. **Known acceptable miss** (consistent with
+     conservative-miss bias): a fix resolving the target instance but introducing a *different*
+     instance of the *same* rule nets zero count delta and is accepted. **Implementation note:**
+     EDT hops use `AegisWriteSafeEdt` (built on `Application.invokeLater` with `ModalityState.defaultModalityState()`),
+     not `Dispatchers.Swing` (which uses `SwingUtilities.invokeLater`, write-unsafe per IntelliJ's
+     TransactionGuard).
 3. Returns `VerifiedFix(edits, evidence)` or a typed `RejectedFix(reason)` (e.g. `NotPsiValid`,
    `IssueStillPresent`, `IntroducedIssues(list)`, `OperationInapplicable`).
 
@@ -186,14 +192,21 @@ all fixing flows through the engine + `FixPlan` abstraction, PSI-validity-gated,
 seam Phase 2 plugs into. (The richer semantic operations beyond `ReplaceRange` arrive in Phase 2
 with their consumer, the AI planner — YAGNI for Phase 1.)
 
-**Phase 2 — AI supervisor + Tier-2 (re-analysis) gate.**
+**Phase 2b — Tier-2 re-analysis gate (DONE).**
+`FixVerifier` (count-based decision, line-shift immune), `SingleFileStaticReanalysis` (default
+re-analyze provider), and `FixPlanApplicator.applyVerified` (transient-document lifecycle +
+EDT hops). The verify gate is deterministic, offline, and works for both direct fixers (Phase 1)
+and AI-planned operations (Phase 2c). Deliverable: single-file re-analysis with Kotlin type
+resolution and deterministic accept/revert.
+
+**Phase 2c — AI planner + review (remaining work).**
 The semantic operation catalog (`AddElvisReturn`, `ConvertToSafeCast`, `InsertImport`,
-`SurroundWithTryCatch`, `AddTimerCleanup`, …), the Tier-2 re-analysis gate (incl. the transient-
-document approach for Kotlin type resolution), `FixPlanner` (catalog-schema prompt → `FixPlan` JSON),
-the bounded orchestration loop with verify feedback, and the AI semantic-review step. Remove
-`suggestFix`/`parseFixResponse` free-form code generation. Deliverable: AI composes + supervises
-engine operations for issues no single fixer covers, with every edit deterministic and every fix
-verified.
+`SurroundWithTryCatch`, `AddTimerCleanup`, …), the live wire-in (routing the quick-fix /
+intention path through `fixVerified` in a coroutine, supplying `baselineForFile` from the file's
+current findings), `FixPlanner` (catalog-schema prompt → `FixPlan` JSON), the bounded
+orchestration loop with verify feedback, and the AI semantic-review step. Remove `suggestFix`/
+`parseFixResponse` free-form code generation. Deliverable: AI composes + supervises engine
+operations for issues no single fixer covers, with every edit deterministic and every fix verified.
 
 ## 10. Risks / open questions
 
