@@ -114,4 +114,23 @@ class BaseAIServiceTest {
         val issues = svc.detectIssues("/x.ts", "code", emptyList())
         assertTrue(issues.isEmpty())
     }
+
+    @Test
+    fun proposeFixPlanDecodesModelJsonIntoAFixPlan() {
+        val planJson = """{"issueId":"i9","operations":[{"type":"insertImport","fqName":"a.b.C"}]}"""
+        val service = RecordingService(cacheEnabled = false, response = planJson)
+        val plan = runBlocking { service.proposeFixPlan(issue(), "some file content", feedback = null) }
+        assertNotNull(plan)
+        assertEquals("i9", plan!!.issueId)
+        assertEquals(1, plan.operations.size)
+        assertTrue(plan.operations[0] is com.ghostdebugger.fix.engine.InsertImport)
+        assertTrue(service.lastJsonMode, "planning must request JSON mode")
+    }
+
+    @Test
+    fun proposeFixPlanReturnsNullWhenModelEmitsNoJson() {
+        val service = RecordingService(cacheEnabled = false, response = "Sorry, I cannot help.")
+        val plan = runBlocking { service.proposeFixPlan(issue(), "x", feedback = null) }
+        assertNull(plan)
+    }
 }

@@ -2,6 +2,8 @@ package com.ghostdebugger.ai
 
 import com.ghostdebugger.ai.prompts.PromptTemplates
 import com.ghostdebugger.ai.prompts.SystemPrompts
+import com.ghostdebugger.fix.engine.FixPlan
+import com.ghostdebugger.fix.engine.FixPlanCodec
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.FunctionSymbol
 import com.ghostdebugger.model.Issue
@@ -105,6 +107,17 @@ internal abstract class BaseAIService(
             cache.put(cacheKey, response)
         }
         return response
+    }
+
+    override suspend fun proposeFixPlan(issue: Issue, fileContent: String, feedback: String?): FixPlan? {
+        val raw = try {
+            callModel(SystemPrompts.DEBUGGER, PromptTemplates.planFix(issue, fileContent, feedback), jsonMode = true)
+        } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+            log.warn("proposeFixPlan callModel failed for ${issue.id}", e)
+            return null
+        }
+        return FixPlanCodec.decode(raw)
     }
 
     override suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {

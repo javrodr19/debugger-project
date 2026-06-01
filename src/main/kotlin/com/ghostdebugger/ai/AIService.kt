@@ -1,5 +1,6 @@
 package com.ghostdebugger.ai
 
+import com.ghostdebugger.fix.engine.FixPlan
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.FunctionSymbol
 import com.ghostdebugger.model.Issue
@@ -23,6 +24,13 @@ interface AIService {
     suspend fun explainIssue(issue: Issue, codeSnippet: String): String
     suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix
     suspend fun explainSystem(graph: ProjectGraph): String
+
+    /**
+     * Propose a deterministic [FixPlan] (catalog operations as JSON) that fixes [issue] in
+     * [fileContent]. [feedback] is the verify gate's reason for rejecting a prior attempt, if any.
+     * Returns null when the model produces no decodable plan. Default: unsupported (null).
+     */
+    suspend fun proposeFixPlan(issue: Issue, fileContent: String, feedback: String? = null): FixPlan? = null
 
     suspend fun explainIssueStreaming(
         issue: Issue,
