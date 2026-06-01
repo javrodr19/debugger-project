@@ -220,11 +220,27 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                     }
                     return@launch
                 }
-                val fix = ai.suggestFix(issue, issue.codeSnippet)
+                val content = try {
+                    java.io.File(issue.filePath).readText()
+                } catch (e: Exception) {
+                    if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                    null
+                }
+                val vf = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
+                val preview = if (vf != null && content != null) {
+                    ai.proposeFixPlan(issue, content)?.let {
+                        com.ghostdebugger.fix.engine.FixPlanPreview.render(it, project, vf, content, issue)
+                    }
+                } else null
                 withContext(Dispatchers.Swing) {
-                    svc.jcefBridge()?.sendFixSuggestion(fix)
+                    if (preview != null) {
+                        svc.jcefBridge()?.sendFixSuggestion(preview)
+                    } else {
+                        svc.jcefBridge()?.sendError("Aegis Debug couldn't propose a fix for this issue.")
+                    }
                 }
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.error("Failed to generate fix suggestion", e)
                 withContext(Dispatchers.Swing) {
                     svc.jcefBridge()?.sendError("Error generating fix: ${e.message}")
