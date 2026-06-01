@@ -199,14 +199,24 @@ EDT hops). The verify gate is deterministic, offline, and works for both direct 
 and AI-planned operations (Phase 2c). Deliverable: single-file re-analysis with Kotlin type
 resolution and deterministic accept/revert.
 
-**Phase 2c — AI planner + review (remaining work).**
+**Phase 2c-i — Tier-2 verify gate wired into live fix paths (DONE).**
+The verify gate is now integrated into all three live fix-application sites: the editor intention
+(`AegisQuickFixIntentionAction`) and the IDE inspection quick-fix delegate through a shared
+`AnalysisOrchestrator.applyVerifiedFix` helper (off-EDT, re-analyzes on success, notifies on
+rejection via the existing `GhostDebugger` notification group); the webview path (`UIEventRouter`)
+calls `fixVerified` directly with a file-scoped baseline computed from current findings. Baseline
+is deterministic: `baselineFor(issues, filePath)` filters the in-memory issues to the target file
+only. Deliverable: deterministic, verified fixing on all paths; rejections surface cleanly to
+the user.
+
+**Phase 2c-ii — AI planner + review (remaining work).**
 The semantic operation catalog (`AddElvisReturn`, `ConvertToSafeCast`, `InsertImport`,
-`SurroundWithTryCatch`, `AddTimerCleanup`, …), the live wire-in (routing the quick-fix /
-intention path through `fixVerified` in a coroutine, supplying `baselineForFile` from the file's
-current findings), `FixPlanner` (catalog-schema prompt → `FixPlan` JSON), the bounded
-orchestration loop with verify feedback, and the AI semantic-review step. Remove `suggestFix`/
-`parseFixResponse` free-form code generation. Deliverable: AI composes + supervises engine
-operations for issues no single fixer covers, with every edit deterministic and every fix verified.
+`SurroundWithTryCatch`, `AddTimerCleanup`, …), `FixPlanner` (catalog-schema prompt → `FixPlan`
+JSON via `AiJsonExtractor`), the bounded orchestration loop with verify feedback, and the AI
+semantic-review step. Remove `suggestFix`/`parseFixResponse` free-form code generation
+(`BaseAIService` / `AIService` / `PromptTemplates`, called at `UIEventRouter`). Deliverable: AI
+composes + supervises engine operations for issues no single fixer covers, with every edit
+deterministic and every fix verified.
 
 ## 10. Risks / open questions
 
