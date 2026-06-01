@@ -27,8 +27,11 @@ data class Issue(
     val confidence: Double? = null,
     val ruleId: String? = null
 ) {
+    /** Stable rule identity: the analyzer's ruleId, or the issue type name when no ruleId is set. */
+    fun ruleKey(): String = ruleId ?: type.name
+
     fun fingerprint(): String =
-        listOf(ruleId ?: type.name, filePath, line.toString()).joinToString(":")
+        listOf(ruleKey(), filePath, line.toString()).joinToString(":")
 }
 
 @Serializable
