@@ -1,18 +1,23 @@
 package com.ghostdebugger
 
 import com.ghostdebugger.analysis.AnalysisEngine
+import com.ghostdebugger.fix.FixApplyResult
+import com.ghostdebugger.fix.engine.FixEngine
 import com.ghostdebugger.graph.GraphBuilder
 import com.ghostdebugger.graph.InMemoryGraph
 import com.ghostdebugger.model.AnalysisContext
 import com.ghostdebugger.model.IssueSeverity
+import com.ghostdebugger.model.Issue
+import com.ghostdebugger.model.IssueSource
 import com.ghostdebugger.model.NodeStatus
 import com.ghostdebugger.model.ParsedFile
 import com.ghostdebugger.parser.DependencyResolver
 import com.ghostdebugger.parser.FileScanner
 import com.ghostdebugger.parser.SymbolExtractor
 import com.ghostdebugger.settings.GhostDebuggerSettings
-import com.ghostdebugger.model.IssueSource
 import com.ghostdebugger.store.StackTraceParser
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.execution.testframework.AbstractTestProxy
 import com.intellij.execution.testframework.TestStatusListener
@@ -31,6 +36,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -477,6 +483,45 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
                 }
             }
         }
+    }
+
+    /**
+     * Apply a deterministic fix for [issue] through the Phase-2b Tier-2 verify gate
+     * ([FixEngine.fixVerified]) off the EDT, using the file's current findings as the baseline.
+     * On success, re-analyzes the file so the resolved issue clears; on rejection, surfaces a
+     * balloon notification. The [fixVerified] seam is injectable for tests. Returns the launched
+     * [Job] so callers/tests can await completion.
+     */
+    internal fun applyVerifiedFix(
+        issue: Issue,
+        virtualFile: VirtualFile,
+        content: String,
+        fixVerified: suspend (Issue, VirtualFile, String, List<Issue>) -> FixApplyResult =
+            { i, v, c, b -> FixEngine(project).fixVerified(i, v, c, b) },
+    ): Job = scope.launch {
+        try {
+            val baseline = baselineFor(service().currentIssues, virtualFile.path)
+            when (val result = fixVerified(issue, virtualFile, content, baseline)) {
+                is FixApplyResult.Success -> reanalyzeFile(virtualFile.path)
+                is FixApplyResult.Rejected -> notifyFixRejected(issue, result.reason)
+                is FixApplyResult.Failed ->
+                    notifyFixRejected(issue, result.throwable.message ?: "Fix failed unexpectedly.")
+            }
+        } catch (e: ProcessCanceledException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("Verified fix failed for ${issue.filePath}", e)
+            notifyFixRejected(issue, e.message ?: "Fix failed unexpectedly.")
+        }
+    }
+
+    /** Surface a verify-gate rejection to the user via the existing GhostDebugger balloon group. */
+    private fun notifyFixRejected(issue: Issue, reason: String) {
+        log.warn("Verified fix rejected for ${issue.fingerprint()}: $reason")
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("GhostDebugger")
+            .createNotification("Aegis Debug couldn't apply the fix", reason, NotificationType.WARNING)
+            .notify(project)
     }
 
     private fun service(): GhostDebuggerService = GhostDebuggerService.getInstance(project)
