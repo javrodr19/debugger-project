@@ -47,10 +47,8 @@ class AegisQuickFixIntentionAction : PsiElementBaseIntentionAction(), IntentionA
         // threads — a mutable activeIssue field raced and could apply the wrong fix or none. BUG-23.
         val issue = findFixableIssue(project, editor, element) ?: return
         val content = psiFile.text
-        val result = com.ghostdebugger.fix.engine.FixEngine(project).fix(issue, virtualFile, content)
-        if (result is com.ghostdebugger.fix.FixApplyResult.Success) {
-            AnalysisOrchestrator.getInstance(project).reanalyzeFile(virtualFile.path)
-        }
+        // Tier-2 verify gate runs off-EDT; the orchestrator re-analyzes on success and notifies on reject.
+        AnalysisOrchestrator.getInstance(project).applyVerifiedFix(issue, virtualFile, content)
     }
 
     /** Stateless lookup of the fixable issue at the current caret, or null. Safe to call from any thread. */
