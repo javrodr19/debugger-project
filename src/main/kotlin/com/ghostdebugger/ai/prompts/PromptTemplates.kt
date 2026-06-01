@@ -185,4 +185,38 @@ object PromptTemplates {
 
         ${PromptExamples.JOINT_FIX_EXAMPLES}
     """.trimIndent()
+
+    /**
+     * Prompt asking the model to act as a planner: emit a [com.ghostdebugger.fix.engine.FixPlan]
+     * composed only of deterministic catalog operations as JSON. [feedback] (when non-null) is the
+     * verify gate's reason for rejecting the previous attempt, so the model can revise.
+     * Built with StringBuilder to avoid the trimIndent() multi-line-interpolation gotcha.
+     */
+    fun planFix(issue: Issue, fileContent: String, feedback: String? = null): String {
+        val sb = StringBuilder()
+        sb.append("You repair code by composing deterministic edit operations into a plan. ")
+        sb.append("You do NOT write free-form fixed code; you only choose operations from the catalog below.\n\n")
+        sb.append("Issue to fix:\n")
+        sb.append("- ruleId: ").append(issue.ruleId ?: issue.type.name).append('\n')
+        sb.append("- title: ").append(issue.title).append('\n')
+        sb.append("- line: ").append(issue.line).append('\n')
+        sb.append("- description: ").append(issue.description).append('\n')
+        if (feedback != null) {
+            sb.append("\nYour previous plan was REJECTED by the verifier: ").append(feedback)
+            sb.append("\nProduce a corrected plan that resolves the issue without introducing new ones.\n")
+        }
+        sb.append("\nReturn ONLY a JSON object of this exact shape (no prose):\n")
+        sb.append("{\"issueId\":\"").append(issue.id).append("\",\"operations\":[ <operation>, ... ]}\n\n")
+        sb.append("Each <operation> is exactly one of:\n")
+        sb.append("- {\"type\":\"replaceRange\",\"startOffset\":<int>,\"endOffset\":<int>,\"text\":\"<replacement>\"} ")
+        sb.append("// replace the half-open character range [startOffset, endOffset) with text\n")
+        sb.append("- {\"type\":\"insertImport\",\"fqName\":\"<fully.qualified.Name>\"} // add an import if absent\n")
+        sb.append("- {\"type\":\"convertToSafeCast\",\"asOffset\":<int>} ")
+        sb.append("// asOffset = the 0-based character offset where the unsafe `as` keyword starts\n")
+        sb.append("\nAll offsets are 0-based character indices into the file content below.\n")
+        sb.append("\n--- FILE CONTENT START ---\n")
+        sb.append(fileContent)
+        sb.append("\n--- FILE CONTENT END ---\n")
+        return sb.toString()
+    }
 }
