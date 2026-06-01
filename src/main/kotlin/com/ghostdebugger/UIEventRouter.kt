@@ -271,7 +271,8 @@ internal class UIEventRouter(private val project: Project) : Disposable {
             }
             val vf = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
             val applied = if (vf != null && content != null) {
-                com.ghostdebugger.fix.engine.FixEngine(project).fix(issue, vf, content)
+                val baseline = baselineFor(svc.currentIssues, vf.path)
+                com.ghostdebugger.fix.engine.FixEngine(project).fixVerified(issue, vf, content, baseline)
             } else {
                 FixApplyResult.Rejected("Could not read file for fix: ${issue.filePath}")
             }
