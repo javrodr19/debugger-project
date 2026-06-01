@@ -30,6 +30,31 @@ data class ReplaceRange(val startOffset: Int, val endOffset: Int, val text: Stri
     }
 }
 
+/** Insert `import [fqName]` if not already present (after the last import, else after package, else top). */
+@Serializable
+@SerialName("insertImport")
+data class InsertImport(val fqName: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val content = ctx.content
+        val lines = content.lines()
+        val importLine = "import $fqName"
+        if (lines.any { it.trim() == importLine }) return null
+
+        val starts = lineStartOffsets(content)
+        val lastImport = lines.indexOfLast { it.trim().startsWith("import ") }
+        val pkg = lines.indexOfFirst { it.trim().startsWith("package ") }
+        val anchorLine = when {
+            lastImport >= 0 -> lastImport
+            pkg >= 0 -> pkg
+            else -> -1
+        }
+        val insertOffset = if (anchorLine < 0) 0
+            else if (anchorLine + 1 < starts.size) starts[anchorLine + 1] - 1 else content.length
+        val text = if (anchorLine < 0) "$importLine\n" else "\n$importLine"
+        return TextEdit(insertOffset, insertOffset, text)
+    }
+}
+
 /** Rewrite the unsafe `as` cast whose `as` keyword starts at [asOffset] into `x as? T <fallback>`. */
 @Serializable
 @SerialName("convertToSafeCast")
