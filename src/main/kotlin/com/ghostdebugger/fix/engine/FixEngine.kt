@@ -1,5 +1,6 @@
 package com.ghostdebugger.fix.engine
 
+import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.model.CodeFix
@@ -54,5 +55,58 @@ class FixEngine(
         return applicator.applyVerified(
             plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext,
         )
+    }
+
+    /**
+     * AI-supervised fix loop. Tries the deterministic plan first; if absent or rejected by the
+     * verify gate, asks [aiService] (when non-null) for a [FixPlan] up to [maxAiAttempts] times,
+     * feeding each rejection reason back as planner feedback and applying every candidate through
+     * the same Tier-2 gate. Returns the first [FixApplyResult.Success] or the last rejection.
+     * AI-optional: with [aiService] == null this is exactly the deterministic verified path.
+     *
+     * Acceptance is fully deterministic (the gate). The AI only proposes and revises.
+     */
+    suspend fun fixSupervised(
+        issue: Issue,
+        virtualFile: VirtualFile,
+        content: String,
+        baselineForFile: List<Issue>,
+        aiService: AIService?,
+        reanalyze: suspend () -> List<Issue> = { SingleFileStaticReanalysis(project).issuesFor(virtualFile) },
+        maxAiAttempts: Int = 2,
+        edtContext: CoroutineContext = AegisWriteSafeEdt,
+        applyVerified: suspend (FixPlan) -> FixApplyResult = { plan ->
+            applicator.applyVerified(plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext)
+        },
+    ): FixApplyResult {
+        var lastReason = "No deterministic fix available for ${issue.ruleId}."
+
+        // 1) Deterministic plan first.
+        planFor(issue, virtualFile, content)?.let { plan ->
+            when (val r = applyVerified(plan)) {
+                is FixApplyResult.Success -> return r
+                is FixApplyResult.Rejected -> lastReason = r.reason
+                is FixApplyResult.Failed -> lastReason = r.throwable.message ?: lastReason
+            }
+        }
+
+        // 2) AI-supervised attempts with rejection feedback.
+        if (aiService != null) {
+            var feedback: String? = null
+            repeat(maxAiAttempts) {
+                val plan = aiService.proposeFixPlan(issue, content, feedback)
+                if (plan != null) {
+                    when (val r = applyVerified(plan)) {
+                        is FixApplyResult.Success -> return r
+                        is FixApplyResult.Rejected -> { feedback = r.reason; lastReason = r.reason }
+                        is FixApplyResult.Failed -> {
+                            feedback = r.throwable.message ?: "Fix failed."
+                            lastReason = feedback ?: lastReason
+                        }
+                    }
+                }
+            }
+        }
+        return FixApplyResult.Rejected(lastReason)
     }
 }
