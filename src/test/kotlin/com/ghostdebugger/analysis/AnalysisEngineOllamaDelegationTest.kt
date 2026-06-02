@@ -38,8 +38,6 @@ class AnalysisEngineOllamaDelegationTest {
             )
         }
         override suspend fun explainIssue(issue: Issue, codeSnippet: String) = "explained"
-        override suspend fun suggestFix(issue: Issue, codeSnippet: String) =
-            CodeFix(UUID.randomUUID().toString(), issue.id, "", "", "", issue.filePath, 1, 1, false, 0.7)
         override suspend fun explainSystem(graph: ProjectGraph) = "summary"
     }
 

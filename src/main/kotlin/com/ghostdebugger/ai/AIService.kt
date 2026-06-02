@@ -1,7 +1,6 @@
 package com.ghostdebugger.ai
 
 import com.ghostdebugger.fix.engine.FixPlan
-import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.FunctionSymbol
 import com.ghostdebugger.model.Issue
 import com.ghostdebugger.model.ProjectGraph
@@ -22,7 +21,6 @@ interface AIService {
     ): List<Issue>
 
     suspend fun explainIssue(issue: Issue, codeSnippet: String): String
-    suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix
     suspend fun explainSystem(graph: ProjectGraph): String
 
     /**

@@ -82,17 +82,6 @@ class BaseAIServiceTest {
     }
 
     @Test
-    fun `suggestFix cache hit short-circuits callModel and re-parses cached response`() = runBlocking {
-        val svc = RecordingService(cacheEnabled = true)
-        val i = issue()
-        val first = svc.suggestFix(i, "snippet")
-        val second = svc.suggestFix(i, "snippet")
-        assertEquals(1, svc.invocationCount.get(), "second call should hit cache")
-        assertEquals(first.fixedCode, second.fixedCode)
-        assertEquals(first.description, second.description)
-    }
-
-    @Test
     fun `cacheEnabled false skips the cache entirely`() = runBlocking {
         val svc = RecordingService(cacheEnabled = false)
         val i = issue()

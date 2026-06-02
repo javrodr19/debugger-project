@@ -23,7 +23,6 @@ class FixEngineSupervisedTest : BasePlatformTestCase() {
         private var i = 0
         override suspend fun detectIssues(filePath: String, fileContent: String, functions: List<com.ghostdebugger.model.FunctionSymbol>) = emptyList<Issue>()
         override suspend fun explainIssue(issue: Issue, codeSnippet: String) = ""
-        override suspend fun suggestFix(issue: Issue, codeSnippet: String) = throw UnsupportedOperationException()
         override suspend fun explainSystem(graph: ProjectGraph) = ""
         override suspend fun proposeFixPlan(issue: Issue, fileContent: String, feedback: String?): FixPlan? {
             feedbacks += feedback

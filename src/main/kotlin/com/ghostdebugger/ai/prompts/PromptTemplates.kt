@@ -79,35 +79,6 @@ object PromptTemplates {
         Respond in English. Be concise (max 150 words). Use simple language, no jargon.
     """.trimIndent()
 
-    fun suggestFix(issue: Issue, codeSnippet: String, impactContext: String = ""): String = """
-        You are a world-class senior developer. Provide a fix for the following bug.
-
-        ## Issue
-        Type: ${issue.type}
-        Title: ${issue.title}
-        File: ${issue.filePath.substringAfterLast("/")}
-        Line: ${issue.line}
-
-        ## Buggy Code (snippet)
-        ```
-        ${codeSnippet.take(800)}
-        ```
-
-        Return EXACTLY this format — nothing else:
-
-        EXPLANATION: <1-2 sentences in English describing what you changed and why>
-
-        FIXED_CODE:
-        ```
-        <ONLY the fixed version of the snippet above — same scope, minimal changes>
-        ```
-
-        Rules:
-        - Only fix the shown snippet, do not rewrite the whole file
-        - Keep the same indentation style
-        - Preserve function/variable names unless the name itself is the bug
-    """.trimIndent()
-
     fun explainSystem(graph: ProjectGraph): String = """
         You are a software architect analyzing a project structure.
 

@@ -4,14 +4,12 @@ import com.ghostdebugger.ai.prompts.PromptTemplates
 import com.ghostdebugger.ai.prompts.SystemPrompts
 import com.ghostdebugger.fix.engine.FixPlan
 import com.ghostdebugger.fix.engine.FixPlanCodec
-import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.FunctionSymbol
 import com.ghostdebugger.model.Issue
 import com.ghostdebugger.model.ProjectGraph
 import com.intellij.openapi.diagnostic.logger
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 internal abstract class BaseAIService(
@@ -120,13 +118,6 @@ internal abstract class BaseAIService(
         return FixPlanCodec.decode(raw)
     }
 
-    override suspend fun suggestFix(issue: Issue, codeSnippet: String): CodeFix {
-        val raw = cached(codeSnippet + issue.type.name, "fix") {
-            callModel(SystemPrompts.DEBUGGER, PromptTemplates.suggestFix(issue, codeSnippet), jsonMode = false)
-        }
-        return parseFixResponse(raw, issue, codeSnippet)
-    }
-
     override suspend fun explainSystem(graph: ProjectGraph): String =
         cached(graph.metadata.projectName + graph.nodes.size, "system") {
             callModel(SystemPrompts.DEBUGGER, PromptTemplates.explainSystem(graph), jsonMode = false)
@@ -161,27 +152,6 @@ internal abstract class BaseAIService(
         val response = produce()
         if (key != null) cache.put(key, response)
         return response
-    }
-
-    protected fun parseFixResponse(raw: String, issue: Issue, originalSnippet: String): CodeFix {
-        val explanation = raw.lines()
-            .firstOrNull { it.startsWith("EXPLANATION:") }
-            ?.removePrefix("EXPLANATION:")?.trim()
-            ?: raw.substringBefore("\n").take(200)
-        val codeBlockRegex = Regex("""```(?:\w*)\n([\s\S]*?)```""")
-        val fixedCode = codeBlockRegex.find(raw)?.groupValues?.get(1)?.trim() ?: originalSnippet
-        return CodeFix(
-            id = UUID.randomUUID().toString(),
-            issueId = issue.id,
-            description = explanation,
-            originalCode = originalSnippet,
-            fixedCode = fixedCode,
-            filePath = issue.filePath,
-            lineStart = issue.line,
-            lineEnd = issue.line + originalSnippet.lines().size,
-            isDeterministic = false,
-            confidence = 0.7
-        )
     }
 
     companion object {
