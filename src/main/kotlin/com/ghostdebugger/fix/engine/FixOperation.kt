@@ -5,6 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 
@@ -75,5 +76,27 @@ data class ConvertToSafeCast(val asOffset: Int) : FixOperation() {
             else -> if (ret.endsWith("?")) "?: return null" else "?: throw IllegalStateException(\"Cast failed\")"
         }
         return TextEdit(cast.textRange.startOffset, cast.textRange.endOffset, "$receiverText as? $targetText $fallback")
+    }
+}
+
+/** `receiver.member` → `receiver?.member` on [line]. KT rewrites the matching dot-qualified expression; TS inserts `?` before the dot. */
+@Serializable
+@SerialName("wrapInSafeCall")
+data class WrapInSafeCall(val line: Int, val receiver: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val ktFile = ctx.psiFile as? KtFile
+        if (ktFile != null) {
+            val access = PsiTreeUtil.findChildrenOfType(ktFile, KtDotQualifiedExpression::class.java).firstOrNull {
+                LineLocator.lineAt(ctx.content, it.textRange.startOffset) == line &&
+                    it.receiverExpression.text == receiver &&
+                    it.selectorExpression != null
+            } ?: return null
+            val selector = access.selectorExpression!!.text
+            return TextEdit(access.textRange.startOffset, access.textRange.endOffset, "$receiver?.$selector")
+        }
+        // Content path (TS/JS): insert `?` before the receiver's dot on the line.
+        val at = LineLocator.indexOfOn(ctx.content, line, "$receiver.") ?: return null
+        val dot = at + receiver.length
+        return TextEdit(dot, dot + 1, "?.")
     }
 }
