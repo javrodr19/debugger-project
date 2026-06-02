@@ -79,6 +79,18 @@ data class ConvertToSafeCast(val asOffset: Int) : FixOperation() {
     }
 }
 
+/** `expr` → `expr ?: default` (Kotlin) / `expr ?? default` (JS/TS), at the first occurrence of [expr] on [line]. */
+@Serializable
+@SerialName("addElvisDefault")
+data class AddElvisDefault(val line: Int, val expr: String, val default: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val at = LineLocator.indexOfOn(ctx.content, line, expr) ?: return null
+        val op = if (ctx.psiFile is KtFile) "?:" else "??"
+        val end = at + expr.length
+        return TextEdit(at, end, "$expr $op $default")
+    }
+}
+
 /** `receiver.member` → `receiver?.member` on [line]. KT rewrites the matching dot-qualified expression; TS inserts `?` before the dot. */
 @Serializable
 @SerialName("wrapInSafeCall")
