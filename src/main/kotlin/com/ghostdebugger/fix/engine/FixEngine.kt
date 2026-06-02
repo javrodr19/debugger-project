@@ -3,27 +3,26 @@ package com.ghostdebugger.fix.engine
 import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.FixDeriver
-import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Single entry point for deterministic fixing. Phase 1: derive a [CodeFix] from the registered
- * fixer (via [FixDeriver]), adapt it to a single-op [FixPlan], and apply through [FixPlanApplicator]
- * (Tier-1 PSI-validity gate). The [deriveCodeFix] seam is injectable for tests and is where a later
+ * Single entry point for deterministic fixing. Phase 1: derive a [FixPlan] from the registered
+ * fixer (via [FixDeriver.derivePlan]), and apply through [FixPlanApplicator]
+ * (Tier-1 PSI-validity gate). The [derivePlan] seam is injectable for tests and is where a later
  * phase's AI planner will additionally contribute plans.
  */
 class FixEngine(
     private val project: Project,
-    private val deriveCodeFix: (Issue, VirtualFile, String) -> CodeFix? =
-        { issue, vf, content -> FixDeriver(project).derive(issue, vf, content) },
+    private val derivePlan: (Issue, VirtualFile, String) -> FixPlan? =
+        { issue, vf, content -> FixDeriver(project).derivePlan(issue, vf, content) },
     private val applicator: FixPlanApplicator = FixPlanApplicator(),
 ) {
     /** Derives the deterministic plan for [issue], or null if no fixer applies. */
     fun planFor(issue: Issue, virtualFile: VirtualFile, content: String): FixPlan? =
-        deriveCodeFix(issue, virtualFile, content)?.toFixPlan(content)
+        derivePlan(issue, virtualFile, content)
 
     /** Applies an already-derived [plan]. The apply seam a later phase also uses. */
     fun apply(plan: FixPlan, virtualFile: VirtualFile): FixApplyResult =

@@ -7,6 +7,7 @@ import com.ghostdebugger.model.IssueSeverity
 import com.ghostdebugger.model.IssueType
 import com.intellij.openapi.application.runReadAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.ghostdebugger.fix.engine.toFixPlan
 
 class FixEngineTest : BasePlatformTestCase() {
 
@@ -24,7 +25,7 @@ class FixEngineTest : BasePlatformTestCase() {
             fixedCode = "val b = 3", filePath = vf.path, lineStart = 2, lineEnd = 2,
             isDeterministic = true, confidence = 1.0
         )
-        val engine = FixEngine(project, deriveCodeFix = { _, _, _ -> codeFix })
+        val engine = FixEngine(project, derivePlan = { _, _, c -> codeFix.toFixPlan(c) })
 
         val result = engine.fix(issueAt(vf.path), vf, content)
 
@@ -36,7 +37,7 @@ class FixEngineTest : BasePlatformTestCase() {
         val psi = myFixture.configureByText("A.kt", "val a = 1\n")
         val vf = psi.virtualFile
         val content = runReadAction { myFixture.getDocument(psi).text }
-        val engine = FixEngine(project, deriveCodeFix = { _, _, _ -> null })
+        val engine = FixEngine(project, derivePlan = { _, _, _ -> null })
 
         val result = engine.fix(issueAt(vf.path), vf, content)
 
@@ -78,13 +79,13 @@ class FixEngineTest : BasePlatformTestCase() {
         // replacement line so that "return 2" appears in the result.
         val engine = FixEngine(
             project = project,
-            deriveCodeFix = { _, _, _ ->
+            derivePlan = { _, _, c ->
                 com.ghostdebugger.model.CodeFix(
                     id = "f", issueId = issue.id, description = "d",
                     originalCode = "fun f(): Int { return 1 }",
                     fixedCode = "fun f(): Int { return 2 }",
                     filePath = "A.kt", lineStart = 1, lineEnd = 1
-                )
+                ).toFixPlan(c)
             },
         )
 

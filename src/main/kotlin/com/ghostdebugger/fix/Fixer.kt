@@ -1,5 +1,7 @@
 package com.ghostdebugger.fix
 
+import com.ghostdebugger.fix.engine.FixContext
+import com.ghostdebugger.fix.engine.FixPlan
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.psi.PsiFile
@@ -34,4 +36,12 @@ interface Fixer {
      * language-neutral; Kotlin fixers cast internally.
      */
     fun generateFixFromPsi(issue: Issue, file: PsiFile): CodeFix? = null
+
+    /**
+     * Optional op-emitting path: return a [FixPlan] of semantic [com.ghostdebugger.fix.engine.FixOperation]s.
+     * [FixDeriver.derivePlan] tries this BEFORE the [generateFixFromPsi]/[generateFix] CodeFix path.
+     * Called inside a read action; [ctx] exposes the file content and (lazily) its PSI. Return null to
+     * decline (no safe op) and fall back. Default: unsupported.
+     */
+    fun generatePlan(issue: Issue, ctx: FixContext): FixPlan? = null
 }

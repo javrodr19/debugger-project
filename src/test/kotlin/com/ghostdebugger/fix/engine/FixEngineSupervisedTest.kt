@@ -37,7 +37,7 @@ class FixEngineSupervisedTest : BasePlatformTestCase() {
         val applied = mutableListOf<FixPlan>()
         val results = ArrayDeque(listOf<FixApplyResult>(FixApplyResult.Rejected("nope-1"), FixApplyResult.Success))
 
-        val engine = FixEngine(project, deriveCodeFix = { _, _, _ -> null })  // no deterministic plan
+        val engine = FixEngine(project, derivePlan = { _, _, _ -> null })  // no deterministic plan
         val ai = FakeAI(listOf(p1, p2))
 
         val result = runBlocking {
@@ -55,7 +55,7 @@ class FixEngineSupervisedTest : BasePlatformTestCase() {
 
     fun testReturnsRejectedWhenNoAiAndNoDeterministicPlan() {
         val vf = myFixture.configureByText("A.kt", "fun f() {}\n").virtualFile
-        val engine = FixEngine(project, deriveCodeFix = { _, _, _ -> null })
+        val engine = FixEngine(project, derivePlan = { _, _, _ -> null })
         val result = runBlocking {
             engine.fixSupervised(
                 issue(), vf, "content", baselineForFile = emptyList(), aiService = null,

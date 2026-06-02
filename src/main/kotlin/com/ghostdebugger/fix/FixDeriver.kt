@@ -1,5 +1,8 @@
 package com.ghostdebugger.fix
 
+import com.ghostdebugger.fix.engine.FixContext
+import com.ghostdebugger.fix.engine.FixPlan
+import com.ghostdebugger.fix.engine.toFixPlan
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.intellij.openapi.application.ApplicationManager
@@ -42,5 +45,26 @@ class FixDeriver(
         if (psiFix != null) return psiFix
 
         return fixer.generateFix(issue, fileContent)
+    }
+
+    /**
+     * Plan-producing derivation: try the registered fixer's [Fixer.generatePlan] (op path) first;
+     * on null fall back to the existing [derive] CodeFix path adapted via [toFixPlan].
+     */
+    fun derivePlan(issue: Issue, virtualFile: VirtualFile, fileContent: String): FixPlan? {
+        val fixer = fixerLookup(issue) ?: return null
+        val opPlan = ApplicationManager.getApplication().runReadAction<FixPlan?> {
+            try {
+                val ctx = FixContext(fileContent) { PsiManager.getInstance(project).findFile(virtualFile) }
+                fixer.generatePlan(issue, ctx)
+            } catch (e: ProcessCanceledException) {
+                throw e
+            } catch (e: Exception) {
+                log.warn("generatePlan failed for issue ${issue.id}; falling back to CodeFix path", e)
+                null
+            }
+        }
+        if (opPlan != null) return opPlan
+        return derive(issue, virtualFile, fileContent)?.toFixPlan(fileContent)
     }
 }
