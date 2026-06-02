@@ -218,12 +218,19 @@ accept-gate). Wired into the live fix paths via `AnalysisOrchestrator.applyVerif
 (falls back to the deterministic verified path when no AI is configured). Deliverable: bounded
 AI-supervised loop with deterministic acceptance; the engine fixes, the AI proposes and revises.
 
-**Phase 2c-ii-b — AI fix suggestion/preview + retire free-form code gen (remaining work).**
-Migrate the AI fix suggestion/preview path (`UIEventRouter.sendFixSuggestion`) to render the
-result of `fixSupervised`/the planner, then retire the free-form `suggestFix` / `parseFixResponse`
-free-form code generation (`AIService` / `BaseAIService` / `PromptTemplates.suggestFix`, called at
-`UIEventRouter`). Deliverable: the suggestion surface uses the same supervised planning as applied
-fixes; no more free-form code output from the AI.
+**Phase 2c-ii-b — AI fix suggestion/preview + retire free-form code gen (DONE).**
+The AI fix suggestion/preview path now renders a planner result: `UIEventRouter`'s fallback calls
+`proposeFixPlan` + `FixPlanPreview.render` (which applies the plan's catalog operations to a copy of
+the file content and returns a before/after `CodeFix`) instead of `suggestFix`. The free-form
+`suggestFix` / `parseFixResponse` (and `PromptTemplates.suggestFix`) are removed from `AIService` /
+`BaseAIService` / `PromptTemplates`; the tests pinning them were deleted or re-pointed.
+
+**The AI-supervised fix engine arc (Phases 1, 2a, 2b, 2c) is complete.** The AI never authors raw
+fix code anywhere in the system: it acts purely as a planner/supervisor that composes deterministic
+catalog operations, which the engine applies and verifies through the deterministic Tier-2 gate
+(issue-resolved + no-regression), with bounded rejection-feedback retries. Acceptance is always
+deterministic; with no AI provider configured the whole system degrades to the deterministic
+verified path.
 
 ## 10. Risks / open questions
 
