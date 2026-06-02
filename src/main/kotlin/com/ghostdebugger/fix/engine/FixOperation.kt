@@ -112,3 +112,19 @@ data class WrapInSafeCall(val line: Int, val receiver: String) : FixOperation() 
         return TextEdit(dot, dot + 1, "?.")
     }
 }
+
+/** Wrap the single-line statement on [line] in `if ([variable] != null) { … }`, preserving leading indentation. */
+@Serializable
+@SerialName("surroundWithNullCheck")
+data class SurroundWithNullCheck(val line: Int, val variable: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val range = LineLocator.lineRange(ctx.content, line) ?: return null
+        if (range.isEmpty()) return null
+        val lineText = ctx.content.substring(range.first, range.last + 1)
+        if (lineText.isBlank()) return null
+        val indent = lineText.takeWhile { it == ' ' || it == '\t' }
+        val body = lineText.trim()
+        val wrapped = "${indent}if ($variable != null) {\n$indent    $body\n$indent}"
+        return TextEdit(range.first, range.last + 1, wrapped)
+    }
+}
