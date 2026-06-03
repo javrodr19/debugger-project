@@ -158,3 +158,27 @@ data class AddPromiseCatch(val line: Int, val handler: String = "console.error")
         return TextEdit(semicolonAbs, semicolonAbs, ".catch($handler)")
     }
 }
+
+/** Wrap the lines [startLine]..[endLine] in `try { … } catch (…) { … }`, preserving indentation. KT uses a typed catch. */
+@Serializable
+@SerialName("surroundWithTryCatch")
+data class SurroundWithTryCatch(
+    val startLine: Int,
+    val endLine: Int,
+    val catchBody: String? = null,
+) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val start = LineLocator.lineRange(ctx.content, startLine) ?: return null
+        val end = LineLocator.lineRange(ctx.content, endLine) ?: return null
+        if (start.first > end.last + 1) return null
+        val block = ctx.content.substring(start.first, end.last + 1)
+        if (block.isBlank()) return null
+        val indent = block.takeWhile { it == ' ' || it == '\t' }
+        val isKt = ctx.psiFile is KtFile
+        val catchClause = if (isKt) "catch (e: Exception)" else "catch (e)"
+        val body = catchBody ?: if (isKt) "e.printStackTrace()" else "console.error(e)"
+        val inner = block.lines().joinToString("\n") { if (it.isBlank()) it else "    $it" }
+        val wrapped = "${indent}try {\n$inner\n$indent} $catchClause {\n$indent    $body\n$indent}"
+        return TextEdit(start.first, end.last + 1, wrapped)
+    }
+}
