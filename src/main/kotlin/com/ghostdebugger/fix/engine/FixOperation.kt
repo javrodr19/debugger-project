@@ -141,3 +141,20 @@ data class AddAwait(val line: Int, val call: String) : FixOperation() {
         return TextEdit(at, at, "await ")
     }
 }
+
+/** Insert `.catch([handler])` before the trailing `;` of a `...);` chain on [line] (JS/TS only). */
+@Serializable
+@SerialName("addPromiseCatch")
+data class AddPromiseCatch(val line: Int, val handler: String = "console.error") : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        if (ctx.psiFile is KtFile) return null
+        val range = LineLocator.lineRange(ctx.content, line) ?: return null
+        if (range.isEmpty()) return null
+        val lineText = ctx.content.substring(range.first, range.last + 1)
+        val trimmed = lineText.trimEnd()
+        if (!trimmed.endsWith(");")) return null
+        if (trimmed.contains(".catch(")) return null
+        val semicolonAbs = range.first + (trimmed.length - 1)  // the ';'
+        return TextEdit(semicolonAbs, semicolonAbs, ".catch($handler)")
+    }
+}
