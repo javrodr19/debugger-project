@@ -27,14 +27,14 @@ class AsyncFlowFixerTest {
     }
 
     @Test
-    fun `canFix returns false for MISSING_ERROR_HANDLING`() {
+    fun `canFix returns true for MISSING_ERROR_HANDLING`() {
         val fixer = AsyncFlowFixer()
         val issue = Issue(
             id = "i1", type = IssueType.MISSING_ERROR_HANDLING, severity = IssueSeverity.ERROR,
             title = "Missing error handling", description = "",
             filePath = "/src/A.tsx", line = 1, ruleId = "AEG-ASYNC-001"
         )
-        assertFalse(fixer.canFix(issue))
+        assertTrue(fixer.canFix(issue))
     }
 
     @Test

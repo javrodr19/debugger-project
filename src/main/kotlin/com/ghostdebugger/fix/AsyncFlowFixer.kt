@@ -1,5 +1,10 @@
 package com.ghostdebugger.fix
 
+import com.ghostdebugger.fix.engine.AddPromiseCatch
+import com.ghostdebugger.fix.engine.FixContext
+import com.ghostdebugger.fix.engine.FixOperation
+import com.ghostdebugger.fix.engine.FixPlan
+import com.ghostdebugger.fix.engine.SurroundWithTryCatch
 import com.ghostdebugger.model.CodeFix
 import com.ghostdebugger.model.Issue
 import com.ghostdebugger.model.IssueType
@@ -11,7 +16,21 @@ class AsyncFlowFixer : Fixer {
         "Appends .catch(console.error) to a Promise chain that is missing an error handler."
 
     override fun canFix(issue: Issue): Boolean =
-        issue.ruleId == ruleId && issue.type == IssueType.UNHANDLED_PROMISE
+        issue.ruleId == ruleId &&
+            issue.type in setOf(IssueType.UNHANDLED_PROMISE, IssueType.MISSING_ERROR_HANDLING)
+
+    override fun generatePlan(issue: Issue, ctx: FixContext): FixPlan? {
+        if (!canFix(issue)) return null
+        val op: FixOperation? = when (issue.type) {
+            IssueType.UNHANDLED_PROMISE -> AddPromiseCatch(issue.line)
+            IssueType.MISSING_ERROR_HANDLING -> SurroundWithTryCatch(issue.line, issue.line)
+            else -> null
+        }
+        // Confirm the op actually applies to the current content before proposing it (no-false-positive).
+        val edit = op?.toEdit(ctx) ?: return null
+        @Suppress("UNUSED_VARIABLE") val ignored = edit
+        return FixPlan(issue.id, listOf(op))
+    }
 
     override fun generateFix(issue: Issue, fileContent: String): CodeFix? {
         if (!canFix(issue)) return null
