@@ -128,3 +128,16 @@ data class SurroundWithNullCheck(val line: Int, val variable: String) : FixOpera
         return TextEdit(range.first, range.last + 1, wrapped)
     }
 }
+
+/** Prefix the first occurrence of [call] on [line] with `await ` (JS/TS only). Declines on Kotlin or if already awaited. */
+@Serializable
+@SerialName("addAwait")
+data class AddAwait(val line: Int, val call: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        if (ctx.psiFile is KtFile) return null
+        val at = LineLocator.indexOfOn(ctx.content, line, call) ?: return null
+        val before = ctx.content.substring((at - 6).coerceAtLeast(0), at)
+        if (before.endsWith("await ")) return null
+        return TextEdit(at, at, "await ")
+    }
+}
