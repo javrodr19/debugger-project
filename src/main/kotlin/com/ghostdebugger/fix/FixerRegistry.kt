@@ -9,7 +9,8 @@ object FixerRegistry {
         AsyncFlowFixer(),
         KotlinUnsafeCastFixer(),
         KotlinRedundantLetFixer(),
-        KotlinNullSafetyFixer()
+        KotlinNullSafetyFixer(),
+        KotlinTypeMismatchFixer()
     ).associateBy { it.ruleId }
 
     /**
