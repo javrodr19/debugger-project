@@ -159,6 +159,22 @@ data class AddPromiseCatch(val line: Int, val handler: String = "console.error")
     }
 }
 
+/**
+ * Convert the first occurrence of [expr] on [line] using [conversion]: suffix form when [conversion]
+ * starts with `.` (`expr` → `expr.toLong()`), else wrapper form (`expr` → `String(expr)`).
+ * Language-agnostic (content-based). Returns null if [expr] is absent on [line].
+ */
+@Serializable
+@SerialName("addExplicitConversion")
+data class AddExplicitConversion(val line: Int, val expr: String, val conversion: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val at = LineLocator.indexOfOn(ctx.content, line, expr) ?: return null
+        val end = at + expr.length
+        val wrapped = if (conversion.startsWith(".")) "$expr$conversion" else "$conversion($expr)"
+        return TextEdit(at, end, wrapped)
+    }
+}
+
 /** Wrap the lines [startLine]..[endLine] in `try { … } catch (…) { … }`, preserving indentation. KT uses a typed catch. */
 @Serializable
 @SerialName("surroundWithTryCatch")
