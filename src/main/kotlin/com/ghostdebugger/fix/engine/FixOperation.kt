@@ -234,3 +234,20 @@ data class InsertStatementBefore(val line: Int, val statement: String) : FixOper
         return TextEdit(range.first, range.first, "$indent$statement\n")
     }
 }
+
+/** Insert [statement] as a new line immediately after [line], matching that line's indentation. */
+@Serializable
+@SerialName("insertStatementAfter")
+data class InsertStatementAfter(val line: Int, val statement: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val range = LineLocator.lineRange(ctx.content, line) ?: return null
+        val lineText = ctx.content.substring(range.first, (range.last + 1).coerceAtMost(ctx.content.length))
+        val indent = lineText.takeWhile { it == ' ' || it == '\t' }
+        val nlPos = range.last + 1
+        return if (nlPos < ctx.content.length && ctx.content[nlPos] == '\n') {
+            TextEdit(nlPos + 1, nlPos + 1, "$indent$statement\n")  // start of next line
+        } else {
+            TextEdit(ctx.content.length, ctx.content.length, "\n$indent$statement")  // last line, no newline
+        }
+    }
+}
