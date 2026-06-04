@@ -222,3 +222,15 @@ data class ReplaceExpression(val line: Int, val find: String, val replacement: S
         return TextEdit(at, at + find.length, replacement)
     }
 }
+
+/** Insert [statement] as a new line immediately before [line], matching that line's indentation. */
+@Serializable
+@SerialName("insertStatementBefore")
+data class InsertStatementBefore(val line: Int, val statement: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val range = LineLocator.lineRange(ctx.content, line) ?: return null
+        val lineText = ctx.content.substring(range.first, (range.last + 1).coerceAtMost(ctx.content.length))
+        val indent = lineText.takeWhile { it == ' ' || it == '\t' }
+        return TextEdit(range.first, range.first, "$indent$statement\n")
+    }
+}
