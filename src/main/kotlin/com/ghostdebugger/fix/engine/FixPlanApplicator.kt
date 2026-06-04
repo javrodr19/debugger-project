@@ -137,6 +137,8 @@ class FixPlanApplicator {
         baselineForFile: List<Issue>,
         reanalyze: suspend () -> List<Issue>,
         verifier: FixVerifier = FixVerifier(),
+        acceptance: (originalContent: String, candidateContent: String, candidateIssues: List<Issue>) -> VerifyDecision =
+            { _, _, candidateIssues -> verifier.decide(target, baselineForFile, candidateIssues) },
         edtContext: CoroutineContext = AegisWriteSafeEdt,
     ): FixApplyResult {
         return try {
@@ -165,7 +167,8 @@ class FixPlanApplicator {
 
             // Tier-2 off the EDT: the document now holds the committed (unsaved) candidate.
             val candidateIssues = reanalyze()
-            val decision = verifier.decide(target, baselineForFile, candidateIssues)
+            val candidateContent = ApplicationManager.getApplication().runReadAction<String> { document.text }
+            val decision = acceptance(outcome.original, candidateContent, candidateIssues)
 
             // Commit the decision on the EDT: save on Accept, revert on Reject.
             var result: FixApplyResult = FixApplyResult.Failed(IllegalStateException("No decision applied"))
