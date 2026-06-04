@@ -179,12 +179,10 @@ object PromptTemplates {
         sb.append("\nReturn ONLY a JSON object of this exact shape (no prose):\n")
         sb.append("{\"issueId\":\"").append(issue.id).append("\",\"operations\":[ <operation>, ... ]}\n\n")
         sb.append("Each <operation> is exactly one of:\n")
-        sb.append("- {\"type\":\"replaceRange\",\"startOffset\":<int>,\"endOffset\":<int>,\"text\":\"<replacement>\"} ")
-        sb.append("// replace the half-open character range [startOffset, endOffset) with text\n")
-        sb.append("- {\"type\":\"insertImport\",\"fqName\":\"<fully.qualified.Name>\"} // add an import if absent\n")
-        sb.append("- {\"type\":\"convertToSafeCast\",\"asOffset\":<int>} ")
-        sb.append("// asOffset = the 0-based character offset where the unsafe `as` keyword starts\n")
-        sb.append("\nAll offsets are 0-based character indices into the file content below.\n")
+        for (entry in com.ghostdebugger.fix.engine.FixOperationCatalog.entries) {
+            sb.append("- ").append(entry).append('\n')
+        }
+        sb.append("\nUnless an op's note says otherwise, `line`/`startLine`/`endLine` are 1-based and any char offsets are 0-based, into the file content below.\n")
         sb.append("\n--- FILE CONTENT START ---\n")
         sb.append(fileContent)
         sb.append("\n--- FILE CONTENT END ---\n")

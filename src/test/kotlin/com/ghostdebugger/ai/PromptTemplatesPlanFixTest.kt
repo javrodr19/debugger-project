@@ -31,4 +31,24 @@ class PromptTemplatesPlanFixTest {
         assertTrue(p.contains("REJECTED"))
         assertTrue(p.contains("Fix did not resolve the target issue."))
     }
+
+    @Test fun listsTheFullOperationCatalogIncludingNewOps() {
+        val p = PromptTemplates.planFix(issue(), "x", feedback = null)
+        // originals still present
+        assertTrue(p.contains("replaceRange"))
+        assertTrue(p.contains("convertToSafeCast"))
+        // new ops from batches 1-4 are now exposed
+        assertTrue(p.contains("wrapInSafeCall"))
+        assertTrue(p.contains("surroundWithTryCatch"))
+        assertTrue(p.contains("addExplicitConversion"))
+        assertTrue(p.contains("removeRange"))
+        assertTrue(p.contains("insertStatementAfter"))
+    }
+
+    @Test fun everyCatalogOpAppearsInThePrompt() {
+        val p = PromptTemplates.planFix(issue(), "x", feedback = null)
+        com.ghostdebugger.fix.engine.FixOperationCatalog.serialNames().forEach { op ->
+            assertTrue("prompt missing op: $op", p.contains(op))
+        }
+    }
 }
