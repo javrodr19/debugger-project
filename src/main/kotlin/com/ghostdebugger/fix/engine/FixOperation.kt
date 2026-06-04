@@ -212,3 +212,13 @@ data class RemoveRange(val startLine: Int, val endLine: Int) : FixOperation() {
         return TextEdit(start.first, toExclusive, "")
     }
 }
+
+/** Replace the first occurrence of [find] on [line] with [replacement]. Content-based. */
+@Serializable
+@SerialName("replaceExpression")
+data class ReplaceExpression(val line: Int, val find: String, val replacement: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val at = LineLocator.indexOfOn(ctx.content, line, find) ?: return null
+        return TextEdit(at, at + find.length, replacement)
+    }
+}
