@@ -198,3 +198,17 @@ data class SurroundWithTryCatch(
         return TextEdit(start.first, end.last + 1, wrapped)
     }
 }
+
+/** Delete whole lines [startLine]..[endLine] inclusive (consuming the trailing newline). Content-based. */
+@Serializable
+@SerialName("removeRange")
+data class RemoveRange(val startLine: Int, val endLine: Int) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val start = LineLocator.lineRange(ctx.content, startLine) ?: return null
+        val end = LineLocator.lineRange(ctx.content, endLine) ?: return null
+        if (start.first > end.last + 1) return null  // startLine after endLine
+        val nlPos = end.last + 1  // the '\n' after endLine, or content.length
+        val toExclusive = if (nlPos < ctx.content.length && ctx.content[nlPos] == '\n') nlPos + 1 else nlPos
+        return TextEdit(start.first, toExclusive, "")
+    }
+}
