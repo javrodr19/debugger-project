@@ -51,9 +51,17 @@ class FixEngine(
     ): FixApplyResult {
         val plan = planFor(issue, virtualFile, content)
             ?: return FixApplyResult.Rejected("No deterministic fix available for ${issue.ruleId}.")
-        return applicator.applyVerified(
-            plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext,
-        )
+        val acceptance = complexityAcceptanceOrNull(issue, baselineForFile, content)
+        return if (acceptance != null) {
+            applicator.applyVerified(
+                plan, virtualFile, project, issue, baselineForFile, reanalyze,
+                acceptance = acceptance, edtContext = edtContext,
+            )
+        } else {
+            applicator.applyVerified(
+                plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext,
+            )
+        }
     }
 
     /**
@@ -75,7 +83,17 @@ class FixEngine(
         maxAiAttempts: Int = 2,
         edtContext: CoroutineContext = AegisWriteSafeEdt,
         applyVerified: suspend (FixPlan) -> FixApplyResult = { plan ->
-            applicator.applyVerified(plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext)
+            val acceptance = complexityAcceptanceOrNull(issue, baselineForFile, content)
+            if (acceptance != null) {
+                applicator.applyVerified(
+                    plan, virtualFile, project, issue, baselineForFile, reanalyze,
+                    acceptance = acceptance, edtContext = edtContext,
+                )
+            } else {
+                applicator.applyVerified(
+                    plan, virtualFile, project, issue, baselineForFile, reanalyze, edtContext = edtContext,
+                )
+            }
         },
     ): FixApplyResult {
         var lastReason = "No deterministic fix available for ${issue.ruleId}."
@@ -107,5 +125,27 @@ class FixEngine(
             }
         }
         return FixApplyResult.Rejected(lastReason)
+    }
+
+    /**
+     * For `AEG-CPX-001`, build the complexity-aware acceptance: judge candidates by [ComplexityVerifier]
+     * (strict `estimateComplexity` decrease + no other-rule regression) instead of the default
+     * [FixVerifier]. [functionCount] comes from the file content via [FunctionCounter] and is held
+     * constant across original/candidate. Returns null for every other rule (use the default gate).
+     */
+    private fun complexityAcceptanceOrNull(
+        issue: Issue,
+        baselineForFile: List<Issue>,
+        content: String,
+    ): ((String, String, List<Issue>) -> VerifyDecision)? {
+        if (issue.ruleId != COMPLEXITY_RULE_ID) return null
+        val verifier = ComplexityVerifier(FunctionCounter.count(content))
+        return { original, candidate, candidateIssues ->
+            verifier.decide(issue, baselineForFile, original, candidate, candidateIssues)
+        }
+    }
+
+    private companion object {
+        const val COMPLEXITY_RULE_ID = "AEG-CPX-001"
     }
 }
