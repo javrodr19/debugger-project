@@ -14,7 +14,7 @@ class FixOperationCatalogTest {
     }
 
     @Test fun entriesAreNonEmptyAndTypePrefixed() {
-        assertEquals(14, FixOperationCatalog.entries.size)
+        assertEquals(15, FixOperationCatalog.entries.size)
         FixOperationCatalog.entries.forEach { assertEquals(true, it.trimStart().startsWith("{\"type\":\"")) }
     }
 }

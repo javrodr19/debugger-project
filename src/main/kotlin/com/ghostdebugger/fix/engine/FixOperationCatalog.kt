@@ -22,6 +22,7 @@ object FixOperationCatalog {
         """{"type":"replaceExpression","line":<int>,"find":"<text>","replacement":"<text>"} // replace the first `find` on the line""",
         """{"type":"insertStatementBefore","line":<int>,"statement":"<stmt>"} // insert a statement line before the target line""",
         """{"type":"insertStatementAfter","line":<int>,"statement":"<stmt>"} // insert a statement line after the target line""",
+        """{"type":"collapseBooleanReturn","line":<int>} // if (C) return true else return false -> return C (negated -> return !C); simplification""",
     )
 
     private val TYPE_RE = Regex(""""type":"([a-zA-Z]+)"""")
