@@ -251,3 +251,17 @@ data class InsertStatementAfter(val line: Int, val statement: String) : FixOpera
         }
     }
 }
+
+/**
+ * Collapse the boolean-return if/else beginning on [line]: `if (C) return true else return false`
+ * -> `return C` (negated branch order -> `return !C`). Kotlin uses PSI; JS/TS a best-effort regex.
+ * Returns null when no such pattern starts on [line].
+ */
+@Serializable
+@SerialName("collapseBooleanReturn")
+data class CollapseBooleanReturn(val line: Int) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val c = BooleanReturnCollapse.collapseOnLine(ctx, line) ?: return null
+        return TextEdit(c.startOffset, c.endOffset, c.replacement)
+    }
+}
