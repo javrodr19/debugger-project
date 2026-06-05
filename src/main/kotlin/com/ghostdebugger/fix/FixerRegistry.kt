@@ -10,7 +10,8 @@ object FixerRegistry {
         KotlinUnsafeCastFixer(),
         KotlinRedundantLetFixer(),
         KotlinNullSafetyFixer(),
-        KotlinTypeMismatchFixer()
+        KotlinTypeMismatchFixer(),
+        ComplexitySimplifierFixer()
     ).associateBy { it.ruleId }
 
     /**

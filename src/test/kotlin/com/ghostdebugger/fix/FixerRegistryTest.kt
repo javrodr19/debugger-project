@@ -9,7 +9,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class FixerRegistryTest {
-    @Test fun `all() returns exactly 7 entries`() { assertEquals(7, FixerRegistry.all().size) }
+    @Test fun `all() returns exactly 8 entries`() { assertEquals(8, FixerRegistry.all().size) }
 
     @Test fun `forIssue returns fixer for known ruleId and correct type`() {
         val issue = Issue(
@@ -24,7 +24,7 @@ class FixerRegistryTest {
         val issue = Issue(
             id = "r2", type = IssueType.HIGH_COMPLEXITY, severity = IssueSeverity.WARNING,
             title = "High complexity", description = "",
-            filePath = "/a.kt", line = 1, ruleId = "AEG-CPX-001"
+            filePath = "/a.kt", line = 1, ruleId = "AEG-UNKNOWN-999"
         )
         assertNull(FixerRegistry.forIssue(issue))
     }
