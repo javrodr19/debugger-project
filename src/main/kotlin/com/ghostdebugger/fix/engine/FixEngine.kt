@@ -4,6 +4,7 @@ import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.fix.FixApplyResult
 import com.ghostdebugger.fix.FixDeriver
 import com.ghostdebugger.model.Issue
+import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import kotlin.coroutines.CoroutineContext
@@ -51,7 +52,7 @@ class FixEngine(
     ): FixApplyResult {
         val plan = planFor(issue, virtualFile, content)
             ?: return FixApplyResult.Rejected("No deterministic fix available for ${issue.ruleId}.")
-        val acceptance = complexityAcceptanceOrNull(issue, baselineForFile, content)
+        val acceptance = complexityAcceptanceOrNull(issue, baselineForFile)
         return if (acceptance != null) {
             applicator.applyVerified(
                 plan, virtualFile, project, issue, baselineForFile, reanalyze,
@@ -83,7 +84,7 @@ class FixEngine(
         maxAiAttempts: Int = 2,
         edtContext: CoroutineContext = AegisWriteSafeEdt,
         applyVerified: suspend (FixPlan) -> FixApplyResult = { plan ->
-            val acceptance = complexityAcceptanceOrNull(issue, baselineForFile, content)
+            val acceptance = complexityAcceptanceOrNull(issue, baselineForFile)
             if (acceptance != null) {
                 applicator.applyVerified(
                     plan, virtualFile, project, issue, baselineForFile, reanalyze,
@@ -128,20 +129,26 @@ class FixEngine(
     }
 
     /**
-     * For `AEG-CPX-001`, build the complexity-aware acceptance: judge candidates by [ComplexityVerifier]
-     * (strict `estimateComplexity` decrease + no other-rule regression) instead of the default
-     * [FixVerifier]. [functionCount] comes from the file content via [FunctionCounter] and is held
-     * constant across original/candidate. Returns null for every other rule (use the default gate).
+     * Acceptance for `AEG-CPX-001`, dispatching on what the candidate did:
+     *  - it **added a function** (extract-method) -> [ExtractMethodVerifier] (per-function decomposition), OR
+     *  - **in-place** (e.g. B2's CollapseBooleanReturn) -> [ComplexityVerifier] (file-average decrease).
+     * The threshold is read live from settings (same source as ComplexityAnalyzer). Returns null for
+     * every other rule (use the default [FixVerifier] gate).
      */
     private fun complexityAcceptanceOrNull(
         issue: Issue,
         baselineForFile: List<Issue>,
-        content: String,
     ): ((String, String, List<Issue>) -> VerifyDecision)? {
         if (issue.ruleId != COMPLEXITY_RULE_ID) return null
-        val verifier = ComplexityVerifier(FunctionCounter.count(content))
+        val threshold = GhostDebuggerSettings.getInstance().snapshot().maxComplexity
         return { original, candidate, candidateIssues ->
-            verifier.decide(issue, baselineForFile, original, candidate, candidateIssues)
+            if (FunctionCounter.count(candidate) > FunctionCounter.count(original)) {
+                ExtractMethodVerifier(project, threshold)
+                    .decide(issue, baselineForFile, original, candidate, candidateIssues)
+            } else {
+                ComplexityVerifier(FunctionCounter.count(original))
+                    .decide(issue, baselineForFile, original, candidate, candidateIssues)
+            }
         }
     }
 
