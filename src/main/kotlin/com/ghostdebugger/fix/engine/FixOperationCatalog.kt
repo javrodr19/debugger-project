@@ -23,6 +23,8 @@ object FixOperationCatalog {
         """{"type":"insertStatementBefore","line":<int>,"statement":"<stmt>"} // insert a statement line before the target line""",
         """{"type":"insertStatementAfter","line":<int>,"statement":"<stmt>"} // insert a statement line after the target line""",
         """{"type":"collapseBooleanReturn","line":<int>} // if (C) return true else return false -> return C (negated -> return !C); simplification""",
+        """{"type":"replaceLines","startLine":<int>,"endLine":<int>,"text":"<verbatim lines>"} // replace whole lines startLine..endLine (1-based) with text; e.g. swap an extracted block for its call""",
+        """{"type":"insertLinesAfter","afterLine":<int>,"text":"<verbatim lines>"} // insert text as a blank-line-separated block after afterLine; e.g. define a newly extracted function""",
     )
 
     private val TYPE_RE = Regex(""""type":"([a-zA-Z]+)"""")
