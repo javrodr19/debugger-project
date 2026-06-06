@@ -176,6 +176,13 @@ object PromptTemplates {
             sb.append("\nYour previous plan was REJECTED by the verifier: ").append(feedback)
             sb.append("\nProduce a corrected plan that resolves the issue without introducing new ones.\n")
         }
+        if ((issue.ruleId ?: issue.type.name) == "AEG-CPX-001") {
+            sb.append("\nThis is a high-complexity issue. Prefer to extract a method: find the most complex function, ")
+            sb.append("move a cohesive block of its branching logic into a new, well-named function, and replace ")
+            sb.append("the block with a call. Compose a `replaceLines` (swap the block for the call) plus an ")
+            sb.append("`insertLinesAfter` (define the new function after the source's closing brace). Both the ")
+            sb.append("shrunken function and the new function must end up simpler than the original.\n")
+        }
         sb.append("\nReturn ONLY a JSON object of this exact shape (no prose):\n")
         sb.append("{\"issueId\":\"").append(issue.id).append("\",\"operations\":[ <operation>, ... ]}\n\n")
         sb.append("Each <operation> is exactly one of:\n")

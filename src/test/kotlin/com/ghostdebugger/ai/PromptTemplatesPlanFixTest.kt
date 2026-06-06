@@ -51,4 +51,21 @@ class PromptTemplatesPlanFixTest {
             assertTrue("prompt missing op: $op", p.contains(op))
         }
     }
+
+    private fun cpxIssue() = Issue(
+        id = "c1", type = IssueType.HIGH_COMPLEXITY, severity = IssueSeverity.WARNING,
+        title = "High complexity", description = "", filePath = "A.kt", line = 1, ruleId = "AEG-CPX-001"
+    )
+
+    @Test fun complexityIssueGetsExtractMethodGuidance() {
+        val p = PromptTemplates.planFix(cpxIssue(), "fun f() {}", feedback = null)
+        assertTrue(p.contains("extract"))
+        assertTrue(p.contains("replaceLines"))
+        assertTrue(p.contains("insertLinesAfter"))
+    }
+
+    @Test fun nonComplexityIssueHasNoExtractMethodGuidance() {
+        val p = PromptTemplates.planFix(issue(), "x", feedback = null)
+        assertFalse(p.contains("most complex function"))
+    }
 }
