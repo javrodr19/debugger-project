@@ -265,3 +265,34 @@ data class CollapseBooleanReturn(val line: Int) : FixOperation() {
         return TextEdit(c.startOffset, c.endOffset, c.replacement)
     }
 }
+
+/**
+ * Replace whole lines [startLine]..[endLine] (inclusive, 1-based) with [text] verbatim — [text] is
+ * authored with its own indentation; the line's trailing newline is preserved. Content-based.
+ * Returns null if either line is out of range or [startLine] is after [endLine].
+ */
+@Serializable
+@SerialName("replaceLines")
+data class ReplaceLines(val startLine: Int, val endLine: Int, val text: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val start = LineLocator.lineRange(ctx.content, startLine) ?: return null
+        val end = LineLocator.lineRange(ctx.content, endLine) ?: return null
+        if (start.first > end.last + 1) return null  // startLine after endLine
+        return TextEdit(start.first, end.last + 1, text)
+    }
+}
+
+/**
+ * Insert [text] verbatim as a blank-line-separated block immediately after [afterLine] (1-based) —
+ * e.g. a newly extracted function placed after its source function's closing brace. Content-based.
+ * Returns null if [afterLine] is out of range.
+ */
+@Serializable
+@SerialName("insertLinesAfter")
+data class InsertLinesAfter(val afterLine: Int, val text: String) : FixOperation() {
+    override fun toEdit(ctx: FixContext): TextEdit? {
+        val range = LineLocator.lineRange(ctx.content, afterLine) ?: return null
+        val insertAt = range.last + 1  // offset of the line's terminating '\n' (or content end)
+        return TextEdit(insertAt, insertAt, "\n\n$text")
+    }
+}
