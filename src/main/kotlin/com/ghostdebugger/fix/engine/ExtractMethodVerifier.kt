@@ -18,7 +18,11 @@ import com.intellij.openapi.project.Project
  * Ambiguous overloads (same name/arity) are declined conservatively. Tier-1 PSI-validity runs first in
  * [FixPlanApplicator] and reverts a non-parsing candidate before this gate is consulted.
  */
-class ExtractMethodVerifier(private val project: Project, private val threshold: Int) {
+class ExtractMethodVerifier(
+    private val project: Project,
+    private val threshold: Int,
+    private val measure: (String) -> PerFunctionComplexity.Result = { PerFunctionComplexity.measure(project, it) },
+) {
     fun decide(
         target: Issue,
         baselineForFile: List<Issue>,
@@ -33,8 +37,8 @@ class ExtractMethodVerifier(private val project: Project, private val threshold:
             if (count > (base[key] ?: 0)) return VerifyDecision.Reject("Extraction introduces new \"$key\" issue(s).")
         }
 
-        val orig = PerFunctionComplexity.measure(project, originalContent)
-        val candR = PerFunctionComplexity.measure(project, candidateContent)
+        val orig = measure(originalContent)
+        val candR = measure(candidateContent)
         if (orig.collision || candR.collision) {
             return VerifyDecision.Reject("Ambiguous function names (overloads); cannot verify extraction.")
         }
