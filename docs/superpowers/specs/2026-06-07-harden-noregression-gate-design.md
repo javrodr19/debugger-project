@@ -92,8 +92,14 @@ internal fun applyVerifiedFix(
 
 `baselineProvider` runs inside the existing `scope.launch` (off-EDT) **before** `fixVerified` applies the
 fix, so it sees the original document. Because it is the same `SingleFileStaticReanalysis` the candidate
-path uses, baseline and candidate are produced identically. If `baselineFor` (`AnalysisOrchestrator.kt:56`)
-becomes unused after this change, remove it (and any direct test); otherwise leave it.
+path uses, baseline and candidate are produced identically.
+
+**Both production fix entry points get the same change.** `UIEventRouter.kt:290` (the JCEF "apply fix"
+handler) is the other caller of `FixEngine.fixVerified` and currently uses the same shadowed
+`baselineFor(svc.currentIssues, …)`; it is switched to the single-file baseline too, so the UI fix path
+is hardened identically. With both call sites changed, the `baselineFor` helper
+(`AnalysisOrchestrator.kt:56`) has no remaining caller — it (and its direct unit test `BaselineForTest`)
+is removed. Path-scoping is not lost: `SingleFileStaticReanalysis` already returns file-scoped issues.
 
 ### 3.3 Unchanged
 
