@@ -13,9 +13,11 @@ import com.intellij.openapi.vfs.VirtualFile
 
 /**
  * Default Tier-2 [reanalyze] provider: re-parse [virtualFile] from its **live (committed)** document
- * and run the static-only analysis pass, returning the issues for that file. Mirrors
- * `AnalysisOrchestrator.reanalyzeFile`'s reparse idiom but scoped to a single file with an empty
- * graph (single-file gate; cross-file graph rules are out of scope for a deterministic fix).
+ * and run the non-shadowing static-only analysis pass (late analyzers execute even on files with compile
+ * errors), returning the issues for that file. Mirrors `AnalysisOrchestrator.reanalyzeFile`'s reparse
+ * idiom but scoped to a single file with an empty graph (single-file gate; cross-file graph rules are
+ * out of scope for a deterministic fix). The non-shadowing pass ensures the no-regression gate sees
+ * late-rule issues (e.g. null-safety) on files that also have compile errors.
  *
  * **Must be called off the EDT** — the Kotlin Analysis API throws from the EDT.
  */
@@ -34,7 +36,7 @@ class SingleFileStaticReanalysis(
             parsedFiles = listOf(extracted),
         )
         val targetPath = virtualFile.path.replace("\\", "/")
-        return engineFactory().analyzeStaticOnly(ctx).issues
+        return engineFactory().analyzeStaticOnly(ctx, excludeBrokenFromLate = false).issues
             .filter { it.filePath.replace("\\", "/") == targetPath }
     }
 }
