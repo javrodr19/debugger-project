@@ -143,8 +143,18 @@ class FixEngine(
         val threshold = GhostDebuggerSettings.getInstance().snapshot().maxComplexity
         return { original, candidate, candidateIssues ->
             if (FunctionCounter.count(candidate) > FunctionCounter.count(original)) {
-                ExtractMethodVerifier(project, threshold)
-                    .decide(issue, baselineForFile, original, candidate, candidateIssues)
+                val path = issue.filePath
+                if (path.endsWith(".ts") || path.endsWith(".js")) {
+                    if (!JsTsStructuralCheck.isBalanced(candidate)) {
+                        VerifyDecision.Reject("Extraction left unbalanced delimiters.")
+                    } else {
+                        ExtractMethodVerifier(project, threshold, JsTsPerFunctionComplexity::measure)
+                            .decide(issue, baselineForFile, original, candidate, candidateIssues)
+                    }
+                } else {
+                    ExtractMethodVerifier(project, threshold)
+                        .decide(issue, baselineForFile, original, candidate, candidateIssues)
+                }
             } else {
                 ComplexityVerifier(FunctionCounter.count(original))
                     .decide(issue, baselineForFile, original, candidate, candidateIssues)
