@@ -64,9 +64,13 @@ class AnalysisEngine(
     }
 
     /** Runs early + late static passes only. Used for cascading dependent re-analysis. */
-    suspend fun analyzeStaticOnly(context: AnalysisContext, indicator: ProgressIndicator? = null): AnalysisResult {
+    suspend fun analyzeStaticOnly(
+        context: AnalysisContext,
+        indicator: ProgressIndicator? = null,
+        excludeBrokenFromLate: Boolean = true,
+    ): AnalysisResult {
         val settings = settingsProvider()
-        val staticResult = doStaticPasses(context, settings, indicator)
+        val staticResult = doStaticPasses(context, settings, indicator, excludeBrokenFromLate)
         val merged = mergeIssues(staticResult.earlyIssues + staticResult.lateIssues)
         val engineStatus = EngineStatusPayload(
             provider = "STATIC",
@@ -79,7 +83,8 @@ class AnalysisEngine(
     private suspend fun doStaticPasses(
         context: AnalysisContext,
         settings: GhostDebuggerSettings.State,
-        indicator: ProgressIndicator?
+        indicator: ProgressIndicator?,
+        excludeBrokenFromLate: Boolean = true
     ): StaticPassResult {
         val limitedContext = context.limitTo(settings.maxFilesToAnalyze)
 
@@ -88,18 +93,21 @@ class AnalysisEngine(
         val earlyIssues = runStaticPass(earlyAnalyzers, limitedContext, indicator)
         indicator?.checkCanceled()
 
-        val brokenFilePaths = earlyIssues.map { it.filePath.replace("\\", "/") }.toSet()
-        val filteredFiles = limitedContext.parsedFiles.filterNot {
-            it.path.replace("\\", "/") in brokenFilePaths
+        val lateContext = if (excludeBrokenFromLate) {
+            val brokenFilePaths = earlyIssues.map { it.filePath.replace("\\", "/") }.toSet()
+            limitedContext.copy(parsedFiles = limitedContext.parsedFiles.filterNot {
+                it.path.replace("\\", "/") in brokenFilePaths
+            })
+        } else {
+            limitedContext
         }
-        val filteredContext = limitedContext.copy(parsedFiles = filteredFiles)
 
         indicator?.text = "Running static analysis..."
         val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
-        val lateIssues = runStaticPass(lateAnalyzers, filteredContext, indicator)
+        val lateIssues = runStaticPass(lateAnalyzers, lateContext, indicator)
         indicator?.checkCanceled()
 
-        return StaticPassResult(earlyIssues, lateIssues, limitedContext, filteredContext)
+        return StaticPassResult(earlyIssues, lateIssues, limitedContext, lateContext)
     }
 
     private fun finalize(
