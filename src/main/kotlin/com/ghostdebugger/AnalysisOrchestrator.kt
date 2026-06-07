@@ -49,16 +49,6 @@ import kotlinx.coroutines.swing.Swing
 import kotlinx.coroutines.withContext
 
 /**
- * The file-scoped baseline for the Tier-2 verify gate: the issues already known for [filePath].
- * Path comparison normalizes `\` to `/` on both sides so Windows and POSIX paths match. Top-level
- * and pure so it is unit-testable without constructing the @Service.
- */
-internal fun baselineFor(issues: List<com.ghostdebugger.model.Issue>, filePath: String): List<com.ghostdebugger.model.Issue> {
-    val normalized = filePath.replace("\\", "/")
-    return issues.filter { it.filePath.replace("\\", "/") == normalized }
-}
-
-/**
  * Owns the full analysis lifecycle: full-project analysis, targeted re-analysis after
  * a fix is applied, and the dependent-cascade pass that propagates updates to transitive
  * dependents. Lifted out of GhostDebuggerService in V1.5.
@@ -500,11 +490,13 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
         issue: Issue,
         virtualFile: VirtualFile,
         content: String,
+        baselineProvider: suspend (VirtualFile) -> List<Issue> =
+            { com.ghostdebugger.fix.engine.SingleFileStaticReanalysis(project).issuesFor(it) },
         fixVerified: suspend (Issue, VirtualFile, String, List<Issue>) -> FixApplyResult =
             { i, v, c, b -> FixEngine(project).fixSupervised(i, v, c, b, resolveAiService()) },
     ): Job = scope.launch {
         try {
-            val baseline = baselineFor(service().currentIssues, virtualFile.path)
+            val baseline = baselineProvider(virtualFile)
             when (val result = fixVerified(issue, virtualFile, content, baseline)) {
                 is FixApplyResult.Success -> reanalyzeFile(virtualFile.path)
                 is FixApplyResult.Rejected -> notifyFixRejected(issue, result.reason)

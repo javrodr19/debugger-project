@@ -15,12 +15,10 @@ class AnalysisOrchestratorApplyVerifiedFixTest : BasePlatformTestCase() {
         title = "t", description = "", filePath = path, line = 1, ruleId = "AEG-CAST-KT-001"
     )
 
-    fun testRoutesThroughFixVerifiedWithFileScopedBaseline() {
+    fun testThreadsBaselineProviderResultIntoFixVerified() {
         val psi = myFixture.configureByText("A.kt", "fun f(): Int { return 1 }\n")
         val vf = psi.virtualFile
         val here = issue("t", vf.path)
-        val elsewhere = issue("o", "/other/B.kt")
-        GhostDebuggerService.getInstance(project).updateIssues(listOf(here, elsewhere))
 
         var receivedBaseline: List<Issue>? = null
         val content = runReadAction { myFixture.getDocument(psi).text }
@@ -29,6 +27,7 @@ class AnalysisOrchestratorApplyVerifiedFixTest : BasePlatformTestCase() {
         runBlocking {
             orch.applyVerifiedFix(
                 here, vf, content,
+                baselineProvider = { listOf(here) },   // stubbed single-file baseline
                 fixVerified = { _, _, _, baseline ->
                     receivedBaseline = baseline
                     FixApplyResult.Rejected("verification declined (test)")
@@ -36,7 +35,6 @@ class AnalysisOrchestratorApplyVerifiedFixTest : BasePlatformTestCase() {
             ).join()
         }
 
-        // File-scoped: the issue in /other/B.kt must be excluded from the baseline.
         assertEquals(listOf(here), receivedBaseline)
     }
 }
