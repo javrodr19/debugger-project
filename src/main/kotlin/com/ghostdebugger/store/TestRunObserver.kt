@@ -76,25 +76,16 @@ class TestRunObserver(private val project: Project) : Disposable {
         val store = RuntimeEvidenceStore.getInstance(project)
         val context = getContextName(test)
 
-        val activeIssues = service.currentIssues
-        if (activeIssues.isEmpty()) return
-
-        for (frame in frames) {
-            val matchingIssues = activeIssues.filter { issue ->
-                issue.line == frame.line && 
-                issue.filePath.replace("\\", "/").endsWith(frame.fileName)
-            }
-            for (issue in matchingIssues) {
-                store.record(
-                    RuntimeEvidence(
-                        fingerprint = issue.fingerprint(),
-                        source = EvidenceSource.TEST_FAILURE,
-                        outcome = EvidenceOutcome.CONFIRMED,
-                        timestamp = System.currentTimeMillis(),
-                        context = "Failed in test: $context"
-                    )
+        for (issue in TestRunCorrelation.failureMatches(frames, service.currentIssues)) {
+            store.record(
+                RuntimeEvidence(
+                    fingerprint = issue.fingerprint(),
+                    source = EvidenceSource.TEST_FAILURE,
+                    outcome = EvidenceOutcome.CONFIRMED,
+                    timestamp = System.currentTimeMillis(),
+                    context = "Failed in test: $context"
                 )
-            }
+            )
         }
     }
 
@@ -140,9 +131,10 @@ class TestRunObserver(private val project: Project) : Disposable {
                 }
             }
 
-            if (classFound) {
-                val outcome = if (isCovered) EvidenceOutcome.LIKELY else EvidenceOutcome.UNREACHED
-                val text = if (isCovered) "Covered in suite: ${bundle.presentableName}" else "Unreached in suite: ${bundle.presentableName}"
+            val outcome = TestRunCorrelation.coverageEvidence(classFound, isCovered)
+            if (outcome != null) {
+                val text = if (isCovered) "Covered in suite: ${bundle.presentableName}"
+                           else "Unreached in suite: ${bundle.presentableName}"
                 store.record(
                     RuntimeEvidence(
                         fingerprint = issue.fingerprint(),
