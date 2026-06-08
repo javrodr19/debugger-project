@@ -68,25 +68,18 @@ class DebugObserver(private val project: Project) : Disposable {
         if (activeIssues.isEmpty()) return
 
         // Locate findings whose file matches and line matches current pause location
-        val matchingIssues = activeIssues.filter { issue ->
-            issue.filePath.replace("\\", "/") == filePath && issue.line == currentLine
-        }
+        val matchingIssues = DebugObservationLogic.frameMatches(filePath, currentLine, activeIssues)
 
         val nullSafetyAnalyzer = NullSafetyAnalyzer()
 
         for (issue in matchingIssues) {
-            val expression = if (issue.ruleId == "AEG-NULL-001") {
-                nullSafetyAnalyzer.debugProbe(issue)
-            } else {
-                null
-            } ?: continue
+            val expression = DebugObservationLogic.probeExpressionFor(issue, nullSafetyAnalyzer) ?: continue
 
             try {
                 evaluator.evaluate(expression, object : XDebuggerEvaluator.XEvaluationCallback {
                     override fun evaluated(result: XValue) {
                         fetchValueText(result).thenAccept { valueText ->
-                            val isNullish = valueText == "null" || valueText == "undefined"
-                            val outcome = if (isNullish) EvidenceOutcome.CONFIRMED else EvidenceOutcome.DEMOTED
+                            val outcome = DebugObservationLogic.nullishOutcome(valueText)
                             
                             val store = RuntimeEvidenceStore.getInstance(project)
                             store.record(
