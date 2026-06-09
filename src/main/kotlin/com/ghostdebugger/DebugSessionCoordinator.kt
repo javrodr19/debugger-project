@@ -62,6 +62,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                 }
             )
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.warn("Could not register XDebugger listener: ${e.message}")
         }
     }
@@ -121,6 +122,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                         type = "StackFrame"
                     ))
                 } catch (e: Exception) {
+                    if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                     log.debug("Could not extract debug variables: ${e.message}")
                 }
 
@@ -283,6 +285,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
                     }
                 }
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Debug action failed: ${e.message}")
                 scope.launch(Dispatchers.Swing) {
                     GhostDebuggerService.getInstance(project).jcefBridge()

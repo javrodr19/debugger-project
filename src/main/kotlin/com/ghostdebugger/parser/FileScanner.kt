@@ -85,6 +85,7 @@ class FileScanner(private val project: Project) {
                     content = content
                 )
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("Could not read file: ${vf.path}", e)
                 null
             }

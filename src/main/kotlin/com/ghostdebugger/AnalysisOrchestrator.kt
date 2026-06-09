@@ -224,6 +224,7 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
                 try {
                     DaemonCodeAnalyzer.getInstance(project).restart()
                 } catch (e: Exception) {
+                    if (e is ProcessCanceledException) throw e
                     log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
                 }
             }

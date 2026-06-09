@@ -153,6 +153,7 @@ class NeuroMapPanel(
                 }
             }
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.warn("Could not determine plugin path", e)
         }
         return null
@@ -223,6 +224,7 @@ class NeuroMapPanel(
                 }
             }
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.error("Failed to extract web resources securely", e)
             throw IllegalStateException("Fatal: Could not load NeuroMap resources. Please ensure the plugin is correctly installed.", e)
         }

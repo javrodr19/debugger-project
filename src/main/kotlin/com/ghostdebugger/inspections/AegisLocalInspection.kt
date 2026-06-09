@@ -48,6 +48,7 @@ abstract class AegisLocalInspection(val ruleId: String) : LocalInspectionTool() 
                 val service = try {
                     GhostDebuggerService.getInstance(project)
                 } catch (e: Exception) {
+                    if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                     return
                 }
 
@@ -76,6 +77,7 @@ abstract class AegisLocalInspection(val ruleId: String) : LocalInspectionTool() 
                     val fix = try {
                         fixDeriver.derive(issue, virtualFile, fileContent)
                     } catch (e: Exception) {
+                        if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                         null
                     }
 
@@ -94,6 +96,7 @@ abstract class AegisLocalInspection(val ruleId: String) : LocalInspectionTool() 
                             holder.registerProblem(element, message)
                         }
                     } catch (e: Exception) {
+                        if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                         // Silently handle if platform registration fails
                     }
                 }

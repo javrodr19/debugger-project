@@ -80,6 +80,7 @@ internal class ReportExporter(private val project: Project) {
             try {
                 BrowserUtil.browse(file)
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not open browser for ${file.absolutePath}", e)
             }
         })
@@ -87,6 +88,7 @@ internal class ReportExporter(private val project: Project) {
             try {
                 RevealFileAction.openFile(file)
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not reveal file ${file.absolutePath}", e)
             }
         })
