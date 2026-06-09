@@ -1,0 +1,55 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:AnalysisOrchestrator.kt$AnalysisOrchestrator$internal fun handleTestSuiteFinished(root: AbstractTestProxy)</ID>
+    <ID>CyclomaticComplexMethod:AnalysisOrchestrator.kt$AnalysisOrchestrator$private suspend fun cascadeDependents( inMemoryGraph: InMemoryGraph, primaryNodeId: String )</ID>
+    <ID>CyclomaticComplexMethod:GhostDebuggerConfigurable.kt$GhostDebuggerConfigurable$override fun apply()</ID>
+    <ID>CyclomaticComplexMethod:GhostDebuggerConfigurable.kt$GhostDebuggerConfigurable$override fun createComponent(): JComponent</ID>
+    <ID>CyclomaticComplexMethod:GhostDebuggerConfigurable.kt$GhostDebuggerConfigurable$override fun isModified(): Boolean</ID>
+    <ID>CyclomaticComplexMethod:GraphBuilder.kt$GraphBuilder$private fun detectNodeType(file: com.ghostdebugger.model.ParsedFile): NodeType</ID>
+    <ID>CyclomaticComplexMethod:JsTsPerFunctionComplexity.kt$JsTsPerFunctionComplexity$private fun bodyRange(masked: String, parenOpen: Int, isArrow: Boolean): IntRange?</ID>
+    <ID>CyclomaticComplexMethod:KotlinAnalysisHelpers.kt$internal fun KaSession.effectiveTypeWithStructuralSmartCast( expr: org.jetbrains.kotlin.psi.KtExpression ): org.jetbrains.kotlin.analysis.api.types.KaType?</ID>
+    <ID>CyclomaticComplexMethod:KotlinAnalysisHelpers.kt$private fun KaSession.detectIfNarrowing( ifExpr: org.jetbrains.kotlin.psi.KtIfExpression, name: String, expr: org.jetbrains.kotlin.psi.KtExpression ): org.jetbrains.kotlin.analysis.api.types.KaType?</ID>
+    <ID>CyclomaticComplexMethod:KotlinPsiSymbolExtractor.kt$KotlinPsiSymbolExtractor$private fun fromPsi(ktFile: KtFile, parsedFile: ParsedFile): ParsedFile</ID>
+    <ID>CyclomaticComplexMethod:KotlinRedundantLetAnalyzer.kt$KotlinRedundantLetAnalyzer$override fun analyzeKtFile( ktFile: KtFile, parsedFile: ParsedFile, context: AnalysisContext, session: KaSession ): List&lt;Issue&gt;</ID>
+    <ID>CyclomaticComplexMethod:NullSafetyAnalyzer.kt$NullSafetyAnalyzer$override fun analyze(context: AnalysisContext): List&lt;Issue&gt;</ID>
+    <ID>CyclomaticComplexMethod:NullSafetyAnalyzer.kt$NullSafetyAnalyzer$private fun maskStringsAndComments(line: String): String</ID>
+    <ID>CyclomaticComplexMethod:NullSafetyFixer.kt$NullSafetyFixer$private fun maskStringsAndComments(line: String): String</ID>
+    <ID>CyclomaticComplexMethod:OpenAIService.kt$OpenAIService$override suspend fun callModelStreaming( systemPrompt: String, userPrompt: String, onToken: (String) -&gt; Unit ): String</ID>
+    <ID>CyclomaticComplexMethod:ProblemsViewCoordinator.kt$ProblemsViewCoordinator$private fun publishToProblemsView(issues: List&lt;Issue&gt;)</ID>
+    <ID>CyclomaticComplexMethod:TestRunObserver.kt$TestRunObserver$private fun harvestCoverage()</ID>
+    <ID>CyclomaticComplexMethod:TsJsRegexSymbolExtractor.kt$TsJsRegexSymbolExtractor$fun extract(parsedFile: ParsedFile): ParsedFile</ID>
+    <ID>CyclomaticComplexMethod:TsJsRegexSymbolExtractor.kt$TsJsRegexSymbolExtractor$internal fun maskStringsAndComments(src: String): String</ID>
+    <ID>CyclomaticComplexMethod:UIEvent.kt$UIEventParser$fun parse(message: String): UIEvent</ID>
+    <ID>CyclomaticComplexMethod:UIEventRouter.kt$UIEventRouter$fun handle(event: UIEvent)</ID>
+    <ID>CyclomaticComplexMethod:UIEventRouter.kt$UIEventRouter$private fun handleFixRequested(issueId: String, nodeId: String)</ID>
+    <ID>LongMethod:AnalysisOrchestrator.kt$AnalysisOrchestrator$private suspend fun performAnalysis(indicator: ProgressIndicator)</ID>
+    <ID>LongMethod:GhostDebuggerConfigurable.kt$GhostDebuggerConfigurable$override fun createComponent(): JComponent</ID>
+    <ID>LongMethod:GraphBuilder.kt$GraphBuilder$fun build( parsedFiles: List&lt;com.ghostdebugger.model.ParsedFile&gt;, dependencies: List&lt;DependencyRelation&gt; ): InMemoryGraph</ID>
+    <ID>LongMethod:KotlinPsiSymbolExtractor.kt$KotlinPsiSymbolExtractor$private fun fromPsi(ktFile: KtFile, parsedFile: ParsedFile): ParsedFile</ID>
+    <ID>LongMethod:TsJsRegexSymbolExtractor.kt$TsJsRegexSymbolExtractor$fun extract(parsedFile: ParsedFile): ParsedFile</ID>
+    <ID>LongMethod:UIEventRouter.kt$UIEventRouter$private fun handleFixRequested(issueId: String, nodeId: String)</ID>
+    <ID>MayBeConst:PromptExamples.kt$PromptExamples$val EXAMPLE_CLEAN_FILE_OUTPUT_JSON: String = "[]"</ID>
+    <ID>NestedBlockDepth:AegisTestStatusListener.kt$AegisTestStatusListener$override fun testSuiteFinished(root: AbstractTestProxy?)</ID>
+    <ID>NestedBlockDepth:AiJsonExtractor.kt$AiJsonExtractor$private fun firstBalancedSpan(raw: String): String?</ID>
+    <ID>NestedBlockDepth:AnalysisOrchestrator.kt$AnalysisOrchestrator$internal fun handleTestSuiteFinished(root: AbstractTestProxy)</ID>
+    <ID>NestedBlockDepth:DependencyResolver.kt$DependencyResolver$fun resolve(parsedFiles: List&lt;ParsedFile&gt;): List&lt;DependencyRelation&gt;</ID>
+    <ID>NestedBlockDepth:GraphBuilder.kt$GraphBuilder$fun build( parsedFiles: List&lt;com.ghostdebugger.model.ParsedFile&gt;, dependencies: List&lt;DependencyRelation&gt; ): InMemoryGraph</ID>
+    <ID>NestedBlockDepth:InMemoryGraph.kt$InMemoryGraph$fun findCycles(): List&lt;List&lt;String&gt;&gt;</ID>
+    <ID>NestedBlockDepth:KotlinAnalysisHelpers.kt$internal fun KaSession.effectiveTypeWithStructuralSmartCast( expr: org.jetbrains.kotlin.psi.KtExpression ): org.jetbrains.kotlin.analysis.api.types.KaType?</ID>
+    <ID>NestedBlockDepth:KotlinPsiSymbolExtractor.kt$KotlinPsiSymbolExtractor$private fun fromPsi(ktFile: KtFile, parsedFile: ParsedFile): ParsedFile</ID>
+    <ID>NestedBlockDepth:NeuroMapPanel.kt$NeuroMapPanel$private fun extractAllWebResources(): String</ID>
+    <ID>NestedBlockDepth:NeuroMapPanel.kt$NeuroMapPanel$private fun extractFromJar(jarFile: File, targetDir: File)</ID>
+    <ID>NestedBlockDepth:NullSafetyAnalyzer.kt$NullSafetyAnalyzer$private fun maskStringsAndComments(line: String): String</ID>
+    <ID>NestedBlockDepth:NullSafetyFixer.kt$NullSafetyFixer$private fun maskStringsAndComments(line: String): String</ID>
+    <ID>NestedBlockDepth:StackTraceParser.kt$StackTraceParser$fun parse(stackTrace: String?): List&lt;ParsedFrame&gt;</ID>
+    <ID>NestedBlockDepth:TestRunObserver.kt$TestRunObserver$private fun harvestCoverage()</ID>
+    <ID>SwallowedException:AnalysisOrchestrator.kt$AnalysisOrchestrator.&lt;no name provided&gt;$e: ProcessCanceledException</ID>
+    <ID>SwallowedException:CompilationErrorAnalyzer.kt$CompilationErrorAnalyzer$e: InvocationTargetException</ID>
+    <ID>SwallowedException:PerFunctionComplexity.kt$PerFunctionComplexity$e: Exception</ID>
+    <ID>ThrowsCount:NeuroMapPanel.kt$NeuroMapPanel$private fun extractAllWebResources(): String</ID>
+    <ID>ThrowsCount:UIEventRouter.kt$UIEventRouter$private fun handleFixRequested(issueId: String, nodeId: String)</ID>
+    <ID>UseCheckOrError:NeuroMapPanel.kt$NeuroMapPanel$throw IllegalStateException("Failed to extract web resources: index.html not found in $tempDir")</ID>
+  </CurrentIssues>
+</SmellBaseline>
