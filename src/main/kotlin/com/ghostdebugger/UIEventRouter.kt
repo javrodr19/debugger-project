@@ -52,7 +52,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
             is UIEvent.NodeClicked -> handleNodeClicked(event.nodeId)
             is UIEvent.NodeDoubleClicked -> handleNodeDoubleClicked(event.nodeId)
             is UIEvent.FixRequested -> handleFixRequested(event.issueId, event.nodeId)
-            is UIEvent.ApplyFixRequested -> handleApplyFixRequested(event.issueId, event.fixId)
+            is UIEvent.ApplyFixRequested -> handleApplyFixRequested(event.issueId)
             is UIEvent.ImpactRequested -> handleImpactRequested(event.nodeId)
             is UIEvent.ExplainSystemRequested -> handleExplainSystem()
             is UIEvent.AnalyzeRequested -> AnalysisOrchestrator.getInstance(project).analyzeProject()
@@ -249,7 +249,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
         }
     }
 
-    private fun handleApplyFixRequested(issueId: String, fixId: String) {
+    private fun handleApplyFixRequested(issueId: String) {
         val svc = service()
         val issue = svc.currentIssues.firstOrNull { it.id == issueId } ?: run {
             log.warn("ApplyFix: no issue with id $issueId in currentIssues")
@@ -323,7 +323,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                 withContext(Dispatchers.Swing) {
                     svc.jcefBridge()?.sendSystemExplanationChunk("", isComplete = false)
                 }
-                val summary = ai.explainSystemStreaming(graph) { token ->
+                ai.explainSystemStreaming(graph) { token ->
                     scope.launch(Dispatchers.Swing) {
                         svc.jcefBridge()?.sendSystemExplanationChunk(token, isComplete = false)
                     }

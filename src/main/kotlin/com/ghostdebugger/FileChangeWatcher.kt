@@ -3,7 +3,6 @@ package com.ghostdebugger
 import com.ghostdebugger.parser.FileScanner
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.util.Disposer
@@ -32,7 +31,6 @@ import kotlinx.coroutines.withContext
 @Service(Service.Level.PROJECT)
 internal class FileChangeWatcher(private val project: Project) : Disposable {
 
-    private val log = logger<FileChangeWatcher>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     @Volatile private var autoRefreshJob: Job? = null
     @Volatile private var registered = false

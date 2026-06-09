@@ -51,7 +51,7 @@ class AnalysisEngineIntegrationTest {
         val parsedFiles = rawFiles.map { extractor.extract(it) }
 
         // 2. Resolve dependencies
-        val resolver = DependencyResolver("/src")
+        val resolver = DependencyResolver()
         val dependencies = resolver.resolve(parsedFiles)
 
         // 3. Build graph

@@ -163,7 +163,7 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
         indicator.text = "Resolving dependencies..."
         withContext(Dispatchers.Swing) { svc.jcefBridge()?.sendAnalysisProgress("Resolving dependencies...", 0.40) }
 
-        val resolver = DependencyResolver(project.basePath ?: "")
+        val resolver = DependencyResolver()
         val dependencies = resolver.resolve(parsedFiles)
 
         indicator.checkCanceled()
