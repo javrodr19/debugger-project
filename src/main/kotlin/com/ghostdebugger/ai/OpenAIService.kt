@@ -59,6 +59,7 @@ internal class OpenAIService(
             val completionResponse = try {
                 json.decodeFromString<ChatCompletionResponse>(responseBody)
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.error("Failed to decode OpenAI response: $responseBody", e)
                 throw RuntimeException("Format error in OpenAI response")
             }
@@ -113,6 +114,7 @@ internal class OpenAIService(
                             onToken(text)
                         }
                     } catch (e: Exception) {
+                        if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                         // ignore malformed chunks
                     }
                 }

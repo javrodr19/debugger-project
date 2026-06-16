@@ -163,3 +163,35 @@ tasks {
         enabled = false
     }
 }
+
+// ── Detekt static-analysis quality gate ───────────────────────────────────────
+// Run via `./gradlew detekt` — fails on findings outside the baseline. Implemented as a
+// JavaExec over detekt-cli (not the Detekt Gradle plugin) to stay decoupled from that
+// plugin's Gradle-version compatibility matrix (this build is on Gradle 9). After
+// intentionally accepting new findings, regenerate the baseline with `./gradlew detektBaseline`.
+// Rules disabled because they conflict with project conventions (e.g. the PCE-rethrow idiom)
+// or are pure style noise are documented in config/detekt/detekt.yml.
+val detektCli: Configuration by configurations.creating
+dependencies {
+    detektCli("io.gitlab.arturbosch.detekt:detekt-cli:1.23.8")
+}
+fun detektArgs(extra: List<String>): List<String> = listOf(
+    "--input", "src/main/kotlin",
+    "--config", "config/detekt/detekt.yml",
+    "--build-upon-default-config",
+    "--baseline", "config/detekt/baseline.xml",
+) + extra
+tasks.register<JavaExec>("detekt") {
+    group = "verification"
+    description = "Detekt static analysis on main sources; fails on new findings outside the baseline."
+    classpath = detektCli
+    mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+    args = detektArgs(emptyList())
+}
+tasks.register<JavaExec>("detektBaseline") {
+    group = "verification"
+    description = "Regenerates config/detekt/baseline.xml (run after intentionally accepting findings)."
+    classpath = detektCli
+    mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+    args = detektArgs(listOf("--create-baseline"))
+}

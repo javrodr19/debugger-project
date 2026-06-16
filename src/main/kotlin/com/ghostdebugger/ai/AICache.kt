@@ -46,6 +46,7 @@ class AICache(
             val hash = digest.digest(input.toByteArray())
             hash.joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             // Fallback for environments where SHA-256 might be restricted
             input.hashCode().toString()
         }

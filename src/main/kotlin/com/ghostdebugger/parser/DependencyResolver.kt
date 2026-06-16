@@ -9,7 +9,7 @@ data class DependencyRelation(
     val importSource: String
 )
 
-class DependencyResolver(private val projectBasePath: String) {
+class DependencyResolver {
 
     fun resolve(parsedFiles: List<ParsedFile>): List<DependencyRelation> {
         val relations = mutableListOf<DependencyRelation>()

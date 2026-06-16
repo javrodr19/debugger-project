@@ -89,6 +89,7 @@ internal class OllamaService(
                         fullText.append(text)
                         onToken(text)
                     } catch (e: Exception) {
+                        if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                         // ignore malformed lines
                     }
                 }

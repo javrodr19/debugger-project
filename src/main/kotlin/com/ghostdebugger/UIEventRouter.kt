@@ -13,6 +13,7 @@ import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.diagnostic.logger
@@ -52,7 +53,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
             is UIEvent.NodeClicked -> handleNodeClicked(event.nodeId)
             is UIEvent.NodeDoubleClicked -> handleNodeDoubleClicked(event.nodeId)
             is UIEvent.FixRequested -> handleFixRequested(event.issueId, event.nodeId)
-            is UIEvent.ApplyFixRequested -> handleApplyFixRequested(event.issueId, event.fixId)
+            is UIEvent.ApplyFixRequested -> handleApplyFixRequested(event.issueId)
             is UIEvent.ImpactRequested -> handleImpactRequested(event.nodeId)
             is UIEvent.ExplainSystemRequested -> handleExplainSystem()
             is UIEvent.AnalyzeRequested -> AnalysisOrchestrator.getInstance(project).analyzeProject()
@@ -118,6 +119,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                     svc.jcefBridge()?.sendIssueExplanationChunk(issue.id, "", isComplete = true)
                 }
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.error("Failed to explain issue", e)
                 withContext(Dispatchers.Swing) {
                     svc.jcefBridge()?.sendIssueExplanationChunk(
@@ -153,6 +155,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                 XDebuggerUtil.getInstance().toggleLineBreakpoint(project, virtualFile, line - 1)
                 log.info("Breakpoint set at $filePath:$line")
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not set breakpoint at $filePath:$line — ${e.message}")
             }
         }
@@ -166,6 +169,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                 XDebuggerUtil.getInstance().toggleLineBreakpoint(project, virtualFile, line - 1)
                 log.info("Breakpoint removed at $filePath:$line")
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not remove breakpoint at $filePath:$line — ${e.message}")
             }
         }
@@ -181,6 +185,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
             val fileContent = try {
                 java.io.File(issue.filePath).readText()
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not read file for deterministic fix: ${issue.filePath}", e)
                 null
             }
@@ -204,6 +209,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                                 svc.jcefBridge()?.sendIssueExplanation(issue.id, explanation)
                             }
                         } catch (e: Exception) {
+                            if (e is ProcessCanceledException) throw e
                             log.warn("AI explanation enrichment failed for issue ${issue.id}", e)
                         }
                     }
@@ -249,7 +255,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
         }
     }
 
-    private fun handleApplyFixRequested(issueId: String, fixId: String) {
+    private fun handleApplyFixRequested(issueId: String) {
         val svc = service()
         val issue = svc.currentIssues.firstOrNull { it.id == issueId } ?: run {
             log.warn("ApplyFix: no issue with id $issueId in currentIssues")
@@ -262,6 +268,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                 val vf = LocalFileSystem.getInstance().findFileByPath(issue.filePath)
                 if (vf != null) FixDeriver(project).derive(issue, vf, content) else null
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not re-derive fix for issue $issueId: ${e.message}", e)
                 null
             }
@@ -323,7 +330,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                 withContext(Dispatchers.Swing) {
                     svc.jcefBridge()?.sendSystemExplanationChunk("", isComplete = false)
                 }
-                val summary = ai.explainSystemStreaming(graph) { token ->
+                ai.explainSystemStreaming(graph) { token ->
                     scope.launch(Dispatchers.Swing) {
                         svc.jcefBridge()?.sendSystemExplanationChunk(token, isComplete = false)
                     }
@@ -332,6 +339,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                     svc.jcefBridge()?.sendSystemExplanationChunk("", isComplete = true)
                 }
             } catch (e: Exception) {
+                if (e is ProcessCanceledException) throw e
                 log.error("System explanation failed", e)
                 withContext(Dispatchers.Swing) {
                     svc.jcefBridge()?.sendSystemExplanation(buildLocalSystemSummary(graph))

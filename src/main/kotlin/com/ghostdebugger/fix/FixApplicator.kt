@@ -65,6 +65,7 @@ fun interface FixWriter {
                 })
                 succeeded
             } catch (e: Exception) {
+                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
                 log.warn("FixWriter.Default failed for issue ${fix.issueId}: ${e.message}", e)
                 false
             }
@@ -78,6 +79,7 @@ class FixApplicator(private val writer: FixWriter = FixWriter.Default) {
             if (writer.write(fix, project)) FixApplyResult.Success
             else FixApplyResult.Rejected("The proposed fix would produce invalid code and was not applied.")
         } catch (t: Throwable) {
+            if (t is com.intellij.openapi.progress.ProcessCanceledException) throw t
             FixApplyResult.Failed(t)
         }
     }

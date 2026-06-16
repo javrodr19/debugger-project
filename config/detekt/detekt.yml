@@ -1,0 +1,55 @@
+# Aegis Debug — detekt quality-gate config.
+#
+# Builds upon detekt's default ruleset (--build-upon-default-config). This file only
+# DISABLES rules that are either pure style noise or that conflict with this project's
+# documented conventions, so the gate flags real quality regressions, not idiom.
+#
+# Conflicts with project conventions (CLAUDE.md):
+#   - InstanceOfCheckForException / TooGenericExceptionCaught: the mandatory PCE-rethrow
+#     idiom is `catch (e: Exception) { if (e is ProcessCanceledException) throw e; ... }`.
+#     These rules would flag that idiom on every catch block, which is wrong here.
+#
+# Pure style (out of scope for this gate — no formatter/ktlint is configured):
+#   - MagicNumber, MaxLineLength, ReturnCount, WildcardImport, LoopWithTooManyJumpStatements,
+#     ForbiddenComment, the comments/naming rulesets.
+#
+# Pre-existing accepted findings (inherent parser/dispatcher/UI complexity, empty overrides)
+# are captured in config/detekt/baseline.xml; regenerate with `./gradlew detektBaseline`.
+
+comments:
+  active: false
+
+naming:
+  active: false
+
+style:
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    active: false
+  ReturnCount:
+    active: false
+  WildcardImport:
+    active: false
+  LoopWithTooManyJumpStatements:
+    active: false
+  ForbiddenComment:
+    active: false
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  TooGenericExceptionThrown:
+    active: false
+  InstanceOfCheckForException:
+    active: false
+
+complexity:
+  TooManyFunctions:
+    active: false
+  LongParameterList:
+    active: false
+
+empty-blocks:
+  EmptyFunctionBlock:
+    active: false

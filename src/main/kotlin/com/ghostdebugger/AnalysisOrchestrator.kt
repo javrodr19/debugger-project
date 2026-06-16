@@ -163,7 +163,7 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
         indicator.text = "Resolving dependencies..."
         withContext(Dispatchers.Swing) { svc.jcefBridge()?.sendAnalysisProgress("Resolving dependencies...", 0.40) }
 
-        val resolver = DependencyResolver(project.basePath ?: "")
+        val resolver = DependencyResolver()
         val dependencies = resolver.resolve(parsedFiles)
 
         indicator.checkCanceled()
@@ -224,6 +224,7 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
                 try {
                     DaemonCodeAnalyzer.getInstance(project).restart()
                 } catch (e: Exception) {
+                    if (e is ProcessCanceledException) throw e
                     log.warn("Could not restart DaemonCodeAnalyzer: ${e.message}")
                 }
             }

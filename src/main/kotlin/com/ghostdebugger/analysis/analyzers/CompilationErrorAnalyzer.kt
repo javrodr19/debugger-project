@@ -62,7 +62,8 @@ class CompilationErrorAnalyzer : EarlyAnalyzer {
                     ?.also { it.isAccessible = true }
                     ?.let { RunInsideDispatch(it, null) }
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            if (t is com.intellij.openapi.progress.ProcessCanceledException) throw t
             null
         }
     }
