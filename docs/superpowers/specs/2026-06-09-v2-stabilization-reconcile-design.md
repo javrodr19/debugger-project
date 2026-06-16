@@ -207,3 +207,32 @@ Final — green bar + build → CHANGELOG "stabilization pass" line; merge to ma
 The implementation plan (task-by-task) lives at
 `docs/superpowers/plans/2026-06-09-v2-stabilization-reconcile.md`, written next via the
 writing-plans flow.
+
+---
+
+## Addendum — 2026-06-16: Phase 0 adapted for the post-spec docs cleanup
+
+**This spec was written 2026-06-09. After it was written, commit `32c351e`**
+*("chore(cleanup): remove early .md files and leave just the essentials")* **deleted 45
+docs (~31k lines)** — every V1.x–V3 spec/plan, `docs/bug_report.md`, and the v1 history —
+leaving only the roadmap and this spec. That invalidated three Phase-0 instructions as
+literally written. The implementation plan adapts them (decision: *adapt the plan*, do not
+resurrect the deleted docs — the cleanup was deliberate, and un-deleting 31k lines to satisfy
+a doc pointer would re-introduce the very drift this phase removes):
+
+| §3 / §4 instruction | Now-broken because | Adaptation in the plan |
+|---|---|---|
+| §1 "keep the spec pointer to `…2026-05-31-ai-supervised-fix-engine-design.md`" | file **deleted** — `CLAUDE.md:81` pointer dangles | **repoint** to the CHANGELOG `[Unreleased] — 2.0.0` entry |
+| §4 "prepend an 'Actual outcome' note to `…2026-05-27-aegis-v2.x-continuation-design.md`" | file **deleted** | **no-op** — content folded into the CHANGELOG entry + roadmap callout |
+| §1/§4.1 audit baseline = `docs/bug_report.md` | file **deleted** | audit scope = git range **`ec91efd..HEAD`** (last pre-fix-engine commit → HEAD) |
+
+D2 holds throughout: the **CHANGELOG is the single source of truth**; every "where did X go?"
+pointer now resolves there. This is itself an instance of the phase's thesis — a spec left
+pointing at deleted files is the same doc-drift the phase exists to kill.
+
+**Forward-looking note (out of this phase's scope, recorded for sequencing):** the genuinely
+*unbuilt* V3 frontier — custom-rule authoring, rule packs, analyzer SDK, fix-preview UX — is
+now designed in `docs/superpowers/specs/2026-06-16-v3-frontier-overview-design.md` (overview +
+sequencing) and `docs/superpowers/specs/2026-06-16-v3-custom-rule-authoring-design.md` (the
+first pillar's deep-dive). Those phases begin **only after** this stabilization reaches its §6
+finish line and the deferred ship-vs-build decision is made.
