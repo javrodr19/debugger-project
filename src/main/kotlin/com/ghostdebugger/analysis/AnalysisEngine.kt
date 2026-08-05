@@ -38,7 +38,8 @@ class AnalysisEngine(
         StateInitAnalyzer(),
         AsyncFlowAnalyzer(),
         CircularDependencyAnalyzer(),
-        ComplexityAnalyzer()
+        ComplexityAnalyzer(),
+        CustomRuleAnalyzer()
     )
 ) {
     private val log = logger<AnalysisEngine>()

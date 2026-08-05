@@ -47,7 +47,8 @@ enum class IssueType {
     DEAD_CODE,
     RESOURCE_LEAK,
     MEMORY_LEAK,
-    ARCHITECTURE
+    ARCHITECTURE,
+    CUSTOM_RULE
 }
 
 @Serializable
