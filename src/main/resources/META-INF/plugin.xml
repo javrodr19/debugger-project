@@ -327,6 +327,31 @@
                     text="Explain System"
                     description="Get AI-powered explanation of the project architecture"/>
 
+            <action id="GhostDebugger.ReanalyzeFile"
+                    class="com.ghostdebugger.actions.ReanalyzeFileAction"
+                    text="Reanalyze Current File"
+                    description="Re-run Aegis Debug analysis on the active file"/>
+
+            <action id="GhostDebugger.ApplyAllFixes"
+                    class="com.ghostdebugger.actions.ApplyAllFixesAction"
+                    text="Apply All Deterministic Fixes"
+                    description="Batch-apply verified fixes in the active file"/>
+
+            <action id="GhostDebugger.NextFinding"
+                    class="com.ghostdebugger.actions.NextFindingAction"
+                    text="Next Aegis Finding"
+                    description="Navigate to the next Aegis finding in current file"/>
+
+            <action id="GhostDebugger.PrevFinding"
+                    class="com.ghostdebugger.actions.PrevFindingAction"
+                    text="Previous Aegis Finding"
+                    description="Navigate to the previous Aegis finding in current file"/>
+
+            <action id="GhostDebugger.SuppressFinding"
+                    class="com.ghostdebugger.actions.SuppressFindingAction"
+                    text="Suppress Finding Under Caret"
+                    description="Suppress the finding under caret via SuppressionMemoryService"/>
+
             <action id="GhostDebugger.ConfigureApiKey"
                     class="com.ghostdebugger.actions.ConfigureApiKeyAction"
                     text="Configure AI Provider"
