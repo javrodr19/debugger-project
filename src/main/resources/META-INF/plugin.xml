@@ -190,6 +190,10 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.ProblemsViewCoordinator"/>
 
+        <!-- V3.1: Custom rule loader & cache service -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.rules.CustomRuleService"/>
+
         <!-- V2.0.0-alpha.2: test runner listener -->
         <testStatusListener
                 implementation="com.ghostdebugger.AegisTestStatusListener"/>
