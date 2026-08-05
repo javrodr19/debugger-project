@@ -43,8 +43,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
 
-    // Kotlin Serialization (JSON)
+    // Kotlin Serialization (JSON) + YAML front-end for custom rules
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("com.charleskorn.kaml:kaml:0.61.0")
 
     // HTTP Client for OpenAI API calls
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
