@@ -1,9 +1,11 @@
 package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
-import com.ghostdebugger.analysis.AnalysisContext
+import com.ghostdebugger.graph.InMemoryGraph
+import com.ghostdebugger.model.AnalysisContext
 import com.ghostdebugger.model.IssueSource
 import com.ghostdebugger.model.IssueType
+import com.ghostdebugger.model.ParsedFile
 import com.ghostdebugger.rules.CustomRuleService
 import org.jetbrains.kotlin.psi.KtFile
 
@@ -15,7 +17,7 @@ class CustomRuleAnalyzerTest : AegisKotlinAnalysisTestCase() {
             language: kotlin
             severity: WARNING
             message: "catch (e: Exception) must rethrow ProcessCanceledException first"
-            match: { element: catch-clause, parameter-type: java.lang.Exception }
+            match: { element: catch-clause, parameter-type: Exception }
     """.trimIndent()
 
     fun testEmitsCustomIssueCarryingRuleId() {
@@ -35,10 +37,17 @@ class CustomRuleAnalyzerTest : AegisKotlinAnalysisTestCase() {
             """.trimIndent()
         ) as KtFile
 
-        val ctx = AnalysisContext(
-            psiFile = psiFile,
+        val parsedFile = ParsedFile(
             virtualFile = psiFile.virtualFile,
-            project = project
+            path = psiFile.virtualFile.path,
+            extension = "kt",
+            content = psiFile.text
+        )
+
+        val ctx = AnalysisContext(
+            graph = InMemoryGraph(),
+            project = project,
+            parsedFiles = listOf(parsedFile)
         )
 
         val issues = CustomRuleAnalyzer().analyze(ctx)

@@ -1,6 +1,10 @@
 package com.ghostdebugger.fix.engine
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
+import com.ghostdebugger.model.Issue
+import com.ghostdebugger.model.IssueSeverity
+import com.ghostdebugger.model.IssueType
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.psi.KtCatchClause
 import org.jetbrains.kotlin.psi.KtFile
@@ -17,35 +21,58 @@ class CustomFixApplyTest : AegisKotlinAnalysisTestCase() {
             """.trimIndent()
         ) as KtFile
 
-        val catchClause = PsiTreeUtil.findChildOfType(file, KtCatchClause::class.java)!!
-        val offset = RuleAnchorResolver.resolveAnchorOffset(catchClause, "catch-block-open-brace")
-        assertNotNull(offset)
-        assertTrue(offset!! > catchClause.textOffset)
+        ApplicationManager.getApplication().runReadAction {
+            val catchClause = PsiTreeUtil.findChildOfType(file, KtCatchClause::class.java)!!
+            val offset = RuleAnchorResolver.resolveAnchorOffset(catchClause, "catch-block-open-brace")
+            assertNotNull(offset)
+            assertTrue(offset!! > catchClause.textOffset)
+        }
     }
 
-    fun testValidFixPlanApplicationPassesVerifier() {
-        val file = myFixture.configureByText(
-            "Valid.kt",
-            """
-            fun foo() { val x = 1 }
-            """.trimIndent()
-        ) as KtFile
+    fun testFixVerifierDecidesAcceptOnResolvedTarget() {
+        val target = Issue(
+            id = "test-1",
+            type = IssueType.NULL_SAFETY,
+            severity = IssueSeverity.ERROR,
+            title = "Null Safety",
+            description = "Null warning",
+            filePath = "Test.kt",
+            ruleId = "AEG-NULL-001"
+        )
+
+        val baseline = listOf(target)
+        val candidate = emptyList<Issue>()
 
         val verifier = FixVerifier()
-        val isValid = verifier.verify(file, file.text)
-        assertTrue(isValid)
+        val decision = verifier.decide(target, baseline, candidate)
+        assertTrue(decision is VerifyDecision.Accept)
     }
 
-    fun testInvalidFixPlanRefusedByVerifier() {
-        val file = myFixture.configureByText(
-            "Invalid.kt",
-            """
-            fun foo() { val x = 1 }
-            """.trimIndent()
-        ) as KtFile
+    fun testFixVerifierDecidesRejectOnRegression() {
+        val target = Issue(
+            id = "test-1",
+            type = IssueType.NULL_SAFETY,
+            severity = IssueSeverity.ERROR,
+            title = "Null Safety",
+            description = "Null warning",
+            filePath = "Test.kt",
+            ruleId = "AEG-NULL-001"
+        )
+        val newIssue = Issue(
+            id = "test-2",
+            type = IssueType.SYNTAX_ERROR,
+            severity = IssueSeverity.ERROR,
+            title = "Syntax error",
+            description = "Syntax error",
+            filePath = "Test.kt",
+            ruleId = "AEG-SYNTAX-001"
+        )
+
+        val baseline = listOf(target)
+        val candidate = listOf(newIssue)
 
         val verifier = FixVerifier()
-        val isValid = verifier.verify(file, "fun foo() { val x = {{{")
-        assertFalse(isValid)
+        val decision = verifier.decide(target, baseline, candidate)
+        assertTrue(decision is VerifyDecision.Reject)
     }
 }

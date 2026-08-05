@@ -1,12 +1,14 @@
 package com.ghostdebugger.rules
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.vfs.AsyncFileListener
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 
@@ -46,34 +48,40 @@ class CustomRuleService(private val project: Project) : Disposable {
     }
 
     private fun loadRules(): List<CustomRule> {
-        val baseDir = project.baseDir ?: return emptyList()
+        val baseDir = project.guessProjectDir() ?: return emptyList()
         val rulesDir = baseDir.findFileByRelativePath(".aegis/rules") ?: return emptyList()
         if (!rulesDir.isDirectory) return emptyList()
 
         val rulesList = mutableListOf<CustomRule>()
         val seenIds = mutableSetOf<String>()
 
-        for (file in rulesDir.children) {
-            if (file.isDirectory || (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml"))) continue
-
-            val content = runCatching { String(file.contentsToByteArray()) }.getOrNull() ?: continue
-            val decodedFile = CustomRuleCodec.decode(content)
-            if (decodedFile == null) {
-                LOG.warn("Skipping malformed Aegis custom rule file: ${file.path}")
-                continue
-            }
-
-            for (rule in decodedFile.rules) {
-                if (seenIds.contains(rule.id)) {
-                    LOG.warn("Skipping duplicate custom rule id '${rule.id}' in ${file.path}")
-                    continue
-                }
-                seenIds.add(rule.id)
-                rulesList.add(rule)
+        ApplicationManager.getApplication().runReadAction {
+            for (file in rulesDir.children) {
+                parseRuleFile(file, rulesList, seenIds)
             }
         }
 
         return rulesList
+    }
+
+    private fun parseRuleFile(file: VirtualFile, rulesList: MutableList<CustomRule>, seenIds: MutableSet<String>) {
+        if (file.isDirectory || (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml"))) return
+
+        val content = runCatching { String(file.contentsToByteArray()) }.getOrNull() ?: return
+        val decodedFile = CustomRuleCodec.decode(content)
+        if (decodedFile == null) {
+            LOG.warn("Skipping malformed Aegis custom rule file: ${file.path}")
+            return
+        }
+
+        for (rule in decodedFile.rules) {
+            if (seenIds.contains(rule.id)) {
+                LOG.warn("Skipping duplicate custom rule id '${rule.id}' in ${file.path}")
+                continue
+            }
+            seenIds.add(rule.id)
+            rulesList.add(rule)
+        }
     }
 
     override fun dispose() {

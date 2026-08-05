@@ -13,7 +13,7 @@ class ReanalyzeFileAction : AnAction() {
 
         if (service.isAnalyzing) return
 
-        service.analyzeFile(virtualFile)
+        service.analyzeProject()
     }
 
     override fun update(e: AnActionEvent) {

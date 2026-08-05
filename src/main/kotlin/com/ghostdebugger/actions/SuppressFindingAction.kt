@@ -18,8 +18,8 @@ class SuppressFindingAction : AnAction() {
 
         val issueToSuppress = issues.firstOrNull { it.line == currentLine } ?: issues.firstOrNull()
         if (issueToSuppress != null) {
-            SuppressionMemoryService.getInstance(project).suppress(issueToSuppress.fingerprint())
-            service.analyzeFile(virtualFile)
+            SuppressionMemoryService.getInstance(project).recordDismissal(issueToSuppress.fingerprint())
+            service.analyzeProject()
         }
     }
 

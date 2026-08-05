@@ -1,6 +1,7 @@
 package com.ghostdebugger.rules
 
 import com.ghostdebugger.AegisKotlinAnalysisTestCase
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.psi.KtCatchClause
 import org.jetbrains.kotlin.psi.KtFile
@@ -26,8 +27,10 @@ class RuleMatcherTest : AegisKotlinAnalysisTestCase() {
             """.trimIndent()
         ) as KtFile
 
-        val catchClause = PsiTreeUtil.findChildOfType(file, KtCatchClause::class.java)!!
-        assertTrue(RuleMatcher.matches(catchClause, pceRule))
+        ApplicationManager.getApplication().runReadAction {
+            val catchClause = PsiTreeUtil.findChildOfType(file, KtCatchClause::class.java)!!
+            assertTrue(RuleMatcher.matches(catchClause, pceRule))
+        }
     }
 
     fun testDoesNotMatchWhenUnlessGuardPresent() {
@@ -45,7 +48,9 @@ class RuleMatcherTest : AegisKotlinAnalysisTestCase() {
             """.trimIndent()
         ) as KtFile
 
-        val catchClause = PsiTreeUtil.findChildOfType(file, KtCatchClause::class.java)!!
-        assertFalse(RuleMatcher.matches(catchClause, pceRule))
+        ApplicationManager.getApplication().runReadAction {
+            val catchClause = PsiTreeUtil.findChildOfType(file, KtCatchClause::class.java)!!
+            assertFalse(RuleMatcher.matches(catchClause, pceRule))
+        }
     }
 }
