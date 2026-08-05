@@ -1,0 +1,5 @@
+# <type>(<scope>): <imperative subject, <=72 chars>
+#
+# type ∈ feat|fix|docs|test|chore|refactor|build|perf|ci|revert
+# Body (wrap 72): WHY, not what.
+# Footer: Co-Authored-By:, refs #issue

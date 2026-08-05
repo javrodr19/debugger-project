@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+subject=$(head -1 "$1")
+case "$subject" in
+  Merge*|Revert*) exit 0 ;;
+esac
+if ! printf '%s' "$subject" | grep -qE '^(feat|fix|docs|test|chore|refactor|build|perf|ci|revert)(\(.+\))?(!)?: .+'; then
+  echo "✖ commit subject must be: type(scope): subject  (see .gitmessage)" >&2
+  exit 1
+fi
