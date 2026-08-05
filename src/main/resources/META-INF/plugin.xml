@@ -329,8 +329,8 @@
 
             <action id="GhostDebugger.ConfigureApiKey"
                     class="com.ghostdebugger.actions.ConfigureApiKeyAction"
-                    text="Configure OpenAI API Key"
-                    description="Set up your OpenAI API key for AI features"/>
+                    text="Configure AI Provider"
+                    description="Set up your local Ollama or OpenAI API key for AI features"/>
         </group>
     </actions>
 </idea-plugin>
