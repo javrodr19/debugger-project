@@ -1,9 +1,8 @@
 # Aegis Debug — V3 Frontier Overview & Decomposition
 
 **Date:** 2026-06-16
-**Status:** Draft — forward-looking. **Not** part of the v2-stabilization phase; this designs
-work that begins *after* stabilization exits its finish line and the ship-vs-build decision is made.
-**Version target:** V3.x (post-2.0.0). No code in this doc — it is a decomposition + sequencing spec.
+**Status:** Approved & Shipped in `v.2.0.0-beta.1` (V3.1, V3.2, V3.3, V3.4).
+**Version target:** V3.x (post-2.0.0). All pillars (Rule Packs, Fix Preview UX, External SDK) fully implemented and merged.
 
 ---
 

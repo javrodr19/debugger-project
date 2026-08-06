@@ -13,7 +13,7 @@ tags:
 
 This is the high-level north star for Aegis Debug.
 
-## V2: Dynamic validation + language breadth + IDE-native integration
+## V2: Dynamic validation + language breadth + IDE-native integration `[SHIPPED v.2.0.0-beta.1]`
 Theme: Prove that the static findings are real.
 - **Dynamic validation pass**: Correlate static findings with runtime paths via test runners and debug sessions. Add `RUNTIME_CONFIRMED` provenance tier.
 - **IntelliJ Problems tool window** integration.
@@ -21,12 +21,13 @@ Theme: Prove that the static findings are real.
 - **Streaming AI responses**.
 - *(Explicit non-goals: team sync, cross-repo validation).*
 
-## V3: Fixer breadth + custom rule authoring
+## V3: Fixer breadth + custom rule authoring `[SHIPPED v.2.0.0-beta.1]`
 Theme: Extend the fix catalog and let power users define rules.
-- **Six more deterministic fixers**.
-- **Custom rule authoring**: YAML/Kotlin-DSL definition of rules in `.aegis/rules/*.yml`.
-- **Rule packs**.
-- **Analyzer author SDK**.
+- **AI-supervised fix engine**: `FixEngine` + `FixPlanApplicator` supervising deterministic operations.
+- **Custom rule authoring**: YAML definition of rules in `.aegis/rules/*.yml` (V3.1).
+- **Rule packs**: Curated & project packs in `.aegis/packs/*.yml` (V3.2).
+- **Fix Preview UX**: Line/hunk diffs & interactive Swing dialog (V3.3).
+- **Analyzer author SDK**: Dynamic `.jar` analyzer plugins in `.aegis/analyzers/` (V3.4).
 
 ## V4: Debug-time UX
 Theme: A debug session that actively teaches the user where to look.

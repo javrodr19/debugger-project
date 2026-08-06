@@ -1,7 +1,7 @@
 # Aegis Debug — Roadmap V2 → V5
 
-**Date:** 2026-04-15
-**Status:** V1 shipped (static-first, TS/JS full, Kotlin/Java graph-only, NeuroMap, 3 fixers, Ollama/OpenAI).
+**Date:** 2026-08-06
+**Status:** V1, V2, and V3 (V3.1 Custom Rules, V3.2 Rule Packs, V3.3 Fix-Preview UX, V3.4 External SDK) + Plugin Actions (Batches 1–3) shipped in `v.2.0.0-beta.1`. V4 (Debug-Time UX) is current active target.
 **What this doc is:** a high-level north-star. Scope only — no binding requirements, no acceptance criteria. Each version is "the theme of that release," not a contract.
 
 ---

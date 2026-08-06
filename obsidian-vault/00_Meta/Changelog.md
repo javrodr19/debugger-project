@@ -12,6 +12,14 @@ tags:
 
 A high-level summary of Aegis Debug releases. For full details, see the raw `CHANGELOG.md` in the project root.
 
+## 2.0.0-beta.1 — Dynamic Validation, Rule Packs, Fix Preview & External SDK
+- **Dynamic Validation Pass**: `RUNTIME_CONFIRMED` source tag, debugger cross-check, test runner cross-check, suppression memory service.
+- **AI-Supervised Fix Engine**: Supervises deterministic fix operations with verification gate.
+- **Custom Rules & Rule Packs (V3.1 & V3.2)**: Declarative `.aegis/rules/*.yml` custom rules and curated `.aegis/packs/*.yml` rule packs.
+- **Fix-Preview UX (V3.3)**: Line/hunk diff previews and interactive Swing diff preview dialog.
+- **External Analyzer SDK (V3.4)**: Dynamic `.jar` analyzer plugins loaded from `.aegis/analyzers/` with isolated classloader and PCE protection.
+- **Plugin Actions (Batches 1–3)**: `ReanalyzeFile`, `ApplyAllFixes`, `NavigateFinding`, `SuppressFinding`, `ToggleRule`, `ShowInNeuroMap`, `ExportReport`, `CopyFindingForAI`, `ConfirmDenyFinding`.
+
 ## 1.5.0 — Pre-V2 structural refactor
 - Pure structural release (no user-visible change).
 - `GhostDebuggerService` shrunk to a thin facade.
