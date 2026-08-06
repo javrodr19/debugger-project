@@ -5,7 +5,7 @@ enabledByDefault: true
 rules:
   - id: pce-rethrow-missing
     language: kotlin
-    severity: warning
+    severity: WARNING
     message: "catch (e: Exception) must rethrow ProcessCanceledException first"
     match:
       element: catch-clause

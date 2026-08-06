@@ -152,14 +152,14 @@ class RulePackService(private val project: Project) : Disposable {
             rules:
               - id: react-no-eval
                 language: typescript
-                severity: error
+                severity: ERROR
                 message: "Avoid using eval() or dynamic code execution in React components."
                 match:
                   element: call-expression
                   name-matches: "^eval$"
               - id: react-no-direct-mutation
                 language: typescript
-                severity: warning
+                severity: WARNING
                 message: "Do not mutate state properties directly; use setter functions."
                 match:
                   element: call-expression
@@ -174,7 +174,7 @@ class RulePackService(private val project: Project) : Disposable {
             rules:
               - id: pce-rethrow-missing
                 language: kotlin
-                severity: warning
+                severity: WARNING
                 message: "catch (e: Exception) must rethrow ProcessCanceledException first"
                 match:
                   element: catch-clause
@@ -191,7 +191,7 @@ class RulePackService(private val project: Project) : Disposable {
             rules:
               - id: node-no-child-process-exec
                 language: javascript
-                severity: error
+                severity: ERROR
                 message: "exec() can lead to command injection; prefer execFile or spawn with fixed arguments."
                 match:
                   element: call-expression

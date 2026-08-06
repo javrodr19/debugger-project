@@ -5,14 +5,14 @@ enabledByDefault: true
 rules:
   - id: react-no-eval
     language: typescript
-    severity: error
+    severity: ERROR
     message: "Avoid using eval() or dynamic code execution in React components."
     match:
       element: call-expression
       name-matches: "^eval$"
   - id: react-no-direct-mutation
     language: typescript
-    severity: warning
+    severity: WARNING
     message: "Do not mutate state properties directly; use setter functions."
     match:
       element: call-expression
