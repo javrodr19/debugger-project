@@ -107,9 +107,14 @@ class AnalysisEngine(
         val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
         val baseLateIssues = runStaticPass(lateAnalyzers, lateContext, indicator)
         
-        val externalLoader = com.ghostdebugger.analysis.sdk.ExternalAnalyzerLoader.getInstance(context.project)
-        val externalIssues = externalLoader.analyzers().flatMap { analyzer ->
-            externalLoader.runExternalAnalyzer(analyzer, lateContext)
+        val externalIssues = runCatching {
+            val externalLoader = com.ghostdebugger.analysis.sdk.ExternalAnalyzerLoader.getInstance(context.project)
+            externalLoader.analyzers().flatMap { analyzer ->
+                externalLoader.runExternalAnalyzer(analyzer, lateContext)
+            }
+        }.getOrElse { e ->
+            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+            emptyList()
         }
         val lateIssues = baseLateIssues + externalIssues
         indicator?.checkCanceled()
