@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.ghostdebugger"
-version = "2.0.0-beta.1"
+version = "3.0.0"
 
 repositories {
     mavenCentral()

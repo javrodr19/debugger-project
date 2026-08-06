@@ -21,7 +21,7 @@ Theme: Prove that the static findings are real.
 - **Streaming AI responses**.
 - *(Explicit non-goals: team sync, cross-repo validation).*
 
-## V3: Fixer breadth + custom rule authoring `[SHIPPED v.2.0.0-beta.1]`
+## V3: Fixer breadth + custom rule authoring `[SHIPPED v.3.0.0]`
 Theme: Extend the fix catalog and let power users define rules.
 - **AI-supervised fix engine**: `FixEngine` + `FixPlanApplicator` supervising deterministic operations.
 - **Custom rule authoring**: YAML definition of rules in `.aegis/rules/*.yml` (V3.1).

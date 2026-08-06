@@ -12,13 +12,15 @@ tags:
 
 A high-level summary of Aegis Debug releases. For full details, see the raw `CHANGELOG.md` in the project root.
 
-## 2.0.0-beta.1 — Dynamic Validation, Rule Packs, Fix Preview & External SDK
-- **Dynamic Validation Pass**: `RUNTIME_CONFIRMED` source tag, debugger cross-check, test runner cross-check, suppression memory service.
-- **AI-Supervised Fix Engine**: Supervises deterministic fix operations with verification gate.
+## 3.0.0 — Custom Rules, Rule Packs, Fix Preview, External SDK & Full Plugin Actions
 - **Custom Rules & Rule Packs (V3.1 & V3.2)**: Declarative `.aegis/rules/*.yml` custom rules and curated `.aegis/packs/*.yml` rule packs.
 - **Fix-Preview UX (V3.3)**: Line/hunk diff previews and interactive Swing diff preview dialog.
 - **External Analyzer SDK (V3.4)**: Dynamic `.jar` analyzer plugins loaded from `.aegis/analyzers/` with isolated classloader and PCE protection.
-- **Plugin Actions (Batches 1–3)**: `ReanalyzeFile`, `ApplyAllFixes`, `NavigateFinding`, `SuppressFinding`, `ToggleRule`, `ShowInNeuroMap`, `ExportReport`, `CopyFindingForAI`, `ConfirmDenyFinding`.
+- **Plugin Action Suite**: Comprehensive menu and keyboard actions (ToggleRule, ShowInNeuroMap, ExportReport, CopyFindingForAI, ConfirmDenyFinding).
+
+## 2.0.0-beta.1 — Dynamic Validation Pre-Release
+- **Dynamic Validation Pass**: `RUNTIME_CONFIRMED` source tag, debugger cross-check, test runner cross-check, suppression memory service.
+- **AI-Supervised Fix Engine**: Supervises deterministic fix operations with verification gate.
 
 ## 1.5.0 — Pre-V2 structural refactor
 - Pure structural release (no user-visible change).
