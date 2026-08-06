@@ -91,7 +91,10 @@ class RulePackService(private val project: Project) : Disposable {
             "/rules/packs/node-security.yml"
         )
         for (path in bundledPaths) {
+            val relPath = path.removePrefix("/")
             val stream = javaClass.getResourceAsStream(path)
+                ?: javaClass.getResourceAsStream(relPath)
+                ?: javaClass.classLoader?.getResourceAsStream(relPath)
             if (stream != null) {
                 val content = stream.bufferedReader().use { it.readText() }
                 val pack = RulePackCodec.decode(content)
