@@ -198,6 +198,10 @@
         <projectService
                 serviceImplementation="com.ghostdebugger.rules.RulePackService"/>
 
+        <!-- V3.4: External SDK Analyzer Loader -->
+        <projectService
+                serviceImplementation="com.ghostdebugger.analysis.sdk.ExternalAnalyzerLoader"/>
+
         <!-- V2.0.0-alpha.2: test runner listener -->
         <testStatusListener
                 implementation="com.ghostdebugger.AegisTestStatusListener"/>

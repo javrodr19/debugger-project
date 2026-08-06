@@ -105,7 +105,13 @@ class AnalysisEngine(
 
         indicator?.text = "Running static analysis..."
         val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
-        val lateIssues = runStaticPass(lateAnalyzers, lateContext, indicator)
+        val baseLateIssues = runStaticPass(lateAnalyzers, lateContext, indicator)
+        
+        val externalLoader = com.ghostdebugger.analysis.sdk.ExternalAnalyzerLoader.getInstance(context.project)
+        val externalIssues = externalLoader.analyzers().flatMap { analyzer ->
+            externalLoader.runExternalAnalyzer(analyzer, lateContext)
+        }
+        val lateIssues = baseLateIssues + externalIssues
         indicator?.checkCanceled()
 
         return StaticPassResult(earlyIssues, lateIssues, limitedContext, lateContext)

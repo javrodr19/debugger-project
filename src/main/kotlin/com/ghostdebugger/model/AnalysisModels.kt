@@ -3,7 +3,7 @@ package com.ghostdebugger.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class IssueSource { STATIC, AI_LOCAL, AI_CLOUD, RUNTIME_CONFIRMED, CUSTOM }
+enum class IssueSource { STATIC, AI_LOCAL, AI_CLOUD, RUNTIME_CONFIRMED, CUSTOM, EXTERNAL_SDK }
 
 @Serializable
 enum class EngineProvider { STATIC, OLLAMA, OPENAI }
