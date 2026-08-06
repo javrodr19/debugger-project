@@ -64,20 +64,10 @@ class RulePackService(private val project: Project) : Disposable {
     }
 
     fun packRules(): List<CustomRule> {
-        val rulesList = mutableListOf<CustomRule>()
-        val seenIds = mutableSetOf<String>()
-
-        for (pack in availablePacks()) {
-            if (isPackEnabled(pack.id)) {
-                for (rule in pack.rules) {
-                    if (!seenIds.contains(rule.id)) {
-                        seenIds.add(rule.id)
-                        rulesList.add(rule)
-                    }
-                }
-            }
-        }
-        return rulesList
+        return availablePacks()
+            .filter { isPackEnabled(it.id) }
+            .flatMap { it.rules }
+            .distinctBy { it.id }
     }
 
     private fun loadAllPacks(): List<RulePack> {

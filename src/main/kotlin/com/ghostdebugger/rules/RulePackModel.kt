@@ -1,6 +1,7 @@
 package com.ghostdebugger.rules
 
 import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlConfiguration
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,7 +14,7 @@ data class RulePack(
 )
 
 object RulePackCodec {
-    private val yaml = Yaml.default
+    private val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
     fun decode(raw: String): RulePack? =
         runCatching { yaml.decodeFromString(RulePack.serializer(), raw) }.getOrNull()
 }

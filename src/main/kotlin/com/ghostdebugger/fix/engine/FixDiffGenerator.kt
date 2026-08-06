@@ -38,9 +38,12 @@ object FixDiffGenerator {
         fixedContent: String,
         isVerified: Boolean = true
     ): FileFixDiff {
-        val origLines = originalContent.lines()
-        val fixedLines = fixedContent.lines()
+        val diffLines = computeDiffLines(originalContent.lines(), fixedContent.lines())
+        val hunks = groupLinesIntoHunks(diffLines)
+        return FileFixDiff(filePath, issueId, description, isVerified, hunks)
+    }
 
+    private fun computeDiffLines(origLines: List<String>, fixedLines: List<String>): List<DiffLine> {
         val diffLines = mutableListOf<DiffLine>()
         var i = 0
         var j = 0
@@ -64,36 +67,44 @@ object FixDiffGenerator {
                 origLineNum++
             }
         }
+        return diffLines
+    }
 
+    private fun groupLinesIntoHunks(diffLines: List<DiffLine>): List<DiffHunk> {
         val hunks = mutableListOf<DiffHunk>()
         var currentHunkLines = mutableListOf<DiffLine>()
         var contextCount = 0
 
         for (line in diffLines) {
-            if (line.type == DiffLineType.UNCHANGED) {
-                if (currentHunkLines.any { it.type != DiffLineType.UNCHANGED }) {
-                    currentHunkLines.add(line)
-                    contextCount++
-                    if (contextCount >= 3) {
-                        val firstChanged = currentHunkLines.firstOrNull()
-                        val header = "@@ -${firstChanged?.oldLineNumber ?: 1} +${firstChanged?.newLineNumber ?: 1} @@"
-                        hunks.add(DiffHunk(header, currentHunkLines.toList()))
-                        currentHunkLines = mutableListOf()
-                        contextCount = 0
-                    }
-                }
-            } else {
+            if (line.type != DiffLineType.UNCHANGED) {
                 contextCount = 0
                 currentHunkLines.add(line)
+                continue
+            }
+
+            if (!currentHunkLines.any { it.type != DiffLineType.UNCHANGED }) {
+                continue
+            }
+
+            currentHunkLines.add(line)
+            contextCount++
+            if (contextCount >= 3) {
+                hunks.add(createHunk(currentHunkLines))
+                currentHunkLines = mutableListOf()
+                contextCount = 0
             }
         }
 
         if (currentHunkLines.any { it.type != DiffLineType.UNCHANGED }) {
-            val firstChanged = currentHunkLines.firstOrNull()
-            val header = "@@ -${firstChanged?.oldLineNumber ?: 1} +${firstChanged?.newLineNumber ?: 1} @@"
-            hunks.add(DiffHunk(header, currentHunkLines))
+            hunks.add(createHunk(currentHunkLines))
         }
 
-        return FileFixDiff(filePath, issueId, description, isVerified, hunks)
+        return hunks
+    }
+
+    private fun createHunk(lines: List<DiffLine>): DiffHunk {
+        val firstChanged = lines.firstOrNull()
+        val header = "@@ -${firstChanged?.oldLineNumber ?: 1} +${firstChanged?.newLineNumber ?: 1} @@"
+        return DiffHunk(header, lines.toList())
     }
 }

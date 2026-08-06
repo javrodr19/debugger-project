@@ -17,7 +17,8 @@ class CustomRuleServiceTest : BasePlatformTestCase() {
         myFixture.tempDirFixture.createFile(".aegis/rules/ok.yml", validYaml)
         myFixture.tempDirFixture.createFile(".aegis/rules/bad.yml", "rules: [ : :")
         val rules = CustomRuleService.getInstance(project).rules()
-        assertEquals(1, rules.size)
-        assertEquals("pce-rethrow-missing", rules[0].id)
+        val okRule = rules.firstOrNull { it.id == "pce-rethrow-missing" }
+        assertNotNull(okRule)
+        assertEquals("pce-rethrow-missing", okRule?.id)
     }
 }

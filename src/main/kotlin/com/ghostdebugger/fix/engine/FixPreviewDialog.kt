@@ -67,27 +67,7 @@ class FixPreviewDialog(
         StyleConstants.setBold(attrHunk, true)
 
         for (diff in diffs) {
-            doc.insertString(doc.length, "--- ${diff.filePath}\n+++ ${diff.filePath}\n", attrHunk)
-            for (hunk in diff.hunks) {
-                doc.insertString(doc.length, "${hunk.header}\n", attrHunk)
-                for (line in hunk.lines) {
-                    when (line.type) {
-                        DiffLineType.ADDED -> {
-                            val lineStr = "+ ${line.newLineNumber ?: ""}\t${line.text}\n"
-                            doc.insertString(doc.length, lineStr, attrAdded)
-                        }
-                        DiffLineType.DELETED -> {
-                            val lineStr = "- ${line.oldLineNumber ?: ""}\t${line.text}\n"
-                            doc.insertString(doc.length, lineStr, attrDeleted)
-                        }
-                        DiffLineType.UNCHANGED -> {
-                            val lineStr = "  ${line.oldLineNumber ?: ""}\t${line.text}\n"
-                            doc.insertString(doc.length, lineStr, attrNormal)
-                        }
-                    }
-                }
-            }
-            doc.insertString(doc.length, "\n", attrNormal)
+            appendDiffToDocument(doc, diff, attrHunk, attrAdded, attrDeleted, attrNormal)
         }
 
         val scrollPane = JBScrollPane(textPane)
@@ -103,5 +83,46 @@ class FixPreviewDialog(
 
     override fun createActions(): Array<Action> {
         return arrayOf(okAction, cancelAction)
+    }
+
+    private fun appendDiffToDocument(
+        doc: javax.swing.text.StyledDocument,
+        diff: FileFixDiff,
+        attrHunk: SimpleAttributeSet,
+        attrAdded: SimpleAttributeSet,
+        attrDeleted: SimpleAttributeSet,
+        attrNormal: SimpleAttributeSet
+    ) {
+        doc.insertString(doc.length, "--- ${diff.filePath}\n+++ ${diff.filePath}\n", attrHunk)
+        for (hunk in diff.hunks) {
+            doc.insertString(doc.length, "${hunk.header}\n", attrHunk)
+            for (line in hunk.lines) {
+                appendDiffLine(doc, line, attrAdded, attrDeleted, attrNormal)
+            }
+        }
+        doc.insertString(doc.length, "\n", attrNormal)
+    }
+
+    private fun appendDiffLine(
+        doc: javax.swing.text.StyledDocument,
+        line: DiffLine,
+        attrAdded: SimpleAttributeSet,
+        attrDeleted: SimpleAttributeSet,
+        attrNormal: SimpleAttributeSet
+    ) {
+        when (line.type) {
+            DiffLineType.ADDED -> {
+                val lineStr = "+ ${line.newLineNumber ?: ""}\t${line.text}\n"
+                doc.insertString(doc.length, lineStr, attrAdded)
+            }
+            DiffLineType.DELETED -> {
+                val lineStr = "- ${line.oldLineNumber ?: ""}\t${line.text}\n"
+                doc.insertString(doc.length, lineStr, attrDeleted)
+            }
+            DiffLineType.UNCHANGED -> {
+                val lineStr = "  ${line.oldLineNumber ?: ""}\t${line.text}\n"
+                doc.insertString(doc.length, lineStr, attrNormal)
+            }
+        }
     }
 }
