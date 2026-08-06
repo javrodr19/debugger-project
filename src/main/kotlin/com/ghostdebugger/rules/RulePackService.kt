@@ -95,6 +95,8 @@ class RulePackService(private val project: Project) : Disposable {
             val stream = javaClass.getResourceAsStream(path)
                 ?: javaClass.getResourceAsStream(relPath)
                 ?: javaClass.classLoader?.getResourceAsStream(relPath)
+                ?: Thread.currentThread().contextClassLoader?.getResourceAsStream(relPath)
+                ?: RulePackService::class.java.classLoader?.getResourceAsStream(relPath)
             if (stream != null) {
                 val content = stream.bufferedReader().use { it.readText() }
                 val pack = RulePackCodec.decode(content)
