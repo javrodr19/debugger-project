@@ -363,7 +363,41 @@
             <action id="GhostDebugger.ConfigureApiKey"
                     class="com.ghostdebugger.actions.ConfigureApiKeyAction"
                     text="Configure AI Provider"
-                    description="Set up your local Ollama or OpenAI API key for AI features"/>
+                    description="Configure local (Ollama) or cloud (OpenAI) AI backend"/>
+
+            <action id="GhostDebugger.ToggleRule"
+                    class="com.ghostdebugger.actions.ToggleRuleAction"
+                    text="Toggle Rule for Finding"
+                    description="Enable or disable rule/pack for current finding"/>
+
+            <action id="GhostDebugger.ShowInNeuroMap"
+                    class="com.ghostdebugger.actions.ShowInNeuroMapAction"
+                    text="Show File in NeuroMap"
+                    description="Focus active file node in NeuroMap project graph"/>
+
+            <action id="GhostDebugger.ExportReport"
+                    class="com.ghostdebugger.actions.ExportReportAction"
+                    text="Export Analysis Report"
+                    description="Export current analysis report to HTML"/>
+
+            <action id="GhostDebugger.CopyFindingForAI"
+                    class="com.ghostdebugger.actions.CopyFindingForAIAction"
+                    text="Copy Finding for AI Prompt"
+                    description="Copy finding context to clipboard as markdown"/>
+
+            <action id="GhostDebugger.ConfirmDenyFinding"
+                    class="com.ghostdebugger.actions.ConfirmDenyFindingAction"
+                    text="Confirm/Deny Finding at Breakpoint"
+                    description="Toggle runtime-confirmed status on finding under caret"/>
+        </group>
+
+        <group id="GhostDebugger.EditorPopup" text="Aegis Debug" popup="true" icon="/icons/aegis.svg">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <reference id="GhostDebugger.ReanalyzeFile"/>
+            <reference id="GhostDebugger.ApplyAllFixes"/>
+            <reference id="GhostDebugger.ShowInNeuroMap"/>
+            <reference id="GhostDebugger.CopyFindingForAI"/>
+            <reference id="GhostDebugger.SuppressFinding"/>
         </group>
     </actions>
 </idea-plugin>
