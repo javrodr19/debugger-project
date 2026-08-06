@@ -1,0 +1,19 @@
+id: react-strict
+name: "React Strict Practices"
+description: "Rules for enforcing clean React lifecycle, hooks discipline, and state hygiene."
+enabledByDefault: true
+rules:
+  - id: react-no-eval
+    language: typescript
+    severity: error
+    message: "Avoid using eval() or dynamic code execution in React components."
+    match:
+      element: call-expression
+      name-matches: "^eval$"
+  - id: react-no-direct-mutation
+    language: typescript
+    severity: warning
+    message: "Do not mutate state properties directly; use setter functions."
+    match:
+      element: call-expression
+      name-matches: "^setState$"

@@ -48,16 +48,27 @@ class CustomRuleService(private val project: Project) : Disposable {
     }
 
     private fun loadRules(): List<CustomRule> {
-        val baseDir = project.guessProjectDir() ?: return emptyList()
-        val rulesDir = baseDir.findFileByRelativePath(".aegis/rules") ?: return emptyList()
-        if (!rulesDir.isDirectory) return emptyList()
-
         val rulesList = mutableListOf<CustomRule>()
         val seenIds = mutableSetOf<String>()
 
-        ApplicationManager.getApplication().runReadAction {
-            for (file in rulesDir.children) {
-                parseRuleFile(file, rulesList, seenIds)
+        val baseDir = project.guessProjectDir()
+        if (baseDir != null) {
+            val rulesDir = baseDir.findFileByRelativePath(".aegis/rules")
+            if (rulesDir != null && rulesDir.isDirectory) {
+                ApplicationManager.getApplication().runReadAction {
+                    for (file in rulesDir.children) {
+                        parseRuleFile(file, rulesList, seenIds)
+                    }
+                }
+            }
+        }
+
+        // Merge enabled rule pack rules (custom repo rules take precedence on ID collision)
+        val packRules = RulePackService.getInstance(project).packRules()
+        for (rule in packRules) {
+            if (!seenIds.contains(rule.id)) {
+                seenIds.add(rule.id)
+                rulesList.add(rule)
             }
         }
 

@@ -1,0 +1,12 @@
+id: node-security
+name: "Node.js Security Guard"
+description: "Security rules preventing dangerous calls and unsafe child process executions."
+enabledByDefault: true
+rules:
+  - id: node-no-child-process-exec
+    language: javascript
+    severity: error
+    message: "exec() can lead to command injection; prefer execFile or spawn with fixed arguments."
+    match:
+      element: call-expression
+      name-matches: "^exec$"

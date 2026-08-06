@@ -1,0 +1,14 @@
+id: kotlin-coroutines
+name: "Kotlin Coroutines Safety"
+description: "Rules for preventing common coroutine pitfalls and cancellation swallowing."
+enabledByDefault: true
+rules:
+  - id: pce-rethrow-missing
+    language: kotlin
+    severity: warning
+    message: "catch (e: Exception) must rethrow ProcessCanceledException first"
+    match:
+      element: catch-clause
+      parameter-type: java.lang.Exception
+      unless:
+        contains-text: "is ProcessCanceledException) throw"
