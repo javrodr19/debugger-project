@@ -84,26 +84,25 @@ class RulePackService(private val project: Project) : Disposable {
         val packs = mutableListOf<RulePack>()
         val seenPackIds = mutableSetOf<String>()
 
-        // 1. Load bundled packs from classpath resources
-        val bundledPaths = listOf(
-            "/rules/packs/react-strict.yml",
-            "/rules/packs/kotlin-coroutines.yml",
-            "/rules/packs/node-security.yml"
+        // 1. Load bundled packs from classpath resources with hardcoded fallback strings
+        val bundledPacksWithFallback = listOf(
+            "/rules/packs/react-strict.yml" to BUNDLED_REACT_STRICT_YAML,
+            "/rules/packs/kotlin-coroutines.yml" to BUNDLED_KOTLIN_COROUTINES_YAML,
+            "/rules/packs/node-security.yml" to BUNDLED_NODE_SECURITY_YAML
         )
-        for (path in bundledPaths) {
+        for ((path, fallbackYaml) in bundledPacksWithFallback) {
             val relPath = path.removePrefix("/")
             val stream = javaClass.getResourceAsStream(path)
                 ?: javaClass.getResourceAsStream(relPath)
                 ?: javaClass.classLoader?.getResourceAsStream(relPath)
                 ?: Thread.currentThread().contextClassLoader?.getResourceAsStream(relPath)
                 ?: RulePackService::class.java.classLoader?.getResourceAsStream(relPath)
-            if (stream != null) {
-                val content = stream.bufferedReader().use { it.readText() }
-                val pack = RulePackCodec.decode(content)
-                if (pack != null && !seenPackIds.contains(pack.id)) {
-                    seenPackIds.add(pack.id)
-                    packs.add(pack)
-                }
+
+            val content = stream?.bufferedReader()?.use { it.readText() } ?: fallbackYaml
+            val pack = RulePackCodec.decode(content)
+            if (pack != null && !seenPackIds.contains(pack.id)) {
+                seenPackIds.add(pack.id)
+                packs.add(pack)
             }
         }
 
@@ -144,5 +143,59 @@ class RulePackService(private val project: Project) : Disposable {
 
     companion object {
         fun getInstance(project: Project): RulePackService = project.service()
+
+        private val BUNDLED_REACT_STRICT_YAML = """
+            id: react-strict
+            name: "React Strict Practices"
+            description: "Rules for enforcing clean React lifecycle, hooks discipline, and state hygiene."
+            enabledByDefault: true
+            rules:
+              - id: react-no-eval
+                language: typescript
+                severity: error
+                message: "Avoid using eval() or dynamic code execution in React components."
+                match:
+                  element: call-expression
+                  name-matches: "^eval$"
+              - id: react-no-direct-mutation
+                language: typescript
+                severity: warning
+                message: "Do not mutate state properties directly; use setter functions."
+                match:
+                  element: call-expression
+                  name-matches: "^setState$"
+        """.trimIndent()
+
+        private val BUNDLED_KOTLIN_COROUTINES_YAML = """
+            id: kotlin-coroutines
+            name: "Kotlin Coroutines Safety"
+            description: "Rules for preventing common coroutine pitfalls and cancellation swallowing."
+            enabledByDefault: true
+            rules:
+              - id: pce-rethrow-missing
+                language: kotlin
+                severity: warning
+                message: "catch (e: Exception) must rethrow ProcessCanceledException first"
+                match:
+                  element: catch-clause
+                  parameter-type: java.lang.Exception
+                  unless:
+                    contains-text: "is ProcessCanceledException) throw"
+        """.trimIndent()
+
+        private val BUNDLED_NODE_SECURITY_YAML = """
+            id: node-security
+            name: "Node.js Security Guard"
+            description: "Security rules preventing dangerous calls and unsafe child process executions."
+            enabledByDefault: true
+            rules:
+              - id: node-no-child-process-exec
+                language: javascript
+                severity: error
+                message: "exec() can lead to command injection; prefer execFile or spawn with fixed arguments."
+                match:
+                  element: call-expression
+                  name-matches: "^exec$"
+        """.trimIndent()
     }
 }
