@@ -2,6 +2,44 @@
 
 All notable changes to Aegis Debug are documented here.
 
+## [Unreleased] — 2.0.0
+
+> **Not tagged, not released.** This entry records what is *built and merged to `main`*.
+
+### V2 — Dynamic Validation & IDE-Native Integration
+
+- **Runtime-Confirmed Provenance Tier.** A fourth source tag, `RUNTIME_CONFIRMED`, joins `STATIC` / `AI_LOCAL` / `AI_CLOUD`.
+- **Debug-Session Cross-Check.** `DebugObserver` + `DebugObservationLogic` correlate variable values observed at breakpoints with null-safety / state-before-init findings (`DebugSessionCoordinator`).
+- **Test-Suite Cross-Check.** `TestRunObserver` + `TestRunCorrelation` correlate executed / failing-test code paths with static findings via `AegisTestStatusListener`.
+- **False-Positive Suppression Memory.** `SuppressionMemoryService` auto-hides findings dismissed and never runtime-confirmed across N analyses.
+- **Native Problems Tool Window.** `ProblemsViewCoordinator` publishes issues to IntelliJ's `WolfTheProblemSolver` native panel.
+- **Inspection Profile Integration.** `AegisLocalInspection` makes rules togglable under `Settings → Editor → Inspections`.
+- **Quick-Fix Intentions.** Fixers exposed as `IntentionAction`s (`Alt+Enter`).
+
+### V3 — Fix Engine, Custom Rules, Rule Packs & External SDK
+
+- **AI-Supervised Fix Engine.** Fix application routes through `FixEngine.fixSupervised`: AI plans/supervises deterministic `FixOperation`s, verified by Tier-1 & Tier-2 verifiers (`FixPlanApplicator`).
+- **V3.1 Custom Rule Authoring.** Repo-specific declarative YAML rules (`.aegis/rules/*.yml`) with `CustomRuleService`, `CustomRuleAnalyzer`, `RuleMatcher`, and `IssueSource.CUSTOM`.
+- **V3.2 Rule Packs.** Curated, togglable rule bundles (React strict, Kotlin coroutines, Node security) + project packs (`.aegis/packs/*.yml`) via `RulePackService`.
+- **V3.3 Fix-Preview UX.** Line-by-line & side-by-side diff previews (`FixDiffGenerator`), batch fix diff preview (`BatchFixPreview`), and interactive Swing preview dialog (`FixPreviewDialog`).
+- **V3.4 External Analyzer SDK.** Dynamic loading of third-party `.jar` analyzers (`.aegis/analyzers/*.jar`) using `ExternalAnalyzerLoader` with isolated `URLClassLoader`, PCE rethrow protection, and `IssueSource.EXTERNAL_SDK` provenance tagging.
+- **No-Regression & Quality Gates.** `SingleFileStaticReanalysis` + Kover coverage measurement (`0.9.1`).
+
+### Plugin Actions (Batch 1)
+
+- **Re-analyze Current File** (`Ctrl+Alt+A` / editor popup) via `ReanalyzeFileAction`.
+- **Apply All Fixes in File** (batch-apply deterministic fixes with skip-on-fail) via `ApplyAllFixesAction`.
+- **Next / Previous Finding Navigation** (`F2` / `Shift+F2`) via `NavigateFindingAction`.
+- **Suppress Finding** via `SuppressFindingAction`.
+- **Renamed AI Provider configuration label** in settings/menus (`Configure AI Provider`).
+
+### CI & Repo Hygiene
+
+- **JetBrains Runtime CI**: Added `.github/workflows/ci.yml` running `test`, `detekt`, and `verifyPlugin`.
+- **Draft Release Workflow**: Added `.github/workflows/release.yml`.
+- **Commit Convention**: Enforced via `.gitmessage`, `CONTRIBUTING.md`, and `.githooks/commit-msg`.
+- **Pruned legacy bot workflows**: Removed unused Gemini dispatch/triage actions.
+
 ## 1.5.0 — Pre-V2 structural refactor (no user-visible change)
 
 **Date:** 2026-05-11
