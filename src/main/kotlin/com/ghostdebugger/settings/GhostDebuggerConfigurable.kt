@@ -28,6 +28,8 @@ class GhostDebuggerConfigurable : Configurable {
     private var showInfoIssuesBox: JCheckBox? = null
     private var analyzeOnlyChangedFilesBox: JCheckBox? = null
     private var maxComplexitySpinner: JSpinner? = null
+    private var daemonFileBudgetSpinner: JSpinner? = null
+    private var daemonTimeBudgetSpinner: JSpinner? = null
     private var coverageModeCombo: JComboBox<String>? = null
     private var suppressionThresholdSpinner: JSpinner? = null
     private var showUnreachedBox: JCheckBox? = null
@@ -122,6 +124,25 @@ class GhostDebuggerConfigurable : Configurable {
             add(complexitySpinner)
         }
 
+        // Daemon harvest budgets (V3 — bounds CompilationErrorAnalyzer's per-file daemon pass)
+        val daemonFilesSpinner = JSpinner(SpinnerNumberModel(settings.daemonFileBudget, 10, 2000, 10)).apply {
+            preferredSize = Dimension(80, 28)
+        }
+        daemonFileBudgetSpinner = daemonFilesSpinner
+        val daemonFilesPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("Compile-check file budget:"))
+            add(daemonFilesSpinner)
+        }
+
+        val daemonSecondsSpinner = JSpinner(
+            SpinnerNumberModel((settings.daemonTimeBudgetMs / 1000).toInt(), 5, 600, 5)
+        ).apply { preferredSize = Dimension(80, 28) }
+        daemonTimeBudgetSpinner = daemonSecondsSpinner
+        val daemonTimePanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+            add(JLabel("Compile-check time budget (s):"))
+            add(daemonSecondsSpinner)
+        }
+
         // AI Timeout
         val timeoutSpinner = JSpinner(SpinnerNumberModel(settings.aiTimeoutMs.toInt(), 5000, 300000, 5000)).apply {
             preferredSize = Dimension(100, 28)
@@ -196,6 +217,8 @@ class GhostDebuggerConfigurable : Configurable {
         formPanel.add(maxFilesPanel)
         formPanel.add(maxAiFilesPanel)
         formPanel.add(maxComplexityPanel)
+        formPanel.add(daemonFilesPanel)
+        formPanel.add(daemonTimePanel)
         formPanel.add(timeoutPanel)
         formPanel.add(cachePanel)
         formPanel.add(allowCloudBox)
@@ -330,6 +353,8 @@ class GhostDebuggerConfigurable : Configurable {
             || s.showInfoIssues != showInfoIssuesBox?.isSelected
             || s.analyzeOnlyChangedFiles != analyzeOnlyChangedFilesBox?.isSelected
             || s.maxComplexity != maxComplexitySpinner?.value
+            || s.daemonFileBudget != daemonFileBudgetSpinner?.value
+            || s.daemonTimeBudgetMs != ((daemonTimeBudgetSpinner?.value as? Int)?.toLong() ?: 0L) * 1000
             || s.coverageMode != coverageModeCombo?.selectedItem
             || s.suppressionThreshold != suppressionThresholdSpinner?.value
             || s.showUnreached != showUnreachedBox?.isSelected
@@ -355,6 +380,8 @@ class GhostDebuggerConfigurable : Configurable {
             showInfoIssues = showInfoIssuesBox?.isSelected ?: true
             analyzeOnlyChangedFiles = analyzeOnlyChangedFilesBox?.isSelected ?: false
             (maxComplexitySpinner?.value as? Int)?.let { maxComplexity = it }
+            (daemonFileBudgetSpinner?.value as? Int)?.let { daemonFileBudget = it }
+            (daemonTimeBudgetSpinner?.value as? Int)?.let { daemonTimeBudgetMs = it.toLong() * 1000 }
             // V2.0 Settings
             (coverageModeCombo?.selectedItem as? String)?.let { coverageMode = it }
             (suppressionThresholdSpinner?.value as? Int)?.let { suppressionThreshold = it }
@@ -389,6 +416,8 @@ class GhostDebuggerConfigurable : Configurable {
         showInfoIssuesBox?.isSelected = s.showInfoIssues
         analyzeOnlyChangedFilesBox?.isSelected = s.analyzeOnlyChangedFiles
         maxComplexitySpinner?.value = s.maxComplexity
+        daemonFileBudgetSpinner?.value = s.daemonFileBudget
+        daemonTimeBudgetSpinner?.value = (s.daemonTimeBudgetMs / 1000).toInt()
         // V2.0 Settings reset
         coverageModeCombo?.selectedItem = s.coverageMode
         suppressionThresholdSpinner?.value = s.suppressionThreshold
@@ -417,6 +446,8 @@ class GhostDebuggerConfigurable : Configurable {
         showInfoIssuesBox = null
         analyzeOnlyChangedFilesBox = null
         maxComplexitySpinner = null
+        daemonFileBudgetSpinner = null
+        daemonTimeBudgetSpinner = null
         coverageModeCombo = null
         suppressionThresholdSpinner = null
         showUnreachedBox = null
