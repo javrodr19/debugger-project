@@ -1,7 +1,6 @@
 ---
 title: "Plugin Configuration Guide"
 type: "guide"
-status: "active"
 related_components:
   - "[[BaseAIService]]"
   - "[[GhostDebuggerService]]"

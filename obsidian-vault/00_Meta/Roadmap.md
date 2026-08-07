@@ -1,7 +1,6 @@
 ---
 title: "Roadmap V2 to V5"
 type: "meta"
-status: "active"
 related_components: []
 aliases:
   - "Roadmap"

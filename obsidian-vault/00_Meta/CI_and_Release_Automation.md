@@ -1,7 +1,6 @@
 ---
 title: "CI and Release Automation"
 type: "meta"
-status: "active"
 related_components: []
 tags:
   - ci

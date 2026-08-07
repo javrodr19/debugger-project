@@ -1,7 +1,6 @@
 ---
 title: "Deterministic Fixers"
 type: "feature"
-status: "active"
 related_components:
   - "[[AnalysisOrchestrator]]"
 aliases:

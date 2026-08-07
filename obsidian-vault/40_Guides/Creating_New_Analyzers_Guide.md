@@ -1,7 +1,6 @@
 ---
 title: "Creating New Analyzers Guide"
 type: "guide"
-status: "active"
 related_components:
   - "[[Static_Analyzers]]"
   - "[[KotlinAnalysisHelpers]]"

@@ -1,7 +1,6 @@
 ---
 title: "Fix-Preview UX (V3.3)"
 type: "feature"
-status: "active"
 related_components:
   - "[[Deterministic_Fixers]]"
 tags:

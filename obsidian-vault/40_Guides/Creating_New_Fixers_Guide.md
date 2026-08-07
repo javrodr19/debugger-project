@@ -1,7 +1,6 @@
 ---
 title: "Creating New Fixers Guide"
 type: "guide"
-status: "active"
 related_components:
   - "[[Deterministic_Fixers]]"
   - "[[AnalysisOrchestrator]]"

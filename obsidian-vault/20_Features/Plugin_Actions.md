@@ -1,7 +1,6 @@
 ---
 title: "Plugin Actions (Batches 1, 2, 3)"
 type: "feature"
-status: "active"
 related_components:
   - "[[GhostDebuggerService]]"
   - "[[Rule_Packs]]"

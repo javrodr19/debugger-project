@@ -1,7 +1,6 @@
 ---
 title: "BaseAIService"
 type: "architecture"
-status: "active"
 related_components:
   - "[[AnalysisOrchestrator]]"
   - "[[UIEventRouter]]"

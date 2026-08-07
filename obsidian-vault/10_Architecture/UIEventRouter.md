@@ -1,7 +1,6 @@
 ---
 title: "UIEventRouter"
 type: "architecture"
-status: "active"
 related_components:
   - "[[GhostDebuggerService]]"
   - "[[NeuroMap_Webview]]"

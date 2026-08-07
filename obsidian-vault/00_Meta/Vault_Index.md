@@ -1,7 +1,6 @@
 ---
 title: "Vault Index"
 type: "meta"
-status: "active"
 related_components: []
 aliases:
   - "Index"

@@ -1,7 +1,6 @@
 ---
 title: "Static Analyzers"
 type: "feature"
-status: "active"
 related_components:
   - "[[AnalysisOrchestrator]]"
 aliases:

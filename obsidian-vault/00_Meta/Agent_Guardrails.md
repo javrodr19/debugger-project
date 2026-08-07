@@ -1,7 +1,6 @@
 ---
 title: "Agent Guardrails"
 type: "meta"
-status: "active"
 related_components: []
 aliases:
   - "AGENTS.md"
