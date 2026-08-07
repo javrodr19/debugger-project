@@ -4,7 +4,7 @@
     <version>3.0.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
-    <idea-version since-build="243.0" until-build="261.*"/>
+    <idea-version since-build="243.0" until-build="262.*"/>
 
     <description><![CDATA[
     <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>

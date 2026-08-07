@@ -112,7 +112,7 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = "243.0"
-            untilBuild = "261.*"
+            untilBuild = "262.*"
         }
 
         vendor {
@@ -127,6 +127,7 @@ intellijPlatform {
             create(IntelliJPlatformType.IntellijIdeaUltimate, "2024.3.2.2")
             create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.1")
             create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.1")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.2")
         }
     }
 }
