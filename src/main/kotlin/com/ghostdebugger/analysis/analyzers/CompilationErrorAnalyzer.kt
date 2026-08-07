@@ -40,6 +40,11 @@ class CompilationErrorAnalyzer(
     private val progress: ProgressIndicator? = null,
     private val settingsProvider: () -> GhostDebuggerSettings.State =
         { GhostDebuggerSettings.getInstance().snapshot() },
+    // Test seam: when set, replaces the real per-file daemon harvest (harvestFile), which needs a
+    // live IDE fixture and is impractical to drive from a latch-based concurrency test. Left null
+    // in production and in every existing call site, so behaviour is unchanged: harvestAll always
+    // falls back to the real harvestFile below.
+    private val harvestOverride: ((ParsedFile, Project) -> List<Issue>)? = null,
 ) : EarlyAnalyzer {
     override val name = "CompilationErrorAnalyzer"
     override val ruleId = "AEG-COMPILE-001"
@@ -125,7 +130,7 @@ class CompilationErrorAnalyzer(
                         truncated.set(true)
                         emptyList()
                     } else {
-                        harvestFile(file, project).also {
+                        harvest(file, project).also {
                             val n = done.incrementAndGet()
                             progress?.text2 = "Compile check: $n/$total — ${file.virtualFile.name}"
                         }
@@ -143,6 +148,10 @@ class CompilationErrorAnalyzer(
         }
         issues
     }
+
+    /** Single dispatch point for the per-file harvest: [harvestOverride] in tests, [harvestFile] in production. */
+    private fun harvest(parsedFile: ParsedFile, project: Project): List<Issue> =
+        harvestOverride?.invoke(parsedFile, project) ?: harvestFile(parsedFile, project)
 
     // runMainPasses requires both (1) a DaemonProgressIndicator installed as the thread's current
     // progress via ProgressManager.runProcess, and (2) a HighlightingSession wrapping the call.
