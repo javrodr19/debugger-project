@@ -61,7 +61,14 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
     }
 
     private fun State.validate(): State {
-        if (maxFilesToAnalyze <= 0) maxFilesToAnalyze = 500
+        validateAiProviderClamps()
+        validateAnalysisBudgetClamps()
+        validateCoverageClamps()
+        return this
+    }
+
+    /** Clamps AI-provider connection settings and the AI response cache to safe defaults. */
+    private fun State.validateAiProviderClamps() {
         if (maxAiFiles < 0) maxAiFiles = 0
         if (cacheTtlSeconds < 0) cacheTtlSeconds = 0
         if (aiTimeoutMs <= 0) aiTimeoutMs = 30_000
@@ -69,14 +76,22 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         if (ollamaModel.isBlank()) ollamaModel = "llama3"
         if (openAiModel.isBlank()) openAiModel = "gpt-4o"
         if (aiCacheMaxEntries <= 0) aiCacheMaxEntries = 256
+    }
+
+    /** Clamps static-analysis scope/budget settings, including the V3 daemon-harvest budgets. */
+    private fun State.validateAnalysisBudgetClamps() {
+        if (maxFilesToAnalyze <= 0) maxFilesToAnalyze = 500
         if (maxDependentsToReanalyze < 0) maxDependentsToReanalyze = 0
         if (maxComplexity < 1) maxComplexity = 10
         if (daemonFileBudget <= 0) daemonFileBudget = 150
         if (daemonTimeBudgetMs <= 0) daemonTimeBudgetMs = 60_000
+    }
+
+    /** Clamps the V2.0 suppression/coverage UI settings. */
+    private fun State.validateCoverageClamps() {
         if (suppressionThreshold < 1) suppressionThreshold = 3
         if (suppressionThreshold > 10) suppressionThreshold = 10
         if (coverageMode !in setOf("Always", "Ask each time", "Never")) coverageMode = "Ask each time"
-        return this
     }
 
     // Legacy accessors retained for existing call sites (Phase 1 does not rewrite consumers).
