@@ -33,6 +33,11 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         var aiCacheMaxEntries: Int = 256,
         var maxDependentsToReanalyze: Int = 20,
         var maxComplexity: Int = 10,
+        // --- V3 daemon-harvest budgets ---
+        // CompilationErrorAnalyzer runs the full highlighting daemon per file; these cap that pass
+        // so a large project cannot make analysis look hung. See DaemonHarvestBudget.
+        var daemonFileBudget: Int = 150,
+        var daemonTimeBudgetMs: Long = 60_000,
         // --- V2.0 Settings ---
         var coverageMode: String = "Ask each time",
         var suppressionThreshold: Int = 3,
@@ -66,6 +71,8 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         if (aiCacheMaxEntries <= 0) aiCacheMaxEntries = 256
         if (maxDependentsToReanalyze < 0) maxDependentsToReanalyze = 0
         if (maxComplexity < 1) maxComplexity = 10
+        if (daemonFileBudget <= 0) daemonFileBudget = 150
+        if (daemonTimeBudgetMs <= 0) daemonTimeBudgetMs = 60_000
         if (suppressionThreshold < 1) suppressionThreshold = 3
         if (suppressionThreshold > 10) suppressionThreshold = 10
         if (coverageMode !in setOf("Always", "Ask each time", "Never")) coverageMode = "Ask each time"
