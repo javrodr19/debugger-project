@@ -8,6 +8,7 @@ import com.ghostdebugger.parser.withKtAnalysis
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.psi.KtFile
@@ -28,6 +29,7 @@ abstract class KotlinAnalyzer : Analyzer {
     final override fun analyze(context: AnalysisContext): List<Issue> {
         val out = mutableListOf<Issue>()
         for (file in context.parsedFiles) {
+            ProgressManager.checkCanceled()
             if (file.extension != "kt") continue
             try {
                 out.addAll(analyzeFileSafely(file, context))
