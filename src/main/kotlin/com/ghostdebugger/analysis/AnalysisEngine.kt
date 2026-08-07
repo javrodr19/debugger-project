@@ -29,7 +29,7 @@ class AnalysisEngine(
     },
     private val analyzers: List<Analyzer> = listOf(
         PsiSyntaxAnalyzer(),
-        CompilationErrorAnalyzer(),
+        CompilationErrorAnalyzer(progress),
         NullSafetyAnalyzer(),
         KotlinNullSafetyAnalyzer(),
         KotlinUnsafeCastAnalyzer(),
@@ -164,6 +164,8 @@ class AnalysisEngine(
         indicator: ProgressIndicator?
     ): List<Issue> =
         coroutineScope {
+            // No extra semaphore here: Dispatchers.Default is already bounded by core count, and
+            // stacking a second limiter on top only serializes analyzers further.
             analyzersToRun.map { analyzer ->
                 async(Dispatchers.Default) {
                     runOne(analyzer, context, indicator)
