@@ -3,6 +3,8 @@ package com.ghostdebugger.parser
 import com.ghostdebugger.model.ParsedFile
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.roots.ProjectRootManager
@@ -75,6 +77,8 @@ class FileScanner(private val project: Project) {
     fun parsedFiles(virtualFiles: List<VirtualFile>): List<ParsedFile> {
         val fdm = FileDocumentManager.getInstance()
         return virtualFiles.mapNotNull { vf ->
+            // Caller holds one outer read action; checkCanceled keeps the loop interruptible.
+            ProgressManager.checkCanceled()
             try {
                 val document = fdm.getCachedDocument(vf) ?: fdm.getDocument(vf)
                 val content = document?.text ?: String(vf.contentsToByteArray(), Charsets.UTF_8)
@@ -85,7 +89,7 @@ class FileScanner(private val project: Project) {
                     content = content
                 )
             } catch (e: Exception) {
-                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                if (e is ProcessCanceledException) throw e
                 log.warn("Could not read file: ${vf.path}", e)
                 null
             }
