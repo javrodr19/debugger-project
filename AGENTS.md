@@ -307,12 +307,12 @@ the test-recording stub installed via `setBridgeForTest`).
 - PSI-driven, not regex-on-source. The V1.4.1 audit found a fixer that rewrote
   variable names inside string literals because it used a regex — don't repeat
   that.
-- **Fix engine (V3, in progress):** fix *application* now flows through `FixEngine`
-  (`fix/engine/`) — a `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by
-  `FixPlanApplicator` (same PSI-validity gate). Phase 1 (the deterministic seam) is merged and
-  behavior-preserving. Phase 2 turns the AI into a *planner/supervisor* that composes deterministic
-  engine operations and verifies them — it no longer authors raw fix code. Spec:
-  `docs/superpowers/specs/2026-05-31-ai-supervised-fix-engine-design.md`.
+- **Fix engine (V3, shipped):** fix *application* flows through `FixEngine` (`fix/engine/`) — a
+  `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by `FixPlanApplicator` behind
+  a Tier-1 PSI-validity gate and a Tier-2 re-analysis gate. Both phases are merged: the AI
+  planner/supervisor is live in `FixEngine.fixSupervised`, wired at `AnalysisOrchestrator.kt:497`.
+  The AI proposes a `FixPlan` and never authors raw fix code; acceptance is decided by the
+  deterministic gate. Preserve both properties. See `obsidian-vault/10_Architecture/FixEngine.md`.
 
 ### 5.6 Tests
 

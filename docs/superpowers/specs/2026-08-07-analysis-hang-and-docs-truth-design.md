@@ -63,7 +63,13 @@ deadlock. Long-running per-item work must report per-item progress.
 
 ## Non-goals
 
-- No new V3 features. The AI-supervised fix engine (Phase 2) is out of scope and needs its own spec.
+- No new V3 features. The AI-supervised fix engine is out of scope for this work.
+
+  **Correction, made during the truth pass:** this section originally said Phase 2 "needs its own
+  spec", implying it was unbuilt — repeating the claim in `CLAUDE.md`. It is in fact shipped.
+  `FixEngine.fixSupervised` (`fix/engine/FixEngine.kt:77`) is wired into production at
+  `AnalysisOrchestrator.kt:497`. The instruction files have been corrected accordingly. Recorded
+  here rather than silently edited, because the wrong belief is what the pass existed to find.
 - No change to analyzer detection logic, severities, or the conservative-miss bias.
 - No rewrite of vault prose that is already accurate.
 

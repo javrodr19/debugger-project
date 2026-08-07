@@ -73,12 +73,20 @@ contract gives the orchestrator a clean signal to fall back to the AI path, whic
 but also does not corrupt the PSI. Any fixer that is not confident it can produce a parse-clean result for
 every input it accepts must return null rather than guess.
 
-**Fix engine (V3, in progress).** Fix *application* now routes through `FixEngine` (`fix/engine/`):
-a `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by `FixPlanApplicator` with the
-same PSI-validity gate. Phase 1 (the deterministic seam) is merged and behavior-preserving; Phase 2
-makes the AI a *planner/supervisor* that composes deterministic engine operations and verifies them —
-never authoring raw fix code — replacing the free-form AI fallback described above. See
-`docs/superpowers/specs/2026-05-31-ai-supervised-fix-engine-design.md`.
+**Fix engine (V3, shipped).** Fix *application* routes through `FixEngine` (`fix/engine/`): a
+`Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by `FixPlanApplicator` behind a
+Tier-1 PSI-validity gate, then a Tier-2 re-analysis gate (`applyVerified`).
+
+Both phases are merged. The AI planner/supervisor is live: `FixEngine.fixSupervised` tries the
+deterministic plan first and, if none applies or the gate rejects it, asks the AI for a `FixPlan` via
+`AIService.proposeFixPlan`, feeding each rejection reason back as planner feedback (default 2
+attempts). It is wired into production at `AnalysisOrchestrator.kt:497`.
+
+Two properties make this safe, and both must be preserved by any change here: **the AI proposes a
+`FixPlan`, never raw fix code** — it composes operations the engine already knows how to apply — and
+**acceptance is fully deterministic**, decided by the gate rather than by whoever proposed the edit.
+With a null `AIService` the function reduces to exactly the deterministic verified path, so the
+feature stays AI-optional. See `obsidian-vault/10_Architecture/FixEngine.md`.
 
 ### Kotlin Analysis API
 
@@ -154,6 +162,23 @@ When developing new features or performing extensive refactoring, commit changes
   to bleed into the rendered report. The fix: avoid raw-string triple-quote templates that interpolate
   multi-line content. Use `StringBuilder` or explicit string concatenation instead; the indentation is then
   explicit and not subject to `trimIndent()`'s inference.
+
+- **`flatMap { withContext(…) }` is sequential, not parallel** — this one shipped and made the whole
+  plugin look hung. A suspending `flatMap` awaits each element before starting the next, so wrapping
+  the body in `withContext(Dispatchers.Default)` buys nothing: you get serial execution *plus* a
+  thread hand-off per item. It reads like a parallel construct, which is exactly why it survived
+  review. `CompilationErrorAnalyzer` was rewritten this way and its per-file
+  `DaemonCodeAnalyzerImpl.runMainPasses` call (0.3–2s per Kotlin file) went serial across up to 500
+  files — minutes of a frozen progress bar. Use `map { async(…) { … } }.awaitAll()` when you want
+  genuine fan-out. `CompilationErrorAnalyzerHarvestTest` now guards this: it latches N concurrent
+  harvests and fails if they cannot proceed simultaneously, so a reintroduction breaks loudly
+  instead of merely being slow.
+
+  Two related habits worth keeping. Long per-item work must report per-item progress — the engine
+  sets `indicator.text2` once *before* an analyzer runs, so anything slow inside it is invisible and
+  users reasonably read a still bar as a hang. And bound expensive platform passes: the daemon
+  harvest is capped by `daemonFileBudget` (150) and `daemonTimeBudgetMs` (60s) via
+  `DaemonHarvestBudget`, with truncation logged and surfaced rather than silent.
 
 - **`KotlinLightProjectDescriptor` is unreachable in IPGP 2.14.0** — the test fixtures jar isn't on the
   classpath. V1.3 introduced `AegisKotlinStdlibProjectDescriptor` as a substitute. Use that for any new
