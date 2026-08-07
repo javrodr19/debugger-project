@@ -15,6 +15,7 @@ import java.nio.file.Files
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.nio.file.Path
 import java.util.jar.JarFile
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -90,6 +91,16 @@ class NeuroMapPanel(
     }
 
     private fun findWebIndexUrl(): String {
+        cachedExtractedUrl?.let { url ->
+            try {
+                val f = File(URI(url))
+                if (f.exists() && f.length() > 0) {
+                    log.info("NeuroMapPanel: Reusing cached web resources URL: $url")
+                    return url
+                }
+            } catch (_: Exception) {}
+        }
+
         // 1. Try the plugin's own directory (sandbox mode: build/idea-sandbox/.../plugins/ghostdebugger/)
         val pluginDir = getPluginWebDir()
         if (pluginDir != null) {
@@ -171,58 +182,8 @@ class NeuroMapPanel(
         // then deletes the directory it was reading from. See BUG-06.
         Disposer.register(parentDisposable, Disposable { tempDir.deleteRecursively() })
 
-        val classLoader = javaClass.classLoader
-        
         try {
-            // Priority 1: Use the plugin path from IntelliJ's PluginManager
-            val plugin = com.intellij.ide.plugins.PluginManagerCore.getPlugin(
-                com.intellij.openapi.extensions.PluginId.getId("com.ghostdebugger")
-            )
-            
-            if (plugin != null) {
-                val pluginPath = plugin.pluginPath
-                val webDir = pluginPath.resolve("web")
-                
-                // If web dir exists outside JAR (exploded)
-                if (Files.isDirectory(webDir)) {
-                    log.info("NeuroMapPanel: Found web resources at exploded plugin path: $webDir")
-                    webDir.toFile().copyRecursively(tempDir, overwrite = true)
-                } else {
-                    // Look for the JAR in lib/
-                    val libDir = pluginPath.resolve("lib")
-                    val jarPath = if (Files.isDirectory(libDir)) {
-                        Files.list(libDir).use { stream ->
-                            stream.filter { it.toString().endsWith(".jar") && it.fileName.toString().contains("ghostdebugger") }
-                                .findFirst().orElse(null)
-                        }
-                    } else null
-
-                    if (jarPath != null) {
-                        log.info("NeuroMapPanel: Extracting resources from discovered JAR: $jarPath")
-                        extractFromJar(jarPath.toFile(), tempDir)
-                    } else {
-                        // Fallback: Use the classpath resource and try to find the JAR file manually
-                        val resource = classLoader.getResource("web/index.html")
-                        if (resource?.protocol == "jar") {
-                            // jarFileURL is a well-formed URL; URL#toURI() -> File decodes spaces
-                            // and Unicode correctly. The old code built a URI from resource.path
-                            // (raw, partially-decoded) and threw URISyntaxException on spaces, and
-                            // computed an unused rawJarPath. See BUG-05.
-                            // `as?` (not `as`): a jar: URL always yields a JarURLConnection, but a
-                            // safe cast avoids an unprovable downcast; if it ever weren't, fall
-                            // through to the index.html-not-found error below.
-                            val jarFileUrl = (resource.openConnection() as? java.net.JarURLConnection)?.jarFileURL
-                            if (jarFileUrl != null) {
-                                val jarFile = File(jarFileUrl.toURI())
-                                log.info("NeuroMapPanel: Extracting resources from classpath JAR: ${jarFile.absolutePath}")
-                                extractFromJar(jarFile, tempDir)
-                            }
-                        } else if (resource?.protocol == "file") {
-                            File(resource.toURI()).parentFile.copyRecursively(tempDir, overwrite = true)
-                        }
-                    }
-                }
-            }
+            extractIntoTempDir(tempDir)
         } catch (e: Exception) {
             if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             log.error("Failed to extract web resources securely", e)
@@ -234,8 +195,87 @@ class NeuroMapPanel(
             throw IllegalStateException("Failed to extract web resources: index.html not found in $tempDir")
         }
 
+        val extractedUrl = indexFile.toURI().toString()
+        cachedExtractedUrl = extractedUrl
         log.info("Web resources extracted successfully to: ${tempDir.absolutePath}")
-        return indexFile.toURI().toString()
+        return extractedUrl
+    }
+
+    /**
+     * Priority 1: use the plugin path IntelliJ's PluginManager reports for web resources —
+     * either an exploded `web/` directory, or (packaged) the plugin JAR under `lib/` that
+     * actually contains `web/index.html`. Falls back to a classpath-resource lookup when the
+     * plugin path yields neither.
+     */
+    private fun extractIntoTempDir(tempDir: File) {
+        val plugin = com.intellij.ide.plugins.PluginManagerCore.getPlugin(
+            com.intellij.openapi.extensions.PluginId.getId("com.ghostdebugger")
+        ) ?: return
+
+        val pluginPath = plugin.pluginPath
+        val webDir = pluginPath.resolve("web")
+
+        // If web dir exists outside JAR (exploded)
+        if (Files.isDirectory(webDir)) {
+            log.info("NeuroMapPanel: Found web resources at exploded plugin path: $webDir")
+            webDir.toFile().copyRecursively(tempDir, overwrite = true)
+            return
+        }
+
+        // Look for the main plugin JAR in lib/ containing web/index.html
+        val jarPath = findPluginWebJar(pluginPath.resolve("lib"))
+        if (jarPath != null) {
+            log.info("NeuroMapPanel: Extracting resources from discovered JAR: $jarPath")
+            extractFromJar(jarPath.toFile(), tempDir)
+        } else {
+            // Fallback: Use the classpath resource and try to find the JAR file manually
+            extractFromClasspathResource(tempDir)
+        }
+    }
+
+    /**
+     * Finds the plugin JAR under [libDir] that actually contains `web/index.html`, skipping
+     * unrelated jars in the same directory — notably `searchableOptions`, which matches the
+     * `.jar` + name-contains-"ghostdebugger" filters but never carries web resources.
+     */
+    private fun findPluginWebJar(libDir: Path): Path? {
+        if (!Files.isDirectory(libDir)) return null
+        return Files.list(libDir).use { stream ->
+            stream.filter(::isPluginWebJar).findFirst().orElse(null)
+        }
+    }
+
+    private fun isPluginWebJar(path: Path): Boolean {
+        val name = path.fileName.toString()
+        if (!name.endsWith(".jar") || !name.contains("ghostdebugger") || name.contains("searchableOptions")) {
+            return false
+        }
+        return try {
+            JarFile(path.toFile()).use { jar -> jar.getJarEntry("web/index.html") != null }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun extractFromClasspathResource(tempDir: File) {
+        val resource = javaClass.classLoader.getResource("web/index.html")
+        if (resource?.protocol == "jar") {
+            // jarFileURL is a well-formed URL; URL#toURI() -> File decodes spaces
+            // and Unicode correctly. The old code built a URI from resource.path
+            // (raw, partially-decoded) and threw URISyntaxException on spaces, and
+            // computed an unused rawJarPath. See BUG-05.
+            // `as?` (not `as`): a jar: URL always yields a JarURLConnection, but a
+            // safe cast avoids an unprovable downcast; if it ever weren't, fall
+            // through to the index.html-not-found error below.
+            val jarFileUrl = (resource.openConnection() as? java.net.JarURLConnection)?.jarFileURL
+            if (jarFileUrl != null) {
+                val jarFile = File(jarFileUrl.toURI())
+                log.info("NeuroMapPanel: Extracting resources from classpath JAR: ${jarFile.absolutePath}")
+                extractFromJar(jarFile, tempDir)
+            }
+        } else if (resource?.protocol == "file") {
+            File(resource.toURI()).parentFile.copyRecursively(tempDir, overwrite = true)
+        }
     }
 
     private fun extractFromJar(jarFile: File, targetDir: File) {
@@ -255,6 +295,11 @@ class NeuroMapPanel(
                 }
             }
         }
+    }
+
+    companion object {
+        @Volatile
+        private var cachedExtractedUrl: String? = null
     }
 
 }
