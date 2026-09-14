@@ -15,7 +15,18 @@ class AnalysisOrchestratorApplyVerifiedFixTest : BasePlatformTestCase() {
         title = "t", description = "", filePath = path, line = 1, ruleId = "AEG-CAST-KT-001"
     )
 
-    fun testThreadsBaselineProviderResultIntoFixVerified() {
+    override fun tearDown() {
+        AegisCapabilityGate.resetPresenterForTest()
+        super.tearDown()
+    }
+
+    // Converted for the FIX_APPLICATION gate (Task 3): this test used to assert that
+    // baselineProvider's result was threaded into fixVerified. Fix application is gated in
+    // 3.0.0, so applyVerifiedFix must now return before invoking either seam; a no-op presenter
+    // is installed so the gate doesn't pop a real dialog during the test.
+    fun testGatedFixNeverThreadsBaselineIntoFixVerified() {
+        AegisCapabilityGate.setPresenterForTest { _, _ -> }
+
         val psi = myFixture.configureByText("A.kt", "fun f(): Int { return 1 }\n")
         val vf = psi.virtualFile
         val here = issue("t", vf.path)
@@ -35,6 +46,6 @@ class AnalysisOrchestratorApplyVerifiedFixTest : BasePlatformTestCase() {
             ).join()
         }
 
-        assertEquals(listOf(here), receivedBaseline)
+        assertNull("fixVerified must not run while FIX_APPLICATION is gated", receivedBaseline)
     }
 }

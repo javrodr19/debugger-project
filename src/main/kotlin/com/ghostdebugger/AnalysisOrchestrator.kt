@@ -495,20 +495,25 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
             { com.ghostdebugger.fix.engine.SingleFileStaticReanalysis(project).issuesFor(it) },
         fixVerified: suspend (Issue, VirtualFile, String, List<Issue>) -> FixApplyResult =
             { i, v, c, b -> FixEngine(project).fixSupervised(i, v, c, b, resolveAiService()) },
-    ): Job = scope.launch {
-        try {
-            val baseline = baselineProvider(virtualFile)
-            when (val result = fixVerified(issue, virtualFile, content, baseline)) {
-                is FixApplyResult.Success -> reanalyzeFile(virtualFile.path)
-                is FixApplyResult.Rejected -> notifyFixRejected(issue, result.reason)
-                is FixApplyResult.Failed ->
-                    notifyFixRejected(issue, result.throwable.message ?: "Fix failed unexpectedly.")
+    ): Job {
+        if (AegisCapabilityGate.blockIfGated(project, AegisCapability.FIX_APPLICATION)) {
+            return scope.launch { /* gated: nothing to do */ }
+        }
+        return scope.launch {
+            try {
+                val baseline = baselineProvider(virtualFile)
+                when (val result = fixVerified(issue, virtualFile, content, baseline)) {
+                    is FixApplyResult.Success -> reanalyzeFile(virtualFile.path)
+                    is FixApplyResult.Rejected -> notifyFixRejected(issue, result.reason)
+                    is FixApplyResult.Failed ->
+                        notifyFixRejected(issue, result.throwable.message ?: "Fix failed unexpectedly.")
+                }
+            } catch (e: ProcessCanceledException) {
+                throw e
+            } catch (e: Exception) {
+                log.warn("Verified fix failed for ${issue.filePath}", e)
+                notifyFixRejected(issue, e.message ?: "Fix failed unexpectedly.")
             }
-        } catch (e: ProcessCanceledException) {
-            throw e
-        } catch (e: Exception) {
-            log.warn("Verified fix failed for ${issue.filePath}", e)
-            notifyFixRejected(issue, e.message ?: "Fix failed unexpectedly.")
         }
     }
 
