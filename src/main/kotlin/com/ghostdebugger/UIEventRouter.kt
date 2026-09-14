@@ -49,6 +49,9 @@ internal class UIEventRouter(private val project: Project) : Disposable {
     }
 
     fun handle(event: UIEvent) {
+        gatedCapabilityFor(event)?.let { capability ->
+            if (AegisCapabilityGate.blockIfGated(project, capability)) return
+        }
         when (event) {
             is UIEvent.NodeClicked -> handleNodeClicked(event.nodeId)
             is UIEvent.NodeDoubleClicked -> handleNodeDoubleClicked(event.nodeId)
@@ -101,6 +104,8 @@ internal class UIEventRouter(private val project: Project) : Disposable {
             }
             return
         }
+
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.AI_EXPLANATION)) return
 
         scope.launch {
             try {
@@ -410,5 +415,19 @@ internal class UIEventRouter(private val project: Project) : Disposable {
     companion object {
         fun getInstance(project: Project): UIEventRouter =
             project.getService(UIEventRouter::class.java)
+
+        /**
+         * The capability a UI event depends on, or null when the event is ungated.
+         *
+         * NodeClicked is deliberately absent: the click itself does useful ungated work, and only
+         * its AI-explanation branch is gated — see the guard inside handleNodeClicked.
+         */
+        internal fun gatedCapabilityFor(event: UIEvent): AegisCapability? = when (event) {
+            is UIEvent.FixRequested,
+            is UIEvent.ApplyFixRequested -> AegisCapability.FIX_APPLICATION
+            is UIEvent.ExplainSystemRequested -> AegisCapability.AI_EXPLANATION
+            is UIEvent.ImpactRequested -> AegisCapability.JVM_DEPENDENCY_GRAPH
+            else -> null
+        }
     }
 }
