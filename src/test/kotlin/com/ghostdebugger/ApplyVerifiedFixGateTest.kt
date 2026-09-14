@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ApplyVerifiedFixGateTest : BasePlatformTestCase() {
 
     override fun tearDown() {
-        AegisCapabilityGate.resetPresenterForTest()
+        AegisCapabilityGate.resetForTest()
         super.tearDown()
     }
 
@@ -19,6 +19,7 @@ class ApplyVerifiedFixGateTest : BasePlatformTestCase() {
         val shown = AtomicBoolean(false)
         AegisCapabilityGate.setPresenterForTest { _, _ -> shown.set(true) }
 
+        val baselineRan = AtomicBoolean(false)
         val engineRan = AtomicBoolean(false)
         val virtualFile = myFixture.configureByText("Sample.kt", "val x = 1\n").virtualFile
         val issue = Issue(
@@ -35,7 +36,10 @@ class ApplyVerifiedFixGateTest : BasePlatformTestCase() {
             issue = issue,
             virtualFile = virtualFile,
             content = "val x = 1\n",
-            baselineProvider = { emptyList() },
+            baselineProvider = {
+                baselineRan.set(true)
+                emptyList()
+            },
             fixVerified = { _, _, _, _ ->
                 engineRan.set(true)
                 FixApplyResult.Rejected("must not be called")
@@ -43,6 +47,7 @@ class ApplyVerifiedFixGateTest : BasePlatformTestCase() {
         )
         runBlocking { job.join() }
 
+        assertFalse("baselineProvider must not run while FIX_APPLICATION is gated", baselineRan.get())
         assertFalse("the fix engine must not run while FIX_APPLICATION is gated", engineRan.get())
         assertTrue("the user must be told why nothing happened", shown.get())
     }

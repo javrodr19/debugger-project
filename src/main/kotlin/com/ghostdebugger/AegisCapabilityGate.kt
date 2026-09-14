@@ -14,6 +14,10 @@ import java.util.Collections
  * listener callback — where a modal dialog would itself be a defect; it is silent and logs once.
  *
  * Lifting the gate on a capability means adding it to [enabled]. Nothing else changes.
+ *
+ * [enabled] itself is never touched by a test — [setEnabledForTest] overrides it for the
+ * duration of one test so the code a capability guards can still be exercised, without ever
+ * relaxing what actually ships. [resetForTest] restores the shipped state in full.
  */
 object AegisCapabilityGate {
 
@@ -24,6 +28,17 @@ object AegisCapabilityGate {
 
     /** The only decision. Empty in 3.0.0 — every capability ships disabled. */
     private val enabled: Set<AegisCapability> = emptySet()
+
+    /**
+     * Test-only override of [enabled]. `null` (the shipped default) means [isEnabled] consults
+     * the real, hardcoded set above. Set via [setEnabledForTest] so a test can exercise the
+     * post-gate code path of a capability without weakening the gate itself; every test that
+     * uses it MUST clear it in `tearDown` via [resetForTest], or the override leaks into
+     * unrelated tests — including the release-state assertion in AegisCapabilityGateTest that
+     * every capability ships disabled.
+     */
+    @Volatile
+    private var enabledOverrideForTest: Set<AegisCapability>? = null
 
     private val log = logger<AegisCapabilityGate>()
 
@@ -38,7 +53,8 @@ object AegisCapabilityGate {
     @Volatile
     private var presenter: (Project?, AegisCapability) -> Unit = defaultPresenter
 
-    fun isEnabled(capability: AegisCapability): Boolean = capability in enabled
+    fun isEnabled(capability: AegisCapability): Boolean =
+        (enabledOverrideForTest ?: enabled).contains(capability)
 
     /**
      * Guard for user-initiated surfaces. Presents the roadmap dialog and returns true when the
@@ -70,8 +86,24 @@ object AegisCapabilityGate {
         presenter = p
     }
 
-    internal fun resetPresenterForTest() {
+    /**
+     * Test-only seam that lifts the gate for exactly the given capabilities, so a test can
+     * exercise the code a capability guards without touching the shipped [enabled] set. Must be
+     * paired with [resetForTest] in `tearDown`.
+     */
+    internal fun setEnabledForTest(capabilities: Set<AegisCapability>) {
+        enabledOverrideForTest = capabilities
+    }
+
+    /**
+     * Restores the gate to its shipped state: the real presenter, no enabled-override, and a
+     * clear once-log. Call in every test's `tearDown` that calls [setPresenterForTest] or
+     * [setEnabledForTest] — an override left set would silently pass or fail unrelated tests,
+     * including the release-state assertion that every capability ships disabled.
+     */
+    internal fun resetForTest() {
         presenter = defaultPresenter
+        enabledOverrideForTest = null
         loggedOnce.clear()
     }
 }

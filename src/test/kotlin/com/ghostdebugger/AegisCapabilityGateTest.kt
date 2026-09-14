@@ -11,8 +11,8 @@ import kotlin.test.assertTrue
 class AegisCapabilityGateTest {
 
     @AfterTest
-    fun restorePresenter() {
-        AegisCapabilityGate.resetPresenterForTest()
+    fun restoreGate() {
+        AegisCapabilityGate.resetForTest()
     }
 
     @Test
@@ -62,5 +62,34 @@ class AegisCapabilityGateTest {
             assertTrue(capability.label.isNotBlank(), "$capability has no label")
             assertTrue(capability.why.isNotBlank(), "$capability has no reason")
         }
+    }
+
+    @Test
+    fun `setEnabledForTest lifts the gate without presenting`() {
+        val shown = mutableListOf<AegisCapability>()
+        AegisCapabilityGate.setPresenterForTest { _, capability -> shown += capability }
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.FIX_APPLICATION))
+
+        assertTrue(
+            AegisCapabilityGate.isEnabled(AegisCapability.FIX_APPLICATION),
+            "the override must make the capability report enabled"
+        )
+        val blocked = AegisCapabilityGate.blockIfGated(null as Project?, AegisCapability.FIX_APPLICATION)
+
+        assertFalse(blocked, "an enabled capability must never tell its caller to abort")
+        assertTrue(shown.isEmpty(), "an enabled capability must never present the roadmap dialog")
+    }
+
+    @Test
+    fun `resetForTest clears the enabled override`() {
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.FIX_APPLICATION))
+        assertTrue(AegisCapabilityGate.isEnabled(AegisCapability.FIX_APPLICATION))
+
+        AegisCapabilityGate.resetForTest()
+
+        assertFalse(
+            AegisCapabilityGate.isEnabled(AegisCapability.FIX_APPLICATION),
+            "resetForTest must restore the shipped (disabled) state"
+        )
     }
 }
