@@ -1,8 +1,29 @@
 package com.ghostdebugger.rules
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
+/**
+ * RULE_PACKS is gated in 3.0.0 (Task 5's `RulePackService.packRules` guard). Without lifting the
+ * gate, no test here can reach the pack-enable/disable logic these tests were written to cover,
+ * because `packRules()` short-circuits to empty before ever consulting `availablePacks()`.
+ * [AegisCapabilityGate.setEnabledForTest] lifts the gate for just this capability, for just this
+ * test class, without touching what actually ships; [AegisCapabilityGate.resetForTest] restores
+ * the shipped (disabled) state in `tearDown` so no override leaks into other tests, including
+ * `AegisCapabilityGateTest`'s "no capability is enabled in this release" assertion.
+ */
 class RulePackServiceTest : BasePlatformTestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.RULE_PACKS))
+    }
+
+    override fun tearDown() {
+        AegisCapabilityGate.resetForTest()
+        super.tearDown()
+    }
 
     fun `test loads bundled rule packs`() {
         val service = RulePackService.getInstance(project)

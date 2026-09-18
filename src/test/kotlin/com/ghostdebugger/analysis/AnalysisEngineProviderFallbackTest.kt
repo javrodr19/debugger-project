@@ -1,15 +1,36 @@
 package com.ghostdebugger.analysis
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.ghostdebugger.model.EngineStatus
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.ghostdebugger.testutil.FixtureFactory
 import kotlinx.coroutines.test.runTest
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * AI_ANALYSIS is gated in 3.0.0 (Task 5's `AnalysisEngine.runAiPass` guard), which reports
+ * DISABLED before the provider `when` is reached at all — the OPENAI-specific ONLINE / FALLBACK
+ * outcomes this class exists to cover are otherwise unreachable. Lifting the gate here restores
+ * that reachability without touching what actually ships; [AegisCapabilityGate.resetForTest]
+ * undoes it after every test.
+ */
 class AnalysisEngineProviderFallbackTest {
+
+    @BeforeTest
+    fun enableAiAnalysisForTest() {
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.AI_ANALYSIS))
+    }
+
+    @AfterTest
+    fun resetGate() {
+        AegisCapabilityGate.resetForTest()
+    }
 
     private fun state(
         aiProvider: AIProvider = AIProvider.NONE,

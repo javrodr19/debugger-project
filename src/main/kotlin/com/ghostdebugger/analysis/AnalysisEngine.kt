@@ -1,11 +1,15 @@
 package com.ghostdebugger.analysis
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.ghostdebugger.ai.ApiKeyManager
 import com.ghostdebugger.analysis.analyzers.*
+import com.ghostdebugger.analysis.sdk.ExternalAnalyzerLoader
 import com.ghostdebugger.model.*
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import kotlinx.coroutines.*
 
@@ -107,14 +111,18 @@ class AnalysisEngine(
         val lateAnalyzers = analyzers.filterNot { it is EarlyAnalyzer }
         val baseLateIssues = runStaticPass(lateAnalyzers, lateContext, indicator)
         
-        val externalIssues = runCatching {
-            val externalLoader = com.ghostdebugger.analysis.sdk.ExternalAnalyzerLoader.getInstance(context.project)
-            externalLoader.analyzers().flatMap { analyzer ->
-                externalLoader.runExternalAnalyzer(analyzer, lateContext)
-            }
-        }.getOrElse { e ->
-            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+        val externalIssues = if (AegisCapabilityGate.skipIfGated(AegisCapability.EXTERNAL_ANALYZERS)) {
             emptyList()
+        } else {
+            runCatching {
+                val externalLoader = ExternalAnalyzerLoader.getInstance(context.project)
+                externalLoader.analyzers().flatMap { analyzer ->
+                    externalLoader.runExternalAnalyzer(analyzer, lateContext)
+                }
+            }.getOrElse { e ->
+                if (e is ProcessCanceledException) throw e
+                emptyList()
+            }
         }
         val lateIssues = baseLateIssues + externalIssues
         indicator?.checkCanceled()
@@ -201,6 +209,13 @@ class AnalysisEngine(
         settings: GhostDebuggerSettings.State,
         indicator: ProgressIndicator?
     ): Pair<List<Issue>, EngineStatusPayload> {
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.AI_ANALYSIS)) {
+            return emptyList<Issue>() to EngineStatusPayload(
+                provider = "STATIC",
+                status = EngineStatus.DISABLED,
+                message = "AI analysis is not enabled in this release; static-only run.",
+            )
+        }
         return when (settings.aiProvider) {
             AIProvider.NONE -> emptyList<Issue>() to EngineStatusPayload(
                 provider = "STATIC",

@@ -1,24 +1,42 @@
 package com.ghostdebugger.analysis
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.ghostdebugger.ai.AIService
 import com.ghostdebugger.analysis.analyzers.AIAnalyzer
 import com.ghostdebugger.model.*
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * The OLLAMA branch must push all per-file work through AIAnalyzer,
+ * not its own inline Semaphore loop. We prove that by injecting an
+ * AIAnalyzer-shaped fake via the aiPassRunner seam and asserting
+ * the Ollama branch exercises the shared path.
+ *
+ * AI_ANALYSIS is gated in 3.0.0 (Task 5's `AnalysisEngine.runAiPass` guard), which short-circuits
+ * before the OLLAMA branch this class exists to test is ever reached. Lifting the gate here
+ * restores that reachability without touching what actually ships; [AegisCapabilityGate.resetForTest]
+ * undoes it after every test.
+ */
 class AnalysisEngineOllamaDelegationTest {
 
-    /**
-     * The OLLAMA branch must push all per-file work through AIAnalyzer,
-     * not its own inline Semaphore loop. We prove that by injecting an
-     * AIAnalyzer-shaped fake via the aiPassRunner seam and asserting
-     * the Ollama branch exercises the shared path.
-     */
+    @BeforeEach
+    fun enableAiAnalysisForTest() {
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.AI_ANALYSIS))
+    }
+
+    @AfterEach
+    fun resetGate() {
+        AegisCapabilityGate.resetForTest()
+    }
 
     private class FakeService(val counter: AtomicInteger) : AIService {
         override suspend fun detectIssues(filePath: String, fileContent: String, functions: List<com.ghostdebugger.model.FunctionSymbol>): List<Issue> {

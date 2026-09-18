@@ -1,5 +1,7 @@
 package com.ghostdebugger.rules
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -64,6 +66,7 @@ class RulePackService(private val project: Project) : Disposable {
     }
 
     fun packRules(): List<CustomRule> {
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.RULE_PACKS)) return emptyList()
         return availablePacks()
             .filter { isPackEnabled(it.id) }
             .flatMap { it.rules }
