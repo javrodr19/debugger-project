@@ -31,6 +31,12 @@ class AnalysisEngine(
         }
         AIAnalyzer(service, progress, concurrency, labelPrefix).analyze(ctx)
     },
+    private val externalAnalyzerRunner: (AnalysisContext) -> List<Issue> = { ctx ->
+        val externalLoader = ExternalAnalyzerLoader.getInstance(ctx.project)
+        externalLoader.analyzers().flatMap { analyzer ->
+            externalLoader.runExternalAnalyzer(analyzer, ctx)
+        }
+    },
     private val analyzers: List<Analyzer> = listOf(
         PsiSyntaxAnalyzer(),
         CompilationErrorAnalyzer(progress),
@@ -115,10 +121,7 @@ class AnalysisEngine(
             emptyList()
         } else {
             runCatching {
-                val externalLoader = ExternalAnalyzerLoader.getInstance(context.project)
-                externalLoader.analyzers().flatMap { analyzer ->
-                    externalLoader.runExternalAnalyzer(analyzer, lateContext)
-                }
+                externalAnalyzerRunner(lateContext)
             }.getOrElse { e ->
                 if (e is ProcessCanceledException) throw e
                 emptyList()
