@@ -1,6 +1,7 @@
 package com.ghostdebugger.actions
 
 import com.ghostdebugger.AnalysisOrchestrator
+import com.ghostdebugger.store.SuppressionMemoryService
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
@@ -79,5 +80,41 @@ class RepairedActionsTest : BasePlatformTestCase() {
         } finally {
             unmockkObject(AnalysisOrchestrator.Companion)
         }
+    }
+
+    fun `test explicit suppression hides a finding on the first invocation`() {
+        val service = SuppressionMemoryService.getInstance(project)
+        val fingerprint = "test-fingerprint-1"
+
+        assertFalse(service.shouldAutoHide(fingerprint))
+        service.suppressNow(fingerprint)
+        assertTrue(
+            "an explicit suppress command must take effect immediately, not on the third press",
+            service.shouldAutoHide(fingerprint)
+        )
+    }
+
+    /**
+     * `suppressNow` must raise the count to the threshold, not replace or reset the counting
+     * mechanism. Ordinary accumulated dismissals (the implicit "dismissed again" signal used
+     * elsewhere, e.g. SuppressFindingAction's prior behavior) must still require hitting the
+     * configured threshold (3, unchanged by this repair) on their own.
+     */
+    fun `test suppressNow does not disturb ordinary accumulated dismissal counting`() {
+        val service = SuppressionMemoryService.getInstance(project)
+        val fingerprint = "test-fingerprint-2"
+
+        service.recordDismissal(fingerprint)
+        service.recordDismissal(fingerprint)
+        assertFalse(
+            "two ordinary dismissals must not yet auto-hide when the threshold is 3",
+            service.shouldAutoHide(fingerprint)
+        )
+
+        service.recordDismissal(fingerprint)
+        assertTrue(
+            "the third ordinary dismissal must cross the threshold on its own, unrelated to suppressNow",
+            service.shouldAutoHide(fingerprint)
+        )
     }
 }

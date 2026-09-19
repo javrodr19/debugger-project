@@ -18,7 +18,7 @@ class SuppressFindingAction : AnAction() {
 
         val issueToSuppress = issues.firstOrNull { it.line == currentLine } ?: issues.firstOrNull()
         if (issueToSuppress != null) {
-            SuppressionMemoryService.getInstance(project).recordDismissal(issueToSuppress.fingerprint())
+            SuppressionMemoryService.getInstance(project).suppressNow(issueToSuppress.fingerprint())
             service.analyzeProject()
         }
     }
