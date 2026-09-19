@@ -12,7 +12,7 @@ class ShowInNeuroMapAction : AnAction() {
         val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
         val service = GhostDebuggerService.getInstance(project)
 
-        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Aegis Debug")
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("GhostDebugger")
         val issues = service.issuesByFile[virtualFile.path] ?: emptyList()
         toolWindow?.show {
             service.jcefBridge()?.sendIssuesForFile(virtualFile.path, issues)
