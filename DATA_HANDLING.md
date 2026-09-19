@@ -1,7 +1,15 @@
 # Aegis Debug — Data Handling
 
-**Last updated:** 2026-04-15
-**Product version:** 1.0.0
+**Last updated:** 2026-09-20
+**Product version:** 3.0.0
+
+**No AI provider is reachable in this release.** `AI_ANALYSIS` and `AI_EXPLANATION` are both
+gated off in 3.0.0 (see `docs/IMPLEMENTATION_STATUS.md`), so none of the Ollama/OpenAI rows below
+can currently be triggered from a running instance of the plugin — this is the strongest form of
+the privacy claim this document can make: not "off by default," but unreachable. The table
+documents the mechanism as implemented and tested, including the cloud-upload consent check fixed
+in this release (`AIServiceFactory.create`, the single chokepoint every AI-service resolver goes
+through), for when AI augmentation is re-enabled in a future release.
 
 ## What data leaves your machine
 
@@ -25,7 +33,7 @@
 - AI responses are cached **in memory** per IDE session.
 - Cache TTL defaults to 1 hour, configurable in Settings.
 - Cache is **never written to disk**.
-- Disable via Settings → Tools → Aegis Debug → "Cache AI responses locally".
+- Disable via Settings → Tools → Aegis Debug → "Enable AI response cache".
 
 ## Key storage
 

@@ -63,15 +63,22 @@ src/main/kotlin/com/ghostdebugger/
     UIEventRouter.kt                   # UIEvent dispatch + AI service caching
     FileChangeWatcher.kt               # VFS auto-refresh
     DebugSessionCoordinator.kt         # XDebugger plumbing + cross-check
+    ProblemsViewCoordinator.kt         # native Problems-view emit (gated)
+    ReportExporter.kt                  # HTML report export + notification
+    AegisCapability.kt                 # the 8 gated capabilities — label + why
+    AegisCapabilityGate.kt             # single chokepoint deciding what's enabled
     intentions/                        # IntentionAction quick-fix entries
     inspections/                       # LocalInspectionTool entries (V2 beta.1+)
-    parser/                            # PSI-backed symbol extraction
+    parser/                            # PSI-backed / regex symbol extraction
     analysis/analyzers/                # one class per rule ID
-    fix/                               # deterministic fixers + applicator
+    analysis/sdk/                      # external third-party analyzer loader (gated)
+    fix/                               # deterministic fixers
+    fix/engine/                        # AI-supervised fix engine, apply/verify gates
     graph/                             # in-memory graph + cycle detection
-    ai/                                # BaseAIService + Ollama / OpenAI
+    ai/                                # BaseAIService + Ollama / OpenAI + factory
     bridge/                            # JCEF bridge to webview
-    annotator/                         # ExternalAnnotator for editor markup
+    rules/                             # custom-rule YAML engine + rule packs (gated)
+    store/                             # runtime evidence, suppression memory, test/debug observers
     toolwindow/                        # tool-window factory + JCEF panel
     actions/                           # menu/keymap actions
     settings/                          # PasswordSafe + Configurable
@@ -81,13 +88,18 @@ src/main/resources/META-INF/plugin.xml # registers services, intentions, actions
 webview/                               # React + JCEF detail panel and NeuroMap
 docs/
     aegis_debug_roadmap_v2_to_v5.md    # the north star
-    aegis_v1_history.md                # V1 phase summary
+    IMPLEMENTATION_STATUS.md           # what works, what's gated, what has no consumer
+    audit-2026-09-final-release.md     # the 16-surface release audit and its dispositions
     superpowers/specs/                 # YYYY-MM-DD-<topic>-design.md
     superpowers/plans/                 # YYYY-MM-DD-<topic>.md
 site/                                  # landing-page source (gh-pages)
 CLAUDE.md                              # Claude-specific conventions
 AGENTS.md                              # this file
 ```
+
+Note: the `annotator/` package (a legacy `ExternalAnnotator`) was fully replaced by native
+`LocalInspectionTool`s in V2.0.0-alpha.3 and no longer exists — if you see it mentioned in older
+prose or commit history, that is what it refers to.
 
 Two seams that are easy to misuse:
 
