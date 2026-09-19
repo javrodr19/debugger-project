@@ -58,7 +58,7 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
     private fun State.validate(): State {
         validateAiProviderClamps()
         validateAnalysisBudgetClamps()
-        validateCoverageClamps()
+        validateSuppressionClamps()
         return this
     }
 
@@ -82,8 +82,8 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         if (daemonTimeBudgetMs <= 0) daemonTimeBudgetMs = 60_000
     }
 
-    /** Clamps the V2.0 suppression/coverage UI settings. */
-    private fun State.validateCoverageClamps() {
+    /** Clamps the V2.0 suppression-threshold UI setting. */
+    private fun State.validateSuppressionClamps() {
         if (suppressionThreshold < 1) suppressionThreshold = 3
         if (suppressionThreshold > 10) suppressionThreshold = 10
     }

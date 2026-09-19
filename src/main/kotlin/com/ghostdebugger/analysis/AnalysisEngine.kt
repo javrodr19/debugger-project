@@ -201,7 +201,7 @@ class AnalysisEngine(
             log.info("${analyzer.name}: produced ${produced.size} issues")
             produced
         } catch (e: Exception) {
-            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+            if (e is ProcessCanceledException) throw e
             log.warn("Analyzer ${analyzer.name} failed; continuing", e)
             emptyList()
         }
@@ -283,7 +283,7 @@ class AnalysisEngine(
                 )
             },
             onFailure = { e ->
-                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                if (e is ProcessCanceledException) throw e
                 log.warn("OpenAI pass failed; static results will ship", e)
                 emptyList<Issue>() to EngineStatusPayload(
                     provider = "OPENAI",
@@ -331,7 +331,7 @@ class AnalysisEngine(
                 )
             },
             onFailure = { e ->
-                if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
+                if (e is ProcessCanceledException) throw e
                 log.warn("Ollama pass failed; static results will ship", e)
                 emptyList<Issue>() to EngineStatusPayload(
                     provider  = "OLLAMA",
