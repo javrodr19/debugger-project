@@ -44,6 +44,11 @@ internal class UIEventRouter(private val project: Project) : Disposable {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var aiService: AIService? = null
 
+    // The settings snapshot the cached aiService above was resolved from. currentAiService()
+    // compares this against the live snapshot to decide whether to re-resolve; see there.
+    @Volatile
+    private var aiServiceSettings: GhostDebuggerSettings.State? = null
+
     init {
         Disposer.register(project, this)
     }
@@ -78,11 +83,33 @@ internal class UIEventRouter(private val project: Project) : Disposable {
 
     private fun service(): GhostDebuggerService = GhostDebuggerService.getInstance(project)
 
+    // Cloud consent ("Allow cloud upload") is enforced inside AIServiceFactory.create, not
+    // here — see that chokepoint for the OPENAI-without-consent refusal.
     private fun resolveAiService(): AIService? {
         val settings = GhostDebuggerSettings.getInstance().snapshot()
         val apiKey = if (settings.aiProvider == AIProvider.OPENAI) ApiKeyManager.getApiKey() else null
         return AIServiceFactory.create(settings, apiKey)?.also { aiService = it }
     }
+
+    /**
+     * Returns the AIService for the current settings, re-resolving whenever the live settings
+     * snapshot differs from the one the cached [aiService] was built from. Without this, the
+     * previous cache-once-and-reuse pattern would keep the first resolved service alive for the
+     * router's whole lifetime: switching provider/model/endpoint, or revoking cloud consent,
+     * would have no effect until IDE restart, and a user who unticks "Allow cloud upload" would
+     * keep talking to the OpenAI service already resolved.
+     */
+    private fun currentAiService(): AIService? {
+        val snapshot = GhostDebuggerSettings.getInstance().snapshot()
+        if (aiService != null && aiServiceSettings == snapshot) return aiService
+        val resolved = resolveAiService()
+        aiService = resolved
+        aiServiceSettings = if (resolved != null) snapshot else null
+        return resolved
+    }
+
+    /** Test-only seam: [currentAiService] is private; tests assert on its result directly. */
+    internal fun currentAiServiceForTest(): AIService? = currentAiService()
 
     private fun updateIssueExplanation(issueId: String, explanation: String) {
         val svc = service()
@@ -109,7 +136,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
 
         scope.launch {
             try {
-                val ai = aiService ?: resolveAiService() ?: return@launch
+                val ai = currentAiService() ?: return@launch
                 // Send an empty complete chunk to clear any stale UI explanation state
                 withContext(Dispatchers.Swing) {
                     svc.jcefBridge()?.sendIssueExplanationChunk(issue.id, "", isComplete = false)
@@ -207,7 +234,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
                 if (settings.aiProvider != AIProvider.NONE) {
                     scope.launch {
                         try {
-                            val ai = aiService ?: resolveAiService() ?: return@launch
+                            val ai = currentAiService() ?: return@launch
                             val explanation = ai.explainIssue(issue, issue.codeSnippet)
                             updateIssueExplanation(issue.id, explanation)
                             withContext(Dispatchers.Swing) {
@@ -225,7 +252,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
 
         scope.launch {
             try {
-                val ai = aiService ?: resolveAiService() ?: run {
+                val ai = currentAiService() ?: run {
                     withContext(Dispatchers.Swing) {
                         svc.jcefBridge()?.sendError("AI provider not configured. Go to Settings → Tools → Aegis Debug")
                     }
@@ -325,7 +352,7 @@ internal class UIEventRouter(private val project: Project) : Disposable {
 
         scope.launch {
             try {
-                val ai = aiService ?: resolveAiService() ?: run {
+                val ai = currentAiService() ?: run {
                     withContext(Dispatchers.Swing) {
                         svc.jcefBridge()?.sendSystemExplanation(buildLocalSystemSummary(graph))
                     }

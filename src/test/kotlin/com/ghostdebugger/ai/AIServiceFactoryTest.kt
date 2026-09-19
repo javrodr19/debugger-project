@@ -18,9 +18,19 @@ class AIServiceFactoryTest {
     }
 
     @Test fun `OPENAI with key returns OpenAIService`() {
-        val svc = AIServiceFactory.create(state(AIProvider.OPENAI), "sk-test")
+        val svc = AIServiceFactory.create(
+            GhostDebuggerSettings.State(aiProvider = AIProvider.OPENAI, allowCloudUpload = true),
+            "sk-test"
+        )
         assertNotNull(svc)
         assertInstanceOf(OpenAIService::class.java, svc)
+    }
+
+    @Test fun `OPENAI with key but no cloud consent returns null`() {
+        // The "Allow cloud upload" checkbox is the documented privacy guarantee: without it,
+        // no code may reach OpenAI even when a key is configured. Enforced here so every
+        // resolver that calls create() inherits the refusal automatically.
+        assertNull(AIServiceFactory.create(state(AIProvider.OPENAI), "sk-test"))
     }
 
     @Test fun `OLLAMA returns OllamaService regardless of key`() {
