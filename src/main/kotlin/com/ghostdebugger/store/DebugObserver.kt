@@ -41,8 +41,15 @@ class DebugObserver(private val project: Project) : Disposable {
         )
     }
 
+    /**
+     * Marks the observer as bootstrapped. Deliberately NOT the gate site.
+     *
+     * The message-bus subscription in [init] runs when the service is constructed, which happens
+     * inside `getInstance(project)` — before this method is ever called. Guarding here would
+     * therefore suppress nothing but the log line below, while [SessionWatcher] kept firing.
+     * The real guard is the first line of [evaluateRelevantFindingsAtCurrentFrame].
+     */
     fun start() {
-        if (AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK)) return
         log.info("DebugObserver initialized and active.")
     }
 
@@ -57,7 +64,14 @@ class DebugObserver(private val project: Project) : Disposable {
         }
     }
 
-    private fun evaluateRelevantFindingsAtCurrentFrame() {
+    /**
+     * The actual cross-check: evaluate the flagged variable in the paused frame and record the
+     * outcome. This is where [AegisCapability.DEBUGGER_CROSS_CHECK] is enforced, because every
+     * path into the pipeline — the [init] subscription, [SessionWatcher.sessionPaused] — converges
+     * here. `internal` rather than `private` so the gate can be tested directly.
+     */
+    internal fun evaluateRelevantFindingsAtCurrentFrame() {
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK)) return
         val session = XDebuggerManager.getInstance(project).currentSession ?: return
         val frame = session.currentStackFrame ?: return
         val sourcePosition = frame.sourcePosition ?: return

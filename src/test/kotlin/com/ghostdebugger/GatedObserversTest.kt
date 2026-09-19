@@ -24,13 +24,24 @@ import kotlin.test.assertTrue
  *   (`DEBUGGER_CROSS_CHECK`): two uncoordinated implementations of a debugger cross-check that
  *   cannot fire on IntelliJ IDEA Community at all.
  *
- * `performDebugSessionCrossCheck` takes a non-null `XDebugSession`, so its guard cannot be
- * exercised here without mocking the platform's session/stack-frame/evaluator — which would test
- * the mock, not the guard. That guard's correctness is verified by inspection instead (see
- * task-6-report.md). [DebugObserver.start] needs no live session, so its guard is exercised
- * directly below: `start()`'s only other statement is a log call with no other externally
- * observable state, so the test spies on [AegisCapabilityGate] to prove `start()` actually
- * consults the gate rather than merely existing near it.
+ * Both debugger guards are interaction-verified rather than behaviour-verified, and the reason is
+ * worth stating plainly rather than glossing:
+ *
+ * `performDebugSessionCrossCheck` takes a non-null `XDebugSession`, and
+ * [DebugObserver.evaluateRelevantFindingsAtCurrentFrame] returns immediately when there is no
+ * current session. Neither can produce an observable difference between gated and ungated without
+ * a live paused debugger, which no unit fixture provides — mocking the session, stack frame and
+ * evaluator would test the mock rather than the guard. So these tests prove the guarded method
+ * *consults* the gate; they do not prove the downstream evaluate-and-record pipeline is
+ * suppressed, and no test in this suite does.
+ *
+ * The guard sits on [DebugObserver.evaluateRelevantFindingsAtCurrentFrame] and NOT on
+ * [DebugObserver.start], which is the whole point of the test below. `start()` looks like the
+ * natural gate site and is not: the message-bus subscription in `DebugObserver`'s `init` block
+ * runs when the service is constructed by `getInstance(project)`, before `start()` is called, so a
+ * guard there suppresses only a log line while `SessionWatcher` keeps firing on every paused
+ * session. A review caught exactly that after the first implementation of this task shipped the
+ * guard in `start()`. The test below would fail if the guard were moved back.
  */
 class GatedObserversTest : BasePlatformTestCase() {
 
@@ -65,13 +76,21 @@ class GatedObserversTest : BasePlatformTestCase() {
         }
     }
 
-    fun `test DebugObserver start consults the DEBUGGER_CROSS_CHECK gate`() {
+    fun `test the debugger cross-check pipeline consults the gate, and start does not`() {
         mockkObject(AegisCapabilityGate)
         try {
             every { AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK) } returns true
+            val observer = DebugObserver.getInstance(project)
 
-            DebugObserver.getInstance(project).start()
+            // start() must NOT be the gate site: the init{} subscription already ran when
+            // getInstance constructed the service above, so guarding here would suppress a log
+            // line and nothing else.
+            observer.start()
+            verify(exactly = 0) { AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK) }
 
+            // The work method is the gate site. Every path into the evaluate-and-record pipeline
+            // converges here, so this is the one place a guard actually suppresses the behaviour.
+            observer.evaluateRelevantFindingsAtCurrentFrame()
             verify(exactly = 1) { AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK) }
         } finally {
             unmockkObject(AegisCapabilityGate)
