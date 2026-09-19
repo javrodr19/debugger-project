@@ -1,12 +1,16 @@
 package com.ghostdebugger.actions
 
 import com.ghostdebugger.AnalysisOrchestrator
+import com.ghostdebugger.ReportExporter
 import com.ghostdebugger.store.SuppressionMemoryService
+import com.intellij.notification.Notification
+import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import io.mockk.every
@@ -116,5 +120,34 @@ class RepairedActionsTest : BasePlatformTestCase() {
             "the third ordinary dismissal must cross the threshold on its own, unrelated to suppressNow",
             service.shouldAutoHide(fingerprint)
         )
+    }
+
+    /**
+     * ReportExporter.export previously routed the null-graph message only through
+     * `service.jcefBridge()?.sendError(...)`, which is null until the tool window's webview
+     * has been created at least once -- so on first use (the exact moment a user needs the
+     * message most) the export menu item was a silent no-op. The fix must reach the user
+     * through a balloon regardless of whether jcefBridge() is attached.
+     */
+    fun `test export with no analysis data reaches the user via a balloon without jcefBridge`() {
+        val notifications = mutableListOf<Notification>()
+        project.messageBus.connect(testRootDisposable).subscribe(
+            Notifications.TOPIC,
+            object : Notifications {
+                override fun notify(notification: Notification) {
+                    notifications += notification
+                }
+            }
+        )
+
+        ReportExporter(project).export(null)
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+
+        val balloon = notifications.find { it.content.contains("No analysis data available") }
+        assertNotNull(
+            "the no-analysis-data message must reach the user as a balloon even when jcefBridge() is null",
+            balloon
+        )
+        assertEquals("GhostDebugger", balloon!!.groupId)
     }
 }
