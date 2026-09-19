@@ -11,6 +11,17 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import io.mockk.*
 import java.util.UUID
 
+/**
+ * NOTE: this test previously gave false assurance. It passed while the real
+ * `WolfTheProblemSolver.reportProblems` call it exercises violated the 2024.3 platform's
+ * threading contract — that call runs inside `invokeLater`, i.e. on the EDT, and the 2024.3
+ * implementation asserts a background thread. Mocking `WolfTheProblemSolver` let the test
+ * "succeed" without ever hitting that assertion. `PROBLEMS_VIEW_EMIT` now gates this path in
+ * production and ships disabled; this test force-enables the capability via
+ * [AegisCapabilityGate.setEnabledForTest] solely so the report/clear logic underneath the gate
+ * stays covered. The gated-by-default (shipped) behavior is covered separately by
+ * `GatedObserversTest`.
+ */
 class ProblemsViewCoordinatorTest : BasePlatformTestCase() {
 
     private lateinit var mockWolf: WolfTheProblemSolver
@@ -18,6 +29,7 @@ class ProblemsViewCoordinatorTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.PROBLEMS_VIEW_EMIT))
         mockWolf = mockk(relaxed = true)
         mockkStatic(WolfTheProblemSolver::class)
         every { WolfTheProblemSolver.getInstance(project) } returns mockWolf
@@ -27,6 +39,7 @@ class ProblemsViewCoordinatorTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         unmockkStatic(WolfTheProblemSolver::class)
+        AegisCapabilityGate.resetForTest()
         super.tearDown()
     }
 

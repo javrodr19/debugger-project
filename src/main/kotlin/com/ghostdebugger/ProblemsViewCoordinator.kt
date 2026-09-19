@@ -35,6 +35,7 @@ internal class ProblemsViewCoordinator(private val project: Project) : Disposabl
     }
 
     private fun publishToProblemsView(issues: List<Issue>) {
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.PROBLEMS_VIEW_EMIT)) return
         val wolf = WolfTheProblemSolver.getInstance(project)
         val fileSystem = LocalFileSystem.getInstance()
         
@@ -101,6 +102,9 @@ internal class ProblemsViewCoordinator(private val project: Project) : Disposabl
         
         lastPublishedByFile = nextPublishedByFile
     }
+
+    /** Test-only: one-line read of the field production already maintains. */
+    internal fun publishedFilePathsForTest(): Set<String> = lastPublishedByFile.keys
 
     companion object {
         fun getInstance(project: Project): ProblemsViewCoordinator =

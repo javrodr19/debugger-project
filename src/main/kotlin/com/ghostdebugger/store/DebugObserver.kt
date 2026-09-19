@@ -1,5 +1,7 @@
 package com.ghostdebugger.store
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.ghostdebugger.GhostDebuggerService
 import com.ghostdebugger.analysis.analyzers.NullSafetyAnalyzer
 import com.ghostdebugger.model.EvidenceOutcome
@@ -40,6 +42,7 @@ class DebugObserver(private val project: Project) : Disposable {
     }
 
     fun start() {
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK)) return
         log.info("DebugObserver initialized and active.")
     }
 
