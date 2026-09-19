@@ -81,32 +81,35 @@ intellijPlatform {
         description = """
             <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>
 
-            <p><strong>Static-first analysis. Deterministic fixes. Optional local or cloud AI.</strong></p>
+            <p><strong>Static-first analysis, unconditional. Fix engine and AI augmentation: implemented, gated in 3.0.0.</strong></p>
 
             <p>
-                Aegis Debug finds real bugs in your TypeScript and JavaScript code without sending
-                anything to the cloud by default. Every finding is labeled with its
-                source — engine-verified, local AI, or cloud AI — so you always know
-                what you are trusting.
+                Aegis Debug finds real bugs in your TypeScript, JavaScript, Kotlin, and Java code
+                without sending anything to the cloud — no AI provider is reachable in this
+                release, so there is nothing to configure that results in a network request.
+                3.0.0 ships as a read-only analysis and visualization tool: several implemented,
+                tested capabilities are gated off rather than shipped half-finished. See
+                <code>docs/IMPLEMENTATION_STATUS.md</code> in the repository for the full
+                breakdown of what's live versus gated, and why.
             </p>
 
             <h3>What's inside</h3>
             <ul>
-                <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
-                <li><strong>Eleven deterministic analyzers</strong> —
-                    syntax, compilation, null safety (TS/JS/Kotlin), state-before-init, async flow, circular dependencies, complexity, unsafe-cast (Kotlin), type-mismatch (Kotlin), redundant-let (Kotlin).</li>
-                <li><strong>Five deterministic fixers</strong> with diff preview and native undo.</li>
+                <li><strong>Language Support</strong> — Full line-oriented lexical analysis (regex-based, string/comment-masked) for <strong>TypeScript & JavaScript</strong>; type-aware Analysis API analyzers for <strong>Kotlin</strong>; PSI symbol extraction for <strong>Java</strong>. Dependency-graph edges resolve for relative imports only, so cycle detection and impact analysis reach TS/JS today.</li>
+                <li><strong>12 analyzers (11 built-in rules + a custom-rule engine)</strong> —
+                    syntax, compilation, null safety (TS/JS/Kotlin), state-before-init, async flow, circular dependencies, complexity, unsafe-cast (Kotlin), type-mismatch (Kotlin), redundant-let (Kotlin), plus a dispatcher for user-authored YAML rules. Runs unconditionally.</li>
+                <li><strong>8 deterministic fixers</strong>, PSI-validity-gated — implemented and tested, but fix <em>application</em> is gated in 3.0.0.</li>
                 <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
                 <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
-                <li><strong>Ollama (local)</strong> or <strong>OpenAI (cloud)</strong> — both optional, both off by default.</li>
+                <li><strong>Ollama (local)</strong> and <strong>OpenAI (cloud)</strong> backends exist and are tested in isolation; the AI analysis pass and AI explanations are both gated off in 3.0.0.</li>
                 <li><strong>Secure key storage</strong> via IntelliJ PasswordSafe.</li>
             </ul>
 
             <h3>Privacy by default</h3>
             <ul>
                 <li>No telemetry.</li>
-                <li>No cloud uploads unless you configure them explicitly.</li>
-                <li>Local mode works offline.</li>
+                <li>No AI provider reachable in this release — the cloud-upload consent check is implemented and enforced for when AI is re-enabled.</li>
+                <li>Fully local, read-only in 3.0.0.</li>
             </ul>
         """.trimIndent()
 

@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Aegis Debug — a privacy-first static-analysis plugin for JetBrains IDEs. Eleven deterministic analyzers, five PSI-validated fixers, optional local AI, zero telemetry. By Javier Rodríguez.">
+  <meta name="description" content="Aegis Debug — a privacy-first static-analysis plugin for JetBrains IDEs. 12 analyzers (11 built-in rules + a custom-rule engine), 8 deterministic fixers, optional local AI, zero telemetry. By Javier Rodríguez.">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="Aegis Debug — static-first debugging for JetBrains IDEs">
-  <meta property="og:description" content="Eleven deterministic analyzers. Five PSI-validated fixers. Optional local AI. Zero telemetry.">
+  <meta property="og:description" content="12 analyzers (11 built-in rules + a custom-rule engine). 8 deterministic fixers. Optional local AI. Zero telemetry.">
   <meta property="og:image" content="assets/og-image.png">
   <meta property="og:url" content="https://javrodr19.github.io/debugger-project/">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Aegis Debug — static-first debugging for JetBrains IDEs">
-  <meta name="twitter:description" content="Eleven deterministic analyzers. Five PSI-validated fixers. Optional local AI. Zero telemetry.">
+  <meta name="twitter:description" content="12 analyzers (11 built-in rules + a custom-rule engine). 8 deterministic fixers. Optional local AI. Zero telemetry.">
   <meta name="twitter:image" content="assets/og-image.png">
 
   <title>Aegis Debug — static-first debugging for JetBrains IDEs</title>
@@ -46,7 +46,7 @@
             Static-first debugging that <span class="accent">never leaves your machine.</span>
           </h1>
           <p class="sub">
-            Eleven deterministic analyzers. Five PSI-validated fixers.
+            12 analyzers, 8 deterministic fixers — read-only in this release.
             Optional local AI. Zero telemetry.
           </p>
           <div class="cta-row">
@@ -66,7 +66,7 @@
 <span class="lineno">43</span><span class="kw">val</span> name = user.name
 <span class="lineno">44</span>
 <span class="lineno"></span><span class="rule">▸ AEG-NULL-KT-001</span> · unsafe deref
-<span class="lineno"></span><span class="pass">✓ fix available</span> · convert to <span class="kw">?.</span></pre>
+<span class="lineno"></span><span class="pass">◦ fix known</span> · application gated in 3.0.0</pre>
         </aside>
       </div>
     </section>
@@ -80,19 +80,19 @@
           <article class="feature-card">
             <div class="feature-badge">01</div>
             <h3>Static-first analysis</h3>
-            <p>Eleven analyzers across TypeScript, JavaScript, Kotlin, and Java — null safety, state-before-init, async flow, complexity, circular dependencies, syntax, and compilation errors.</p>
+            <p>12 analyzers (11 built-in rules + a custom-rule engine) across TypeScript, JavaScript, Kotlin, and Java — null safety, state-before-init, async flow, complexity, circular dependencies, syntax, and compilation errors. Runs unconditionally.</p>
           </article>
 
           <article class="feature-card">
             <div class="feature-badge">02</div>
-            <h3>Deterministic fixers</h3>
-            <p>Five one-click fixers with PSI-validity guarantees: every produced edit parses or the fixer returns null and falls back to AI.</p>
+            <h3>Deterministic fixers — gated</h3>
+            <p>8 fixers with PSI-validity guarantees: every produced edit parses or the fixer returns null and falls back to AI. Implemented and tested; fix <em>application</em> is gated in 3.0.0, this release's read-only cut.</p>
           </article>
 
           <article class="feature-card">
             <div class="feature-badge">03</div>
             <h3>Privacy by default</h3>
-            <p>No telemetry. No cloud uploads without explicit opt-in. Optional local Ollama or cloud OpenAI for AI augmentation. API keys stored in IntelliJ PasswordSafe.</p>
+            <p>No telemetry, ever. No AI provider is reachable in this release — the strongest version of the privacy claim. Ollama/OpenAI augmentation is implemented and tested for a future release, gated behind an explicit opt-in and API keys stored in IntelliJ PasswordSafe.</p>
           </article>
         </div>
 
@@ -291,16 +291,17 @@
         <h2 id="stats-heading" class="section-title">By the numbers</h2>
 
         <dl class="stat-grid">
-          <div class="stat"><dt>Analyzers</dt><dd>11</dd></div>
-          <div class="stat"><dt>Deterministic fixers</dt><dd>5</dd></div>
+          <div class="stat"><dt>Analyzers</dt><dd>12</dd></div>
+          <div class="stat"><dt>Deterministic fixers</dt><dd>8</dd></div>
           <div class="stat"><dt>Languages</dt><dd>TS · JS · Kotlin · Java</dd></div>
-          <div class="stat"><dt>Release cadence</dt><dd>V1.0 → V1.5 in under a month</dd></div>
-          <div class="stat"><dt>Tests · verifier</dt><dd>~257 green · Compatible across 4 IDE versions</dd></div>
+          <div class="stat"><dt>Release</dt><dd>3.0.0 — read-only, capability-gated</dd></div>
+          <div class="stat"><dt>Tests · verifier</dt><dd>545 green · Compatible across 4 IDE versions</dd></div>
         </dl>
 
         <p class="roadmap">
-          <strong>What's next.</strong> V2 is fully shipped — featuring runtime-confirmed findings via test-suite and debug-session cross-checks, native Problems view reporting, quick-fix intention actions, and full Inspection Profile integration. V3 is now in design focusing on custom rule authoring and advanced fixers.
-          <a href="https://github.com/javrodr19/debugger-project/blob/main/docs/aegis_debug_roadmap_v2_to_v5.md" rel="noopener" target="_blank">See the roadmap <span aria-hidden="true">→</span></a>
+          <strong>Status.</strong> 3.0.0 ships as a read-only analysis and visualization tool. Fix application, AI augmentation, JVM-language impact analysis, rule packs, the external analyzer SDK, native Problems-view integration, and the live-debugger cross-check are all implemented and tested, but gated off rather than shipped half-finished.
+          <a href="https://github.com/javrodr19/debugger-project/blob/main/docs/IMPLEMENTATION_STATUS.md" rel="noopener" target="_blank">See what's gated and why <span aria-hidden="true">→</span></a> ·
+          <a href="https://github.com/javrodr19/debugger-project/blob/main/docs/aegis_debug_roadmap_v2_to_v5.md" rel="noopener" target="_blank">the long-term roadmap <span aria-hidden="true">→</span></a>
         </p>
       </div>
     </section>
