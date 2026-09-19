@@ -100,63 +100,6 @@ object PromptTemplates {
         Be specific and actionable.
     """.trimIndent()
 
-    fun whatIf(question: String, graph: ProjectGraph): String = """
-        You are a CTO analyzing a software project.
-
-        ## Project Status
-        - Modules: ${graph.nodes.size}
-        - Health: ${graph.metadata.healthScore.toInt()}%
-        - Total issues: ${graph.metadata.totalIssues}
-
-        ## Modules with Issues
-        ${graph.nodes.filter { it.issues.isNotEmpty() }.take(10)
-            .joinToString("\n") { "- ${it.name}: ${it.issues.size} issues (${it.status})" }}
-
-        ## Question from the developer
-        "$question"
-
-        Answer this question as a CTO in English. Be direct, specific, and actionable.
-        Max 200 words. Focus on technical risks and concrete recommendations.
-    """.trimIndent()
-    fun jointFix(issue: Issue, brokenFiles: Map<String, String>, healthyContext: Map<String, String>): String = """
-        You are a world-class senior developer fixing a bug that might span multiple related files.
-
-        ## Primary Issue
-        Type: ${issue.type}
-        Title: ${issue.title}
-        Primary File: ${issue.filePath.substringAfterLast("/")}
-
-        ## BROKEN NEIGHBORHOOD (Files that need fixing or review)
-        ${brokenFiles.entries.joinToString("\n\n") { (path, content) ->
-            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```"
-        }}
-
-        ## HEALTHY CONTEXT (Reference these to ensure type/signature compatibility)
-        ${healthyContext.entries.joinToString("\n\n") { (path, content) ->
-            "### File: ${path.substringAfterLast("/")}\n```\n$content\n```"
-        }}
-
-        Provide a JOINT FIX plan.
-        Your goal is to fix the issues while ensuring compatibility between all involved files.
-        Return ONLY a JSON object with this exact structure:
-        {
-          "explanation": "<1-2 sentences in English explaining the global fix>",
-          "fixes": [
-            {
-              "filePath": "<full path of the file>",
-              "fixedCode": "<the entire new content of that file>"
-            }
-          ]
-        }
-
-        Include a fix entry for EVERY file in the BROKEN NEIGHBORHOOD section, even if no changes were needed (in that case, return the original code).
-        Return ONLY valid JSON.
-
-        Worked examples (follow this exact output shape):
-
-        ${PromptExamples.JOINT_FIX_EXAMPLES}
-    """.trimIndent()
-
     /**
      * Prompt asking the model to act as a planner: emit a [com.ghostdebugger.fix.engine.FixPlan]
      * composed only of deterministic catalog operations as JSON. [feedback] (when non-null) is the
