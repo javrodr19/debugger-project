@@ -3,7 +3,6 @@ package com.ghostdebugger.settings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
-import kotlin.test.assertTrue
 
 class GhostDebuggerSettingsTest {
 
@@ -16,13 +15,10 @@ class GhostDebuggerSettingsTest {
         assertEquals("llama3", s.ollamaModel)
         assertEquals(500, s.maxFilesToAnalyze)
         assertEquals(40, s.maxAiFiles)
-        assertEquals(false, s.autoAnalyzeOnOpen)
-        assertEquals(true, s.showInfoIssues)
         assertEquals(true, s.cacheEnabled)
         assertEquals(3600L, s.cacheTtlSeconds)
         assertEquals(30_000L, s.aiTimeoutMs)
         assertEquals(false, s.allowCloudUpload)
-        assertEquals(false, s.analyzeOnlyChangedFiles)
         assertEquals(256, s.aiCacheMaxEntries)
     }
 
@@ -75,8 +71,6 @@ class GhostDebuggerSettingsTest {
         assertEquals(500, target.maxFilesToAnalyze)
         target.openAiModel = "gpt-4o-mini"
         assertEquals("gpt-4o-mini", target.openAiModel)
-        target.autoAnalyzeOnOpen = true
-        assertTrue(target.autoAnalyzeOnOpen)
     }
 
     @Test

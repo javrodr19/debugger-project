@@ -24,13 +24,9 @@ class GhostDebuggerConfigurable : Configurable {
     private var cacheEnabledBox: JCheckBox? = null
     private var cacheTtlSpinner: JSpinner? = null
     private var aiTimeoutSpinner: JSpinner? = null
-    private var autoAnalyzeOnOpenBox: JCheckBox? = null
-    private var showInfoIssuesBox: JCheckBox? = null
-    private var analyzeOnlyChangedFilesBox: JCheckBox? = null
     private var maxComplexitySpinner: JSpinner? = null
     private var daemonFileBudgetSpinner: JSpinner? = null
     private var daemonTimeBudgetSpinner: JSpinner? = null
-    private var coverageModeCombo: JComboBox<String>? = null
     private var suppressionThresholdSpinner: JSpinner? = null
     private var showUnreachedBox: JCheckBox? = null
     private var showSuppressedBox: JCheckBox? = null
@@ -171,26 +167,6 @@ class GhostDebuggerConfigurable : Configurable {
         val allowCloudBox = JCheckBox("Allow cloud upload (OpenAI)", settings.allowCloudUpload)
         this.allowCloudUploadBox = allowCloudBox
 
-        // Other options
-        val autoAnalyzeBox = JCheckBox("Auto-analyze project on open", settings.autoAnalyzeOnOpen)
-        this.autoAnalyzeOnOpenBox = autoAnalyzeBox
-        
-        val showInfoBox = JCheckBox("Show INFO level issues", settings.showInfoIssues)
-        this.showInfoIssuesBox = showInfoBox
-        
-        val changedFilesOnlyBox = JCheckBox("Only analyze changed files", settings.analyzeOnlyChangedFiles)
-        this.analyzeOnlyChangedFilesBox = changedFilesOnlyBox
-
-        // V2.0 Dynamic Validation settings
-        val coverageModeCombo = JComboBox(arrayOf("Always", "Ask each time", "Never")).apply {
-            selectedItem = settings.coverageMode
-        }
-        this.coverageModeCombo = coverageModeCombo
-        val coverageModePanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
-            add(JLabel("Use coverage for test runs:"))
-            add(coverageModeCombo)
-        }
-
         val suppressionSpinner = JSpinner(SpinnerNumberModel(settings.suppressionThreshold, 1, 10, 1)).apply {
             preferredSize = Dimension(85, 28)
         }
@@ -222,14 +198,10 @@ class GhostDebuggerConfigurable : Configurable {
         formPanel.add(timeoutPanel)
         formPanel.add(cachePanel)
         formPanel.add(allowCloudBox)
-        formPanel.add(autoAnalyzeBox)
-        formPanel.add(showInfoBox)
-        formPanel.add(changedFilesOnlyBox)
-        
+
         formPanel.add(Box.createVerticalStrut(15))
         formPanel.add(JLabel("<html><b>Dynamic Validation (V2.0)</b></html>"))
         formPanel.add(Box.createVerticalStrut(10))
-        formPanel.add(coverageModePanel)
         formPanel.add(suppressionPanel)
         formPanel.add(showUnreachedBox)
         formPanel.add(showSuppressedBox)
@@ -349,13 +321,9 @@ class GhostDebuggerConfigurable : Configurable {
             || s.cacheEnabled != cacheEnabledBox?.isSelected
             || s.cacheTtlSeconds != (cacheTtlSpinner?.value as? Int)?.toLong()
             || s.allowCloudUpload != allowCloudUploadBox?.isSelected
-            || s.autoAnalyzeOnOpen != autoAnalyzeOnOpenBox?.isSelected
-            || s.showInfoIssues != showInfoIssuesBox?.isSelected
-            || s.analyzeOnlyChangedFiles != analyzeOnlyChangedFilesBox?.isSelected
             || s.maxComplexity != maxComplexitySpinner?.value
             || s.daemonFileBudget != daemonFileBudgetSpinner?.value
             || s.daemonTimeBudgetMs != ((daemonTimeBudgetSpinner?.value as? Int)?.toLong() ?: 0L) * 1000
-            || s.coverageMode != coverageModeCombo?.selectedItem
             || s.suppressionThreshold != suppressionThresholdSpinner?.value
             || s.showUnreached != showUnreachedBox?.isSelected
             || s.showSuppressed != showSuppressedBox?.isSelected
@@ -376,14 +344,10 @@ class GhostDebuggerConfigurable : Configurable {
             cacheEnabled = cacheEnabledBox?.isSelected ?: true
             (cacheTtlSpinner?.value as? Int)?.let { cacheTtlSeconds = it.toLong() }
             allowCloudUpload = allowCloudUploadBox?.isSelected ?: false
-            autoAnalyzeOnOpen = autoAnalyzeOnOpenBox?.isSelected ?: false
-            showInfoIssues = showInfoIssuesBox?.isSelected ?: true
-            analyzeOnlyChangedFiles = analyzeOnlyChangedFilesBox?.isSelected ?: false
             (maxComplexitySpinner?.value as? Int)?.let { maxComplexity = it }
             (daemonFileBudgetSpinner?.value as? Int)?.let { daemonFileBudget = it }
             (daemonTimeBudgetSpinner?.value as? Int)?.let { daemonTimeBudgetMs = it.toLong() * 1000 }
             // V2.0 Settings
-            (coverageModeCombo?.selectedItem as? String)?.let { coverageMode = it }
             (suppressionThresholdSpinner?.value as? Int)?.let { suppressionThreshold = it }
             showUnreached = showUnreachedBox?.isSelected ?: false
             showSuppressed = showSuppressedBox?.isSelected ?: false
@@ -412,14 +376,10 @@ class GhostDebuggerConfigurable : Configurable {
         cacheEnabledBox?.isSelected = s.cacheEnabled
         cacheTtlSpinner?.value = s.cacheTtlSeconds.toInt()
         allowCloudUploadBox?.isSelected = s.allowCloudUpload
-        autoAnalyzeOnOpenBox?.isSelected = s.autoAnalyzeOnOpen
-        showInfoIssuesBox?.isSelected = s.showInfoIssues
-        analyzeOnlyChangedFilesBox?.isSelected = s.analyzeOnlyChangedFiles
         maxComplexitySpinner?.value = s.maxComplexity
         daemonFileBudgetSpinner?.value = s.daemonFileBudget
         daemonTimeBudgetSpinner?.value = (s.daemonTimeBudgetMs / 1000).toInt()
         // V2.0 Settings reset
-        coverageModeCombo?.selectedItem = s.coverageMode
         suppressionThresholdSpinner?.value = s.suppressionThreshold
         showUnreachedBox?.isSelected = s.showUnreached
         showSuppressedBox?.isSelected = s.showSuppressed
@@ -442,13 +402,9 @@ class GhostDebuggerConfigurable : Configurable {
         cacheEnabledBox = null
         cacheTtlSpinner = null
         aiTimeoutSpinner = null
-        autoAnalyzeOnOpenBox = null
-        showInfoIssuesBox = null
-        analyzeOnlyChangedFilesBox = null
         maxComplexitySpinner = null
         daemonFileBudgetSpinner = null
         daemonTimeBudgetSpinner = null
-        coverageModeCombo = null
         suppressionThresholdSpinner = null
         showUnreachedBox = null
         showSuppressedBox = null
