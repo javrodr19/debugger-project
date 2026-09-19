@@ -101,43 +101,26 @@ class NeuroMapPanel(
             } catch (_: Exception) {}
         }
 
-        // 1. Try the plugin's own directory (sandbox mode: build/idea-sandbox/.../plugins/ghostdebugger/)
-        val pluginDir = getPluginWebDir()
-        if (pluginDir != null) {
-            val indexFile = File(pluginDir, "index.html")
-            if (indexFile.exists() && File(pluginDir, "assets").isDirectory) {
-                log.info("Found complete web dir at plugin path: ${pluginDir.absolutePath}")
-                return indexFile.toURI().toString()
-            }
-        }
-
-        // 2. Try source resources directory (development — when running ./gradlew runIde from project root)
+        // 1. Try source resources directory (development — when running ./gradlew runIde from project root)
         val srcResourceWeb = File("src/main/resources/web/index.html")
         if (srcResourceWeb.exists()) {
             log.info("Found web resources at source path: ${srcResourceWeb.canonicalPath}")
             return srcResourceWeb.canonicalFile.toURI().toString()
         }
 
-        // 3. Try build output directory
+        // 2. Try build output directory
         val buildResourceWeb = File("build/resources/main/web/index.html")
         if (buildResourceWeb.exists()) {
             log.info("Found web resources at build path: ${buildResourceWeb.canonicalPath}")
             return buildResourceWeb.canonicalFile.toURI().toString()
         }
 
-        // 4. Try classpath — if protocol is "file://", use it directly
+        // 3. Resources are on the classpath, packaged inside the plugin JAR — extract to temp.
+        // The webview build is vite-plugin-singlefile (src/main/resources/web/ is index.html only,
+        // no assets/ dir), so there is never a bare directory the classloader could serve directly
+        // once we reach this point; extraction into a temp dir is the only remaining path.
         val resource = javaClass.classLoader.getResource("web/index.html")
         if (resource != null) {
-            if (resource.protocol == "file") {
-                val resourceFile = File(resource.toURI())
-                val assetsDir = File(resourceFile.parentFile, "assets")
-                if (assetsDir.isDirectory) {
-                    log.info("Found web resources on classpath (file): ${resourceFile.absolutePath}")
-                    return resource.toExternalForm()
-                }
-            }
-
-            // 5. Resources are inside a JAR — extract everything to temp
             log.info("Web resources are inside JAR, extracting to temp directory...")
             return extractAllWebResources()
         }
@@ -146,28 +129,6 @@ class NeuroMapPanel(
             "Cannot find web/index.html. " +
             "Please build the webview first: cd webview && npm run build"
         )
-    }
-
-    private fun getPluginWebDir(): File? {
-        try {
-            val pluginId = com.intellij.ide.plugins.PluginManagerCore.getPlugin(
-                com.intellij.openapi.extensions.PluginId.getId("com.ghostdebugger")
-            ) ?: return null
-
-            val pluginPath = pluginId.pluginPath
-
-            // Check common locations in the plugin directory
-            for (subPath in listOf("classes/web", "web", "lib/classes/web", "lib/web")) {
-                val candidate = pluginPath.resolve(subPath).toFile()
-                if (candidate.exists() && candidate.isDirectory) {
-                    return candidate
-                }
-            }
-        } catch (e: Exception) {
-            if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
-            log.warn("Could not determine plugin path", e)
-        }
-        return null
     }
 
     /**
