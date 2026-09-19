@@ -132,8 +132,9 @@ class NeuroMapPanel(
     }
 
     /**
-     * Extract all web resources (index.html + assets/) from the classpath/JAR
-     * to a temporary directory that JCEF can load via file:// URLs.
+     * Extract the web resources (index.html only — the single-file Vite build never produces an
+     * assets/ directory) from the classpath/JAR to a temporary directory that JCEF can load via
+     * file:// URLs.
      */
     private fun extractAllWebResources(): String {
         val tempDir = Files.createTempDirectory("ghostdebugger-web").toFile()
