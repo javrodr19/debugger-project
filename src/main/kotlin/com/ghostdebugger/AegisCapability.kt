@@ -4,9 +4,10 @@ package com.ghostdebugger
  * A user-visible capability that Aegis Debug 3.0.0 does not ship enabled.
  *
  * Each constant owns the two strings the gate needs: [label] names the surface the user just
- * reached, and [why] is the one sentence explaining what state the work is actually in. The
- * dialog, `docs/IMPLEMENTATION_STATUS.md` and the changelog all read these, so the wording
- * cannot drift between them.
+ * reached, and [why] is the one sentence explaining what state the work is actually in. Both the
+ * dialog ([com.ghostdebugger.AegisCapabilityGate.messageFor]) and `docs/IMPLEMENTATION_STATUS.md`
+ * read these two strings verbatim, so the wording cannot drift between them. The changelog
+ * summarizes the same facts in prose rather than quoting [why] directly.
  */
 enum class AegisCapability(val label: String, val why: String) {
     FIX_APPLICATION(
@@ -17,8 +18,8 @@ enum class AegisCapability(val label: String, val why: String) {
     AI_EXPLANATION(
         label = "AI Explanation",
         why = "Issue and system explanations require a local Ollama server or an OpenAI key. The " +
-            "provider transport is untested and the Ollama path has a known defect, so the " +
-            "feature is disabled rather than shipped unreliable.",
+            "provider transport is untested end-to-end, so the feature is disabled rather than " +
+            "shipped unreliable.",
     ),
     AI_ANALYSIS(
         label = "AI Analysis Pass",
