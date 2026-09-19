@@ -1,7 +1,11 @@
 package com.ghostdebugger.actions
 
 import com.ghostdebugger.AnalysisOrchestrator
+import com.ghostdebugger.GhostDebuggerService
 import com.ghostdebugger.ReportExporter
+import com.ghostdebugger.model.Issue
+import com.ghostdebugger.model.IssueSeverity
+import com.ghostdebugger.model.IssueType
 import com.ghostdebugger.store.SuppressionMemoryService
 import com.intellij.notification.Notification
 import com.intellij.notification.Notifications
@@ -120,6 +124,54 @@ class RepairedActionsTest : BasePlatformTestCase() {
             "the third ordinary dismissal must cross the threshold on its own, unrelated to suppressNow",
             service.shouldAutoHide(fingerprint)
         )
+    }
+
+    /**
+     * The two tests above prove `suppressNow` behaves correctly in isolation, but neither one
+     * drives `SuppressFindingAction` itself -- so both would stay green even if
+     * `SuppressFindingAction.kt:21` regressed back to calling `recordDismissal`. This test
+     * closes that gap: it fires the real action through the action system and asserts *which*
+     * method on `SuppressionMemoryService` it actually calls. Checking only "the finding ended
+     * up suppressed" would not distinguish the two methods whenever the threshold happens to be
+     * 1, so this verifies `suppressNow` was invoked and `recordDismissal` was not.
+     * `AnalysisOrchestrator` is mocked too, purely so the action's trailing
+     * `service.analyzeProject()` call doesn't spin up the real analysis pipeline for what is
+     * otherwise an unrelated side effect of this action.
+     */
+    fun `test Suppress Finding Under Caret calls suppressNow, not recordDismissal`() {
+        val file = myFixture.configureByText("Main.kt", "fun main() {}\n").virtualFile
+        val issue = Issue(
+            id = "test-suppress-wiring-1",
+            type = IssueType.NULL_SAFETY,
+            severity = IssueSeverity.WARNING,
+            title = "t",
+            description = "d",
+            filePath = file.path,
+            line = 1
+        )
+        GhostDebuggerService.getInstance(project).updateIssues(listOf(issue))
+
+        val suppressionService = mockk<SuppressionMemoryService>(relaxed = true)
+        val orchestrator = mockk<AnalysisOrchestrator>(relaxed = true)
+        mockkObject(SuppressionMemoryService.Companion)
+        mockkObject(AnalysisOrchestrator.Companion)
+        every { SuppressionMemoryService.getInstance(project) } returns suppressionService
+        every { AnalysisOrchestrator.getInstance(project) } returns orchestrator
+        try {
+            val context = SimpleDataContext.builder()
+                .add(CommonDataKeys.PROJECT, project)
+                .add(CommonDataKeys.VIRTUAL_FILE, file)
+                .add(CommonDataKeys.EDITOR, myFixture.editor)
+                .build()
+            ActionManager.getInstance().getAction("GhostDebugger.SuppressFinding")
+                .actionPerformed(TestActionEvent.createTestEvent(context))
+
+            verify(exactly = 1) { suppressionService.suppressNow(issue.fingerprint()) }
+            verify(exactly = 0) { suppressionService.recordDismissal(any()) }
+        } finally {
+            unmockkObject(SuppressionMemoryService.Companion)
+            unmockkObject(AnalysisOrchestrator.Companion)
+        }
     }
 
     /**
