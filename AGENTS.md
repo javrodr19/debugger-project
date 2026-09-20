@@ -455,8 +455,8 @@ A non-exhaustive list of mistakes prior agents have made:
   local tool state — `.gitignore` excludes them and the V1.5 cleanup explicitly
   un-tracked the ones that had leaked in.
 - **Don't** introduce backwards-compat shims for code you wrote yesterday. The
-  facade's public API (the six methods listed in `GhostDebuggerService.kt`) needs
-  compatibility; everything else is `internal` and you can change it.
+  facade's public API listed in `GhostDebuggerService.kt` needs compatibility;
+  everything else is `internal` and you can change it.
 - **Don't** mark anything `@ApiStatus.Experimental` or expose a plugin extension point
   unless the spec explicitly designs it as third-party-facing. Public API is a
   long-term commitment.
