@@ -47,9 +47,11 @@ which is why this entry, not those, is where the capability gate lives.
   body because `kotlinx.serialization`'s `encodeDefaults` is `false` by default; the field is now
   pinned to always encode.
 - **Documentation reconciled against measured counts.** "Eleven deterministic analyzers" and
-  "five deterministic fixers" undercounted the registries (12 and 8) in README, this file's own
-  `plugin.xml` description, and the project landing page. A test now pins every documented count
-  to the registry it describes, so the two cannot drift apart again. New:
+  "five deterministic fixers" undercounted the registries (12 and 8) in README, `plugin.xml`'s
+  own `<description>` (both the inline copy and `build.gradle.kts`'s authoritative one, which
+  `patchPluginXml` actually writes into the shipped plugin), and the project landing page. A test
+  now pins every documented count to the registry it describes, so the two cannot drift apart
+  again. New:
   `docs/IMPLEMENTATION_STATUS.md` (what's live, what's gated and why, what's implemented with no
   consumer yet) and `docs/audit-2026-09-final-release.md` (the full audit this release closes out),
   replacing `docs/audit-2026-06-post-v2.md`.
@@ -58,9 +60,10 @@ which is why this entry, not those, is where the capability gate lives.
 
 The two sections below were written as if 2.0.0 would tag and ship on its own; it never did.
 Their content is real and tested, but several of the capabilities they describe are gated per
-this entry — most of "V2 — Dynamic Validation" and all of "V3 — Fix Engine, Custom Rules, Rule
-Packs & External SDK" ship disabled. Read `docs/IMPLEMENTATION_STATUS.md` before assuming a
-bullet below is live in this release.
+this entry — most of "V2 — Dynamic Validation" ships disabled, and within "V3," fix application
+(V3.0/V3.3), rule packs (V3.2), and the external SDK (V3.4) ship disabled. Custom rule authoring
+(V3.1) is the exception: it runs unconditionally, ungated, as one of the 12 registered analyzers.
+Read `docs/IMPLEMENTATION_STATUS.md` before assuming a bullet below is live in this release.
 
 ### V2 — Dynamic Validation & IDE-Native Integration
 
@@ -77,7 +80,7 @@ bullet below is live in this release.
 - **AI-Supervised Fix Engine.** Fix application routes through `FixEngine.fixSupervised`: AI plans/supervises deterministic `FixOperation`s, verified by Tier-1 & Tier-2 verifiers (`FixPlanApplicator`).
 - **V3.1 Custom Rule Authoring.** Repo-specific declarative YAML rules (`.aegis/rules/*.yml`) with `CustomRuleService`, `CustomRuleAnalyzer`, `RuleMatcher`, and `IssueSource.CUSTOM`.
 - **V3.2 Rule Packs.** Curated, togglable rule bundles (React strict, Kotlin coroutines, Node security) + project packs (`.aegis/packs/*.yml`) via `RulePackService`.
-- **V3.3 Fix-Preview UX.** Line-by-line & side-by-side diff previews (`FixDiffGenerator`), batch fix diff preview (`BatchFixPreview`), and interactive Swing preview dialog (`FixPreviewDialog`).
+- **V3.3 Fix-Preview UX.** Line-by-line unified diff generation (`FixDiffGenerator`), batch fix diff preview (`BatchFixPreview`), and a Swing preview dialog (`FixPreviewDialog`) — a single scrollable, color-coded unified-diff view (`+`/`-`/space-prefixed lines in one `JTextPane`), not a side-by-side dual-pane view.
 - **V3.4 External Analyzer SDK.** Dynamic loading of third-party `.jar` analyzers (`.aegis/analyzers/*.jar`) using `ExternalAnalyzerLoader` with isolated `URLClassLoader`, PCE rethrow protection, and `IssueSource.EXTERNAL_SDK` provenance tagging.
 - **No-Regression & Quality Gates.** `SingleFileStaticReanalysis` + Kover coverage measurement (`0.9.1`).
 

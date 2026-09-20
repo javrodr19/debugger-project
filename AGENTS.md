@@ -21,7 +21,9 @@ understand the conventions**. Skim, in order:
 2. `CLAUDE.md` — build prerequisites and code conventions with their reasoning.
 3. `docs/superpowers/specs/` — most recent spec for context on the current release line.
 4. `docs/superpowers/plans/` — the matching plan, if one exists.
-5. `docs/aegis_v1_history.md` — V1 phases and why decisions were made as they were.
+5. `CHANGELOG.md`'s `1.0.0` through `1.5.0` entries — V1's phases and why decisions were
+   made as they were. There is no separate history document; a reference to
+   `docs/aegis_v1_history.md` here was itself stale and has been removed.
 
 Three to ten minutes of reading prevents most of the mistakes documented below.
 
@@ -284,9 +286,10 @@ exceptions, both `internal var` fields you may assign to from a collaborator, ar
 - `service.lastInMemoryGraph`
 
 Anything else: route through the facade. If you find yourself wanting a new state
-field on a collaborator, add it to the facade instead — the V2 collaborators that
-will land later (test-runner cross-check, Problems-view emit) read the same state,
-and divergent per-collaborator copies cause UI inconsistencies.
+field on a collaborator, add it to the facade instead — collaborators added since
+(`TestRunObserver` for test-runner cross-check, `ProblemsViewCoordinator` for
+Problems-view emit — both gated in 3.0.0, see `docs/IMPLEMENTATION_STATUS.md`) read
+the same state, and divergent per-collaborator copies cause UI inconsistencies.
 
 ### 5.3 New collaborators
 
@@ -312,8 +315,10 @@ the test-recording stub installed via `setBridgeForTest`).
 ### 5.5 Fixers
 
 - One file per fixer. Inherit from the `Fixer` interface.
-- `derive(...)` must return `null` if the fix can't be guaranteed PSI-valid. The
-  orchestrator falls back to the AI path automatically.
+- Implement `generateFix(...)` (or the PSI-driven `generateFixFromPsi(...)` /
+  op-emitting `generatePlan(...)`) and return `null` if the fix can't be guaranteed
+  PSI-valid. `FixDeriver.derive`/`derivePlan` — the caller, not something a `Fixer`
+  overrides — tries yours and falls back to the AI path on a `null`.
 - Fixers run inside a `WriteCommandAction` via `FixApplicator`; do not start your
   own write action.
 - PSI-driven, not regex-on-source. The V1.4.1 audit found a fixer that rewrote
@@ -418,7 +423,8 @@ Before opening a PR or saying "done":
 1. `./gradlew compileKotlin` — exit 0.
 2. `./gradlew test --tests <new test classes>` — green.
 3. `./gradlew verifyPlugin` if your change touches plugin metadata, extension
-   points, or IDE APIs — three Compatible verdicts (IU 2024.3.2.2 / 2025.1 / 2026.1).
+   points, or IDE APIs — four Compatible verdicts (IU 2024.3.2.2 / 2025.1 / 2026.1 /
+   2026.2, per `build.gradle.kts`'s `pluginVerification.ides` block).
 4. Manual smoke test in the IDE if the change is UI-visible. Type checking is not
    feature checking.
 

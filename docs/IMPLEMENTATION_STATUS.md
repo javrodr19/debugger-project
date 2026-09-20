@@ -84,11 +84,27 @@ future contributor as "why does this exist."
 | Item | Evidence | Note |
 |---|---|---|
 | `ParsedFile.exports` | `model/AnalysisModels.kt:112-120` | Populated by all three symbol extractors (`JavaPsiSymbolExtractor`, `KotlinPsiSymbolExtractor`, `TsJsRegexSymbolExtractor`) and covered by their tests; no analyzer consumes it yet. Kept for a future unused-export analyzer. |
-| `FixPreviewDialog` | `fix/engine/FixPreviewDialog.kt` | Interactive Swing preview dialog; zero callers outside its own declaration. |
+| `FixPreviewDialog` | `fix/engine/FixPreviewDialog.kt` | Swing `DialogWrapper` rendering a single, scrollable, color-coded unified diff in one `JTextPane` (`+`/`-`/space-prefixed lines, `:48-77`) — not a side-by-side dual-pane view. Zero callers outside its own declaration. |
 | `BatchFixPreview` | `fix/engine/BatchFixPreview.kt` | Batch fix diff preview; zero callers outside its own declaration. |
-| `FixDiffGenerator` | `fix/engine/FixDiffGenerator.kt` | Line-by-line / side-by-side diff generation; zero callers outside its own declaration. These three would back a preview UI in front of fix application, which is itself gated (`FIX_APPLICATION` above) — there is no live surface for them to attach to yet. |
+| `FixDiffGenerator` | `fix/engine/FixDiffGenerator.kt` | Line-by-line unified diff generation (`DiffLine`/`DiffHunk` models); zero callers outside its own declaration. These three would back a preview UI in front of fix application, which is itself gated (`FIX_APPLICATION` above) — there is no live surface for them to attach to yet. |
 | The three bundled rule packs | `src/main/resources/rules/packs/{kotlin-coroutines,node-security,react-strict}.yml` | Loaded by `RulePackService.availablePacks()`, but `packRules()` — the only path that would feed them into analysis — is gated by `RULE_PACKS` above. |
 | `showUnreached` (setting) | `bridge/JcefBridge.kt:133,146`; `webview/src/stores/appStore.ts:28,81,94,248` | Plumbed end to end — read from settings into the webview payload, stored in the webview's state — but no leaf component renders differently based on it. Different defect from having no read site at all, which is why it was kept rather than deleted alongside the five settings fields that had none. |
+
+## Documentation scope
+
+This document, the README, `plugin.xml`, `site/index.html`, `CHANGELOG.md`, and
+`DATA_HANDLING.md` are held to this release's standard: every count is pinned by
+`DocumentationCountsTest`, and every claim above cites `file:line`.
+
+**`obsidian-vault/` is not.** It is developer working notes (32 files), not reconciled as part of
+this release. Two stale instances turned up incidentally while writing this document — not from a
+full audit of the vault, which is separate work — and are recorded here so a reader who opens the
+vault is warned rather than misled: `20_Features/Plugin_Actions.md` lists `ReanalyzeFileAction
+(Ctrl+Alt+A)` and `NavigateFindingAction (F2/Shift+F2)`, neither of which is registered (verified
+against `plugin.xml`); `20_Features/Fix_Preview_UX.md` describes `FixDiffGenerator` and
+`FixPreviewDialog` as producing "side-by-side" diff views with `Enter`/`Alt+A`/`Esc` keyboard
+navigation, none of which exists in the current implementation (see the `FixPreviewDialog` row
+above). Treat any other claim in the vault as unverified until it is audited.
 
 ## See also
 
