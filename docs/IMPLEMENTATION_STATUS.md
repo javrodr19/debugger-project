@@ -1,7 +1,7 @@
 # Implementation Status — Aegis Debug 3.0.0
 
-**Last verified:** 2026-09-20, against a clean `./gradlew test` run (545 passing, 0 failures, 0
-errors, 0 skipped, 162 test classes — 541/161 before this document's own
+**Last verified:** 2026-09-20, against a clean `./gradlew cleanTest test` run (546 passing, 0
+failures, 0 errors, 0 skipped, 163 test classes — 541/161 before this document's own
 `DocumentationCountsTest` was added) on branch `feat/final-release-gate`.
 
 This document is the single reference for what in Aegis Debug actually works, what is implemented
