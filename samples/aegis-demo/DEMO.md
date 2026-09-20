@@ -94,25 +94,14 @@ design — that dialog is not a malfunction, it is the feature telling you it is
 release. The dialog and this section both read the same `why` text from
 `AegisCapability.kt`, so they cannot drift apart:
 
-- **Apply Fix** — Aegis Debug 3.0 ships as a read-only analysis tool. The fix engine is
-  implemented and tested, but fix application is not enabled in this release.
-- **AI Explanation** — Issue and system explanations require a local Ollama server or an OpenAI
-  key. The provider transport is untested end-to-end, so the feature is disabled rather than
-  shipped unreliable.
-- **AI Analysis Pass** — The AI analysis pass is disabled in this release. All findings you see
-  come from the deterministic static analyzers.
-- **Dependency Graph for Kotlin and Java** — Internal graph edges are resolved only for relative
-  imports, so Kotlin and Java projects produce an edgeless graph. Impact analysis and cycle
-  detection are therefore available for TypeScript and JavaScript only.
-- **Rule Packs** — The three bundled packs cannot currently match real code, so enabling them
-  would add controls that never produce a finding.
-- **External Analyzer SDK** — The loader exists, but there is no published SDK artifact and no
-  documented contract for third-party analyzers yet.
-- **Problems Tool Window Integration** — Publishing to the native Problems view violates the
-  platform's threading contract on 2024.3. Findings are available in the Aegis Debug tool window
-  and in the editor.
-- **Debugger Cross-Check** — Runtime confirmation from a paused debug session is not reachable on
-  IntelliJ IDEA Community. Test-suite cross-check remains active.
+- **Apply Fix** — Aegis Debug 3.0 ships as a read-only analysis tool. The fix engine is implemented and tested, but fix application is not enabled in this release.
+- **AI Explanation** — Issue and system explanations require a local Ollama server or an OpenAI key. The provider transport is untested end-to-end, so the feature is disabled rather than shipped unreliable.
+- **AI Analysis Pass** — The AI analysis pass is disabled in this release. All findings you see come from the deterministic static analyzers.
+- **Dependency Graph for Kotlin and Java** — Internal graph edges are resolved only for relative imports, so Kotlin and Java projects produce an edgeless graph. Impact analysis and cycle detection are therefore available for TypeScript and JavaScript only.
+- **Rule Packs** — The three bundled packs cannot currently match real code, so enabling them would add controls that never produce a finding.
+- **External Analyzer SDK** — The loader exists, but there is no published SDK artifact and no documented contract for third-party analyzers yet.
+- **Problems Tool Window Integration** — Publishing to the native Problems view violates the platform's threading contract on 2024.3. Findings are available in the Aegis Debug tool window and in the editor.
+- **Debugger Cross-Check** — Runtime confirmation from a paused debug session is not reachable on IntelliJ IDEA Community. Test-suite cross-check remains active.
 
 See [`docs/IMPLEMENTATION_STATUS.md`](../../docs/IMPLEMENTATION_STATUS.md) in the repository root
 for the full breakdown of what's live versus gated, and why.
