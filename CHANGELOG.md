@@ -61,9 +61,13 @@ which is why this entry, not those, is where the capability gate lives.
 The two sections below were written as if 2.0.0 would tag and ship on its own; it never did.
 Their content is real and tested, but several of the capabilities they describe are gated per
 this entry — most of "V2 — Dynamic Validation" ships disabled, and within "V3," fix application
-(V3.0/V3.3), rule packs (V3.2), and the external SDK (V3.4) ship disabled. Custom rule authoring
-(V3.1) is the exception: it runs unconditionally, ungated, as one of the 12 registered analyzers.
-Read `docs/IMPLEMENTATION_STATUS.md` before assuming a bullet below is live in this release.
+(the AI-Supervised Fix Engine bullet), rule packs (V3.2), and the external SDK (V3.4) ship
+disabled under the capability gate. V3.3's Fix-Preview UX classes (`FixDiffGenerator`,
+`BatchFixPreview`, `FixPreviewDialog`) are a different status, not the same one: nothing gates
+them, they simply have no caller — "implemented, no consumer" in `docs/IMPLEMENTATION_STATUS.md`,
+not a capability this release turned off. Custom rule authoring (V3.1) is the one V3 item that is
+neither: it runs unconditionally, ungated, as one of the 12 registered analyzers. Read
+`docs/IMPLEMENTATION_STATUS.md` before assuming a bullet below is live in this release.
 
 ### V2 — Dynamic Validation & IDE-Native Integration
 

@@ -92,9 +92,17 @@ future contributor as "why does this exist."
 
 ## Documentation scope
 
-This document, the README, `plugin.xml`, `site/index.html`, `CHANGELOG.md`, and
-`DATA_HANDLING.md` are held to this release's standard: every count is pinned by
-`DocumentationCountsTest`, and every claim above cites `file:line`.
+This document, `README.md`, `plugin.xml`, and `site/index.html` are held to the tightest
+standard this release has: `DocumentationCountsTest` opens all four and pins their analyzer,
+fixer, and inspection counts to the registries directly, so those four cannot drift from the code
+without a test failing. Every claim above also cites `file:line`.
+
+`CHANGELOG.md` and `DATA_HANDLING.md` were reviewed against source for this release — every claim
+in them was checked, not carried forward — but neither is opened by `DocumentationCountsTest` or
+any other test. Their counts (capabilities gated, actions repaired, settings removed, the 2000-line
+and 800-char AI payload caps, the cache TTL) are accurate as of this writing and can drift
+silently if the underlying numbers change later, the same way the retired "eleven analyzers"
+claim did. Treat them as reviewed-once, not continuously guarded.
 
 **`obsidian-vault/` is not.** It is developer working notes (32 files), not reconciled as part of
 this release. Two stale instances turned up incidentally while writing this document — not from a

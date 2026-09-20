@@ -287,9 +287,10 @@ exceptions, both `internal var` fields you may assign to from a collaborator, ar
 
 Anything else: route through the facade. If you find yourself wanting a new state
 field on a collaborator, add it to the facade instead — collaborators added since
-(`TestRunObserver` for test-runner cross-check, `ProblemsViewCoordinator` for
-Problems-view emit — both gated in 3.0.0, see `docs/IMPLEMENTATION_STATUS.md`) read
-the same state, and divergent per-collaborator copies cause UI inconsistencies.
+(`TestRunObserver` for test-runner cross-check, which runs unconditionally;
+`ProblemsViewCoordinator` for Problems-view emit, gated under `PROBLEMS_VIEW_EMIT`
+— see `docs/IMPLEMENTATION_STATUS.md`) read the same state, and divergent
+per-collaborator copies cause UI inconsistencies.
 
 ### 5.3 New collaborators
 
