@@ -40,6 +40,7 @@ breakdown. In short:
 3. **Analyze** — Click **Analyze Project** to build your NeuroMap and identify code issues.
 4. **Review** — Click any node in the NeuroMap to see its findings in the detail panel.
 5. **Read the gaps** — See [Implementation Status](docs/IMPLEMENTATION_STATUS.md) for what's gated in this release and why, before assuming a feature you read about elsewhere is live.
+6. **Or just try the demo** — No project of your own handy? [`samples/aegis-demo`](samples/aegis-demo/DEMO.md) is a small TypeScript/React + Kotlin project that trips seven analyzer rules out of the box, with a walkthrough of exactly what you'll see and where to look.
 
 ## Privacy & Security
 
