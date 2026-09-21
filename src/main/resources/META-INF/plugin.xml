@@ -4,48 +4,53 @@
     <version>3.0.0</version>
     <vendor email="team@aegisdebug.dev" url="https://aegisdebug.dev">Aegis Debug</vendor>
 
-    <idea-version since-build="243.0" until-build="261.*"/>
+    <idea-version since-build="243.0" until-build="262.*"/>
 
     <description><![CDATA[
     <h2>Aegis Debug — privacy-first debugging for IntelliJ</h2>
 
-    <p><strong>Static-first analysis. Deterministic fixes. Optional local or cloud AI.</strong></p>
+    <p><strong>Static-first analysis, unconditional. Fix engine and AI augmentation: implemented, gated in 3.0.0.</strong></p>
 
     <p>
-        Aegis Debug finds real bugs in your TypeScript and JavaScript code without sending
-        anything to the cloud by default. Every finding is labeled with its
-        source — engine-verified, local AI, or cloud AI — so you always know
-        what you are trusting.
+        Aegis Debug finds real bugs in your TypeScript, JavaScript, Kotlin, and Java code without
+        sending anything to the cloud — no AI provider is reachable in this release, so there is
+        nothing to configure that results in a network request. 3.0.0 ships as a read-only
+        analysis and visualization tool: several implemented, tested capabilities are gated off
+        rather than shipped half-finished. See <code>docs/IMPLEMENTATION_STATUS.md</code> in the
+        repository for the full breakdown of what's live versus gated, and why.
     </p>
 
     <h3>What's inside</h3>
     <ul>
-        <li><strong>Language Support</strong> — Full static analysis and fixers for <strong>TypeScript & JavaScript</strong>; project graph and cycle detection for <strong>Kotlin & Java</strong>.</li>
-        <li><strong>Eleven deterministic analyzers</strong> —
-            syntax, compilation, null safety (TS/JS/Kotlin), state-before-init, async flow, circular dependencies, complexity, unsafe-cast (Kotlin), type-mismatch (Kotlin), redundant-let (Kotlin).</li>
-        <li><strong>Five deterministic fixers</strong> with diff preview and native undo.</li>
+        <li><strong>Language Support</strong> — Full line-oriented lexical analysis (regex-based, string/comment-masked) for <strong>TypeScript & JavaScript</strong>; type-aware Analysis API analyzers for <strong>Kotlin</strong>; PSI symbol extraction for <strong>Java</strong>. Dependency-graph edges resolve for relative imports only, so cycle detection and impact analysis reach TS/JS today.</li>
+        <li><strong>12 analyzers (11 built-in rules + a custom-rule engine)</strong> —
+            syntax, compilation, null safety (TS/JS/Kotlin), state-before-init, async flow, circular dependencies, complexity, unsafe-cast (Kotlin), type-mismatch (Kotlin), redundant-let (Kotlin), plus a dispatcher for user-authored YAML rules. Runs unconditionally.</li>
+        <li><strong>8 deterministic fixers</strong>, PSI-validity-gated — implemented and tested, but fix <em>application</em> is gated in 3.0.0.</li>
         <li><strong>NeuroMap</strong> — visual project graph with per-file issue overlay.</li>
         <li><strong>Engine status pill</strong> — know at a glance whether you're on static, local AI, or cloud AI.</li>
-        <li><strong>Ollama (local)</strong> or <strong>OpenAI (cloud)</strong> — both optional, both off by default.</li>
+        <li><strong>Ollama (local)</strong> and <strong>OpenAI (cloud)</strong> backends exist and are tested in isolation; the AI analysis pass and AI explanations are both gated off in 3.0.0.</li>
         <li><strong>Secure key storage</strong> via IntelliJ PasswordSafe.</li>
     </ul>
 
     <h3>Privacy by default</h3>
     <ul>
         <li>No telemetry.</li>
-        <li>No cloud uploads unless you configure them explicitly.</li>
-        <li>Local mode works offline.</li>
+        <li>No AI provider reachable in this release — the cloud-upload consent check is implemented and enforced for when AI is re-enabled.</li>
+        <li>Fully local, read-only in 3.0.0.</li>
     </ul>
 ]]></description>
 
     <change-notes><![CDATA[
-    <h3>3.0.0 — Major Release: Fixer Breadth, Custom Rules, Rule Packs & Extended Plugin Actions</h3>
+    <h3>3.0.0 — Final release: capability gate, seven repairs, honest documentation</h3>
     <ul>
-        <li><strong>Custom Rule Authoring.</strong> Enable repository-level YAML custom rule declarations (<code>.aegis/rules/*.yml</code>) with custom severities, pattern matching, and fix templates.</li>
-        <li><strong>Rule Packs.</strong> Pre-packaged, curated rule bundles (e.g. React strict, Kotlin coroutines safety, Node.js security) toggleable per project.</li>
-        <li><strong>Fix Preview & Batch Engine.</strong> Enhanced side-by-side diff preview, keyboard navigation, and batch-apply capabilities across multiple files.</li>
-        <li><strong>External SDK Analyzer Loader.</strong> Droppable third-party analyzer JAR loading via the <code>Analyzer</code> interface contract.</li>
-        <li><strong>Full Plugin Action Suite.</strong> Added complete keyboard and menu actions including ToggleRule, ShowInNeuroMap, ExportReport, CopyFindingForAI, and ConfirmDenyFinding.</li>
+        <li><strong>Capability gate.</strong> 3.0.0 ships as a read-only analysis and visualization tool. Eight implemented, tested capabilities — fix application, AI analysis, AI explanations, JVM-language impact analysis, rule packs, the external analyzer SDK, native Problems-view emit, and the live-debugger cross-check — are gated off behind a single chokepoint (<code>AegisCapabilityGate</code>) rather than shipped half-finished. Each gate's one-sentence reason is defined once and read verbatim by both the in-IDE dialog and <code>docs/IMPLEMENTATION_STATUS.md</code>, so the two cannot drift apart.</li>
+        <li><strong>Privacy defect closed.</strong> The explain and fix paths were constructing an OpenAI service without consulting the <code>allowCloudUpload</code> setting the README advertises. The consent check now lives at the single chokepoint every caller goes through (<code>AIServiceFactory.create</code>).</li>
+        <li><strong>A gate that gated nothing, fixed.</strong> The debugger cross-check guard was placed on a lifecycle method that ran after the real work had already started, so it suppressed a log line while the gated behavior kept running. Moved to the method the work actually happens in.</li>
+        <li><strong>Four repaired actions.</strong> "Show File in NeuroMap" targeted the wrong tool-window id; "Reanalyze Current File" ran a full project analysis instead of the one file named; the explicit "Suppress Finding" command recorded a dismissal instead of suppressing outright; report export's success path called a null bridge instead of showing a notification. All four now do what their label says.</li>
+        <li><strong>Five dead settings removed.</strong> <code>autoAnalyzeOnOpen</code>, <code>showInfoIssues</code>, <code>analyzeOnlyChangedFiles</code>, <code>coverageMode</code>, and <code>nudgeShownOnce</code> had zero production read sites. Every remaining setting has real effect.</li>
+        <li><strong>Ollama streaming-flag encoding fixed.</strong> <code>stream = false</code> was silently dropped from the request body by the JSON encoder's defaults; now pinned so it always encodes.</li>
+        <li><strong>Custom rule authoring</strong> (<code>.aegis/rules/*.yml</code>) and the AI-supervised fix engine (<code>FixEngine.fixSupervised</code>) are implemented and tested; rule packs and fix <em>application</em> are gated per above.</li>
+        <li><strong>Documentation reconciled against measured counts.</strong> Every analyzer/fixer/inspection/action count in README, this description, and the project landing page now matches the registries exactly, pinned by a test. See <code>docs/IMPLEMENTATION_STATUS.md</code> and <code>docs/audit-2026-09-final-release.md</code>.</li>
     </ul>
     <h3>2.0.0 — General Availability: Dynamic Validation, IDE-Native Polish, and Streaming AI</h3>
     <ul>

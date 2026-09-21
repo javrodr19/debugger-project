@@ -1,6 +1,7 @@
 package com.ghostdebugger
 
 import com.ghostdebugger.model.*
+import com.intellij.notification.Notifications
 import com.intellij.openapi.project.Project
 import io.mockk.every
 import io.mockk.mockk
@@ -22,6 +23,15 @@ class GhostDebuggerServiceReportPathTest {
     fun setUp() {
         project = mockk(relaxed = true)
         every { project.name } returns "Test Project"
+        // ReportExporter's null-graph branch now also fires a real NotificationGroupManager
+        // balloon (Task 7). Notification.notify(project) routes through
+        // project.getMessageBus().syncPublisher(Notifications.TOPIC) -- a generic method a
+        // relaxed mock can't service correctly (the erased return type comes back as a bare
+        // Object and the platform's cast to Notifications throws ClassCastException). Stubbing
+        // the publisher explicitly keeps this test's mocked Project usable for that call
+        // without pulling in a real BasePlatformTestCase fixture just for this one path; the
+        // balloon's actual content/groupId is covered for real in RepairedActionsTest.
+        every { project.messageBus.syncPublisher(Notifications.TOPIC) } returns mockk(relaxed = true)
 
         service = GhostDebuggerService(project)
 

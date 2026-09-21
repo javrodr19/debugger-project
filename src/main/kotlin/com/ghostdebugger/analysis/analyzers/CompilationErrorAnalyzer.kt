@@ -2,6 +2,7 @@ package com.ghostdebugger.analysis.analyzers
 
 import com.ghostdebugger.analysis.EarlyAnalyzer
 import com.ghostdebugger.model.*
+import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerImpl
 import com.intellij.codeInsight.daemon.impl.DaemonProgressIndicator
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
@@ -10,6 +11,7 @@ import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ProperTextRange
@@ -22,9 +24,28 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
-class CompilationErrorAnalyzer : EarlyAnalyzer {
+/**
+ * Harvests IDE-reported compilation errors by running the highlighting daemon per file.
+ *
+ * The daemon pass is expensive (0.3-2s per Kotlin file), so it runs [DAEMON_CONCURRENCY]-way
+ * parallel and is bounded by [DaemonHarvestBudget]. Per-file progress is reported through
+ * [progress]: without it a multi-minute pass renders as a frozen progress bar, which is
+ * indistinguishable from a hang.
+ */
+class CompilationErrorAnalyzer(
+    private val progress: ProgressIndicator? = null,
+    private val settingsProvider: () -> GhostDebuggerSettings.State =
+        { GhostDebuggerSettings.getInstance().snapshot() },
+    // Test seam: when set, replaces the real per-file daemon harvest (harvestFile), which needs a
+    // live IDE fixture and is impractical to drive from a latch-based concurrency test. Left null
+    // in production and in every existing call site, so behaviour is unchanged: harvestAll always
+    // falls back to the real harvestFile below.
+    private val harvestOverride: ((ParsedFile, Project) -> List<Issue>)? = null,
+) : EarlyAnalyzer {
     override val name = "CompilationErrorAnalyzer"
     override val ruleId = "AEG-COMPILE-001"
     override val defaultSeverity = IssueSeverity.ERROR
@@ -71,17 +92,66 @@ class CompilationErrorAnalyzer : EarlyAnalyzer {
     private val semaphore = Semaphore(DAEMON_CONCURRENCY)
 
     override fun analyze(context: AnalysisContext): List<Issue> = runBlocking {
-        coroutineScope {
-            context.parsedFiles.map { file ->
-                async(Dispatchers.Default) {
-                    semaphore.withPermit {
-                        ProgressManager.checkCanceled()
-                        harvestFile(file, context.project)
+        val settings = settingsProvider()
+        val budget = DaemonHarvestBudget(settings.daemonFileBudget, settings.daemonTimeBudgetMs)
+        val files = budget.select(context.parsedFiles)
+
+        if (files.size < context.parsedFiles.size) {
+            log.info(
+                "Compile-error harvest limited to ${files.size} of ${context.parsedFiles.size} " +
+                    "files by daemonFileBudget=${settings.daemonFileBudget}"
+            )
+        }
+        harvestAll(files, budget, context.project)
+    }
+
+    /**
+     * Fans the per-file daemon pass out across [DAEMON_CONCURRENCY] workers.
+     *
+     * Note the shape: `map { async { … } }.awaitAll()` genuinely runs in parallel, whereas
+     * `flatMap { withContext(…) { … } }` awaits each element before starting the next and is
+     * therefore fully sequential. That mistake is what made analysis appear to hang.
+     */
+    private suspend fun harvestAll(
+        files: List<ParsedFile>,
+        budget: DaemonHarvestBudget,
+        project: Project,
+    ): List<Issue> = coroutineScope {
+        val deadline = budget.startDeadline()
+        val total = files.size
+        val done = AtomicInteger(0)
+        val truncated = AtomicBoolean(false)
+
+        val issues = files.map { file ->
+            async(Dispatchers.Default) {
+                semaphore.withPermit {
+                    ProgressManager.checkCanceled()
+                    if (budget.expired(deadline)) {
+                        truncated.set(true)
+                        emptyList()
+                    } else {
+                        harvest(file, project).also {
+                            val n = done.incrementAndGet()
+                            progress?.text2 = "Compile check: $n/$total — ${file.virtualFile.name}"
+                        }
                     }
                 }
-            }.awaitAll().flatten()
+            }
+        }.awaitAll().flatten()
+
+        if (truncated.get()) {
+            val checked = done.get()
+            // Surfaced rather than silent: the user should know a run was capped, otherwise a
+            // partial harvest looks identical to a clean bill of health.
+            log.info("Compile-error harvest hit its time budget after $checked/$total files")
+            progress?.text2 = "Compile check: time budget reached after $checked/$total files"
         }
+        issues
     }
+
+    /** Single dispatch point for the per-file harvest: [harvestOverride] in tests, [harvestFile] in production. */
+    private fun harvest(parsedFile: ParsedFile, project: Project): List<Issue> =
+        harvestOverride?.invoke(parsedFile, project) ?: harvestFile(parsedFile, project)
 
     // runMainPasses requires both (1) a DaemonProgressIndicator installed as the thread's current
     // progress via ProgressManager.runProcess, and (2) a HighlightingSession wrapping the call.

@@ -1,7 +1,6 @@
 ---
 title: "Vault Index"
 type: "meta"
-status: "active"
 related_components: []
 aliases:
   - "Index"
@@ -19,13 +18,9 @@ Welcome to the Aegis Debug knowledge vault. Aegis Debug is a high-performance In
 - [[Agent_Guardrails]] — Instructions and constraints for AI agents.
 - [[Claude_Conventions]] — Claude-specific conventions and gotchas.
 
-## Meta & History
-- [[Roadmap]] — High-level roadmap from V2 to V5.
-- [[Changelog]] — Release history and highlights.
-
 ## Features
-- [[Static_Analyzers]] — 11 deterministic static analyzers.
-- [[Deterministic_Fixers]] — One-click PSI-valid fix engine.
+- [[Static_Analyzers]] — 12 deterministic static analyzers.
+- [[Deterministic_Fixers]] — One-click PSI-valid fixes.
 - [[V2_Dynamic_Validation]] — Runtime confirmation, debug & test runner cross-checks.
 - [[Custom_Rule_Authoring]] — Declarative YAML rules in `.aegis/rules/` (V3.1).
 - [[Rule_Packs]] — Curated and project-level rule packs (V3.2).
@@ -44,6 +39,7 @@ Welcome to the Aegis Debug knowledge vault. Aegis Debug is a high-performance In
 - [[UIEventRouter]] — Event dispatching & AI response caching.
 - [[FileChangeWatcher]] — VFS event watcher & live document sync.
 - [[DebugSessionCoordinator]] — Debug session cross-check & dynamic validation.
+- [[FixEngine]] — Deterministic fix planning & application engine, incl. the AI-supervised loop (V3).
 - [[BaseAIService]] — Shared parent for Ollama and OpenAI backends.
 - [[KotlinAnalysisHelpers]] — Kotlin Analysis API single chokepoint (`withKtAnalysis`).
 - [[JcefBridge_and_BridgeChannel]] — JCEF communication & serialization security.
@@ -58,4 +54,6 @@ Welcome to the Aegis Debug knowledge vault. Aegis Debug is a high-performance In
 - [[Plugin_Configuration_Guide]] — Configurable thresholds, settings, and privacy options.
 
 ## Specs & Plans
-All technical specs and implementation plans are located in the [[30_Specs_and_Plans/]] folder.
+Specs and implementation plans live in the repository, not the vault:
+`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and
+`docs/superpowers/plans/YYYY-MM-DD-<topic>.md`.

@@ -23,22 +23,22 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         var ollamaModel: String = "llama3",
         var maxFilesToAnalyze: Int = 500,
         var maxAiFiles: Int = 40,
-        var autoAnalyzeOnOpen: Boolean = false,
-        var showInfoIssues: Boolean = true,
         var cacheEnabled: Boolean = true,
         var cacheTtlSeconds: Long = 3600,
         var aiTimeoutMs: Long = 30_000,
         var allowCloudUpload: Boolean = false,
-        var analyzeOnlyChangedFiles: Boolean = false,
         var aiCacheMaxEntries: Int = 256,
         var maxDependentsToReanalyze: Int = 20,
         var maxComplexity: Int = 10,
+        // --- V3 daemon-harvest budgets ---
+        // CompilationErrorAnalyzer runs the full highlighting daemon per file; these cap that pass
+        // so a large project cannot make analysis look hung. See DaemonHarvestBudget.
+        var daemonFileBudget: Int = 150,
+        var daemonTimeBudgetMs: Long = 60_000,
         // --- V2.0 Settings ---
-        var coverageMode: String = "Ask each time",
         var suppressionThreshold: Int = 3,
         var showUnreached: Boolean = false,
-        var showSuppressed: Boolean = false,
-        var nudgeShownOnce: Boolean = false
+        var showSuppressed: Boolean = false
     )
 
     private var myState = State()
@@ -56,7 +56,14 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
     }
 
     private fun State.validate(): State {
-        if (maxFilesToAnalyze <= 0) maxFilesToAnalyze = 500
+        validateAiProviderClamps()
+        validateAnalysisBudgetClamps()
+        validateSuppressionClamps()
+        return this
+    }
+
+    /** Clamps AI-provider connection settings and the AI response cache to safe defaults. */
+    private fun State.validateAiProviderClamps() {
         if (maxAiFiles < 0) maxAiFiles = 0
         if (cacheTtlSeconds < 0) cacheTtlSeconds = 0
         if (aiTimeoutMs <= 0) aiTimeoutMs = 30_000
@@ -64,12 +71,21 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
         if (ollamaModel.isBlank()) ollamaModel = "llama3"
         if (openAiModel.isBlank()) openAiModel = "gpt-4o"
         if (aiCacheMaxEntries <= 0) aiCacheMaxEntries = 256
+    }
+
+    /** Clamps static-analysis scope/budget settings, including the V3 daemon-harvest budgets. */
+    private fun State.validateAnalysisBudgetClamps() {
+        if (maxFilesToAnalyze <= 0) maxFilesToAnalyze = 500
         if (maxDependentsToReanalyze < 0) maxDependentsToReanalyze = 0
         if (maxComplexity < 1) maxComplexity = 10
+        if (daemonFileBudget <= 0) daemonFileBudget = 150
+        if (daemonTimeBudgetMs <= 0) daemonTimeBudgetMs = 60_000
+    }
+
+    /** Clamps the V2.0 suppression-threshold UI setting. */
+    private fun State.validateSuppressionClamps() {
         if (suppressionThreshold < 1) suppressionThreshold = 3
         if (suppressionThreshold > 10) suppressionThreshold = 10
-        if (coverageMode !in setOf("Always", "Ask each time", "Never")) coverageMode = "Ask each time"
-        return this
     }
 
     // Legacy accessors retained for existing call sites (Phase 1 does not rewrite consumers).
@@ -80,10 +96,6 @@ class GhostDebuggerSettings : PersistentStateComponent<GhostDebuggerSettings.Sta
     var maxFilesToAnalyze: Int
         get() = myState.maxFilesToAnalyze
         set(value) { update { maxFilesToAnalyze = value } }
-
-    var autoAnalyzeOnOpen: Boolean
-        get() = myState.autoAnalyzeOnOpen
-        set(value) { update { autoAnalyzeOnOpen = value } }
 
     companion object {
         fun getInstance(): GhostDebuggerSettings =

@@ -1,7 +1,6 @@
 ---
 title: "DebugSessionCoordinator"
 type: "architecture"
-status: "active"
 related_components:
   - "[[GhostDebuggerService]]"
 aliases: []

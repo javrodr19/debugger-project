@@ -1,7 +1,6 @@
 ---
 title: "InMemoryGraph and Parser"
 type: "architecture"
-status: "active"
 related_components:
   - "[[NeuroMap_Webview]]"
   - "[[AnalysisOrchestrator]]"

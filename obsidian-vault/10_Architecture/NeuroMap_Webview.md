@@ -1,7 +1,6 @@
 ---
 title: "NeuroMap Webview"
 type: "architecture"
-status: "active"
 related_components:
   - "[[UIEventRouter]]"
 aliases:

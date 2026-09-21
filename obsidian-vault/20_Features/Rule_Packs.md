@@ -1,7 +1,6 @@
 ---
 title: "Rule Packs (V3.2)"
 type: "feature"
-status: "active"
 related_components:
   - "[[Custom_Rule_Authoring]]"
   - "[[GhostDebuggerService]]"

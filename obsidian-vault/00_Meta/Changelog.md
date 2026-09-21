@@ -1,7 +1,6 @@
 ---
 title: "Changelog"
 type: "meta"
-status: "active"
 related_components: []
 aliases: []
 tags:

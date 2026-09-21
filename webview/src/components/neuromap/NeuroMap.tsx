@@ -4,6 +4,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -186,6 +187,22 @@ export function NeuroMap({ graph }: NeuroMapProps) {
         style={{ background: '#0d1117' }}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#21262d" />
+        {edges.length === 0 && nodes.length > 0 && (
+          <Panel position="top-center">
+            <div
+              style={{
+                background: '#161b22',
+                border: '1px solid #30363d',
+                borderRadius: 0,
+                padding: '6px 12px',
+                color: '#8b949e',
+                fontSize: 11,
+              }}
+            >
+              Dependency edges are resolved for relative imports only, so Kotlin and Java projects show files without edges.
+            </div>
+          </Panel>
+        )}
         <Controls
           showInteractive={false}
           style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 0 }}

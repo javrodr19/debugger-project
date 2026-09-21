@@ -1,7 +1,6 @@
 ---
 title: "Claude Conventions"
 type: "meta"
-status: "active"
 related_components: []
 aliases:
   - "CLAUDE.md"

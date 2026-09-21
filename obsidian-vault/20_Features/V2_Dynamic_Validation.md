@@ -1,12 +1,12 @@
 ---
 title: "V2 Dynamic Validation"
 type: "feature"
-status: "active"
 related_components:
   - "[[DebugSessionCoordinator]]"
-  - "[[TestRunObserver]]"
-  - "[[SuppressionMemoryService]]"
   - "[[ProblemsViewCoordinator]]"
+source_files:
+  - "src/main/kotlin/com/ghostdebugger/store/TestRunObserver.kt"
+  - "src/main/kotlin/com/ghostdebugger/store/SuppressionMemoryService.kt"
 tags:
   - feature
   - dynamic-validation

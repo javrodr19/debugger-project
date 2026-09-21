@@ -29,6 +29,4 @@ object ApiKeyManager {
         val credentials = Credentials(KEY_NAME, key)
         PasswordSafe.instance.set(attributes, credentials)
     }
-
-    fun hasApiKey(): Boolean = !getApiKey().isNullOrBlank()
 }

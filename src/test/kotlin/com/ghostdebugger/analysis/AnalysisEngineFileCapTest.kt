@@ -1,16 +1,37 @@
 package com.ghostdebugger.analysis
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.ghostdebugger.model.AnalysisContext
 import com.ghostdebugger.model.ParsedFile
 import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.ghostdebugger.testutil.FixtureFactory
 import kotlinx.coroutines.test.runTest
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * AI_ANALYSIS is gated in 3.0.0 (Task 5's `AnalysisEngine.runAiPass` guard): the pass now reports
+ * DISABLED before the provider `when` is ever reached, regardless of `aiProvider`. The two OPENAI
+ * cases below were written to exercise `maxAiFiles` capping *inside* `runOpenAiPass`, which is
+ * unreachable while the gate is up. Lifting AI_ANALYSIS here restores that reachability without
+ * touching what actually ships; [AegisCapabilityGate.resetForTest] undoes it after every test.
+ */
 class AnalysisEngineFileCapTest {
+
+    @BeforeTest
+    fun enableAiAnalysisForTest() {
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.AI_ANALYSIS))
+    }
+
+    @AfterTest
+    fun resetGate() {
+        AegisCapabilityGate.resetForTest()
+    }
 
     private fun files(n: Int): List<ParsedFile> =
         (1..n).map { FixtureFactory.parsedFile("/src/F$it.tsx", "tsx", "// stub\n") }

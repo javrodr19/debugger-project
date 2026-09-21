@@ -1,7 +1,6 @@
 ---
 title: "Project Principles"
 type: "concept"
-status: "active"
 related_components: []
 aliases:
   - "Principles"

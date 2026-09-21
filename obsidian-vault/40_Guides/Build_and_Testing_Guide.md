@@ -1,7 +1,6 @@
 ---
 title: "Build and Testing Guide"
 type: "guide"
-status: "active"
 related_components:
   - "[[Claude_Conventions]]"
   - "[[Agent_Guardrails]]"

@@ -495,20 +495,25 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
             { com.ghostdebugger.fix.engine.SingleFileStaticReanalysis(project).issuesFor(it) },
         fixVerified: suspend (Issue, VirtualFile, String, List<Issue>) -> FixApplyResult =
             { i, v, c, b -> FixEngine(project).fixSupervised(i, v, c, b, resolveAiService()) },
-    ): Job = scope.launch {
-        try {
-            val baseline = baselineProvider(virtualFile)
-            when (val result = fixVerified(issue, virtualFile, content, baseline)) {
-                is FixApplyResult.Success -> reanalyzeFile(virtualFile.path)
-                is FixApplyResult.Rejected -> notifyFixRejected(issue, result.reason)
-                is FixApplyResult.Failed ->
-                    notifyFixRejected(issue, result.throwable.message ?: "Fix failed unexpectedly.")
+    ): Job {
+        if (AegisCapabilityGate.blockIfGated(project, AegisCapability.FIX_APPLICATION)) {
+            return scope.launch { /* gated: nothing to do */ }
+        }
+        return scope.launch {
+            try {
+                val baseline = baselineProvider(virtualFile)
+                when (val result = fixVerified(issue, virtualFile, content, baseline)) {
+                    is FixApplyResult.Success -> reanalyzeFile(virtualFile.path)
+                    is FixApplyResult.Rejected -> notifyFixRejected(issue, result.reason)
+                    is FixApplyResult.Failed ->
+                        notifyFixRejected(issue, result.throwable.message ?: "Fix failed unexpectedly.")
+                }
+            } catch (e: ProcessCanceledException) {
+                throw e
+            } catch (e: Exception) {
+                log.warn("Verified fix failed for ${issue.filePath}", e)
+                notifyFixRejected(issue, e.message ?: "Fix failed unexpectedly.")
             }
-        } catch (e: ProcessCanceledException) {
-            throw e
-        } catch (e: Exception) {
-            log.warn("Verified fix failed for ${issue.filePath}", e)
-            notifyFixRejected(issue, e.message ?: "Fix failed unexpectedly.")
         }
     }
 
@@ -521,12 +526,19 @@ internal class AnalysisOrchestrator(private val project: Project) : Disposable {
             .notify(project)
     }
 
-    /** Resolve the configured AIService, or null when AI is disabled / unconfigured. */
+    /**
+     * Resolve the configured AIService, or null when AI is disabled / unconfigured.
+     * Cloud consent ("Allow cloud upload") is enforced inside [AIServiceFactory.create], not
+     * here — see that chokepoint for the OPENAI-without-consent refusal.
+     */
     private fun resolveAiService(): AIService? {
         val settings = GhostDebuggerSettings.getInstance().snapshot()
         if (settings.aiProvider == AIProvider.NONE) return null
         return AIServiceFactory.create(settings, ApiKeyManager.getApiKey())
     }
+
+    /** Test-only seam: [resolveAiService] is private; tests assert on its result directly. */
+    internal fun resolveAiServiceForTest(): AIService? = resolveAiService()
 
     private fun service(): GhostDebuggerService = GhostDebuggerService.getInstance(project)
 

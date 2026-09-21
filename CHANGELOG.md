@@ -2,9 +2,72 @@
 
 All notable changes to Aegis Debug are documented here.
 
-## [Unreleased] — 2.0.0
+## [3.0.0] — 2026-09-20 — Final release: capability gate, seven repairs, honest documentation
 
-> **Not tagged, not released.** This entry records what is *built and merged to `main`*.
+This is the first tagged, released version since 1.5.0. Everything under "2.0.0" and "3.0.0-dev"
+below was built but never shipped on its own — it all reaches a user for the first time here,
+which is why this entry, not those, is where the capability gate lives.
+
+### What changed to make this release honest
+
+- **Capability gate.** 3.0.0 ships as a read-only analysis and visualization tool. Eight
+  implemented, tested capabilities are gated off behind one chokepoint, `AegisCapabilityGate`,
+  rather than shipped half-finished: `FIX_APPLICATION`, `AI_EXPLANATION`, `AI_ANALYSIS`,
+  `JVM_DEPENDENCY_GRAPH`, `RULE_PACKS`, `EXTERNAL_ANALYZERS`, `PROBLEMS_VIEW_EMIT`,
+  `DEBUGGER_CROSS_CHECK`. Each capability's reason is a single sentence, defined once on
+  `AegisCapability`, that the in-IDE dialog and `docs/IMPLEMENTATION_STATUS.md` both read
+  verbatim — the two cannot say different things about the same capability.
+- **Privacy defect closed.** The explain and fix paths constructed an OpenAI service without
+  consulting the `allowCloudUpload` setting the README advertises — both `resolveAiService()`
+  call sites (`UIEventRouter`, `AnalysisOrchestrator`) bypassed the one production site that did
+  check it. The consent check now lives once, at the single chokepoint every caller goes through
+  (`AIServiceFactory.create`), so no future caller can reintroduce the bypass.
+- **A gate that gated nothing, found and fixed.** During this work, the debugger cross-check's
+  guard was placed on `DebugObserver.start()` — a method that only logs. The platform subscription
+  that does the real work runs in `init {}`, at construction, before `start()` is ever called, so
+  the guard suppressed one log line while the gated behavior (`RuntimeEvidenceStore.record(...)`
+  on every debugger pause) kept running underneath it. Moved to the first line of
+  `evaluateRelevantFindingsAtCurrentFrame()`, the method every path into the pipeline converges on.
+  Recorded in `docs/audit-2026-09-final-release.md` because it is the same failure mode this
+  release exists to catch, found inside the mechanism built to fix it.
+- **Four repaired user-visible actions.** "Show File in NeuroMap" targeted tool-window id
+  `"Aegis Debug"` against a window registered as `"GhostDebugger"`, so it was a silent no-op.
+  "Reanalyze Current File" called `analyzeProject()` (the whole project) instead of
+  `reanalyzeFile(path)` (the one file its label names). The explicit "Suppress Finding Under
+  Caret" command called `recordDismissal` instead of `suppressNow`, so an explicit suppress still
+  needed three uses before the automatic threshold kicked in. Report export's success path called
+  a null JCEF bridge instead of showing a notification, so a successful export gave no visible
+  confirmation. All four now do exactly what their label promises.
+- **Five dead settings removed.** `autoAnalyzeOnOpen`, `showInfoIssues`,
+  `analyzeOnlyChangedFiles`, `coverageMode`, and `nudgeShownOnce` had zero production read sites —
+  changing them from the Settings panel had no effect. `showUnreached` was investigated and found
+  plumbed end-to-end with no leaf consumer (a different defect), so it was kept and documented
+  rather than deleted; every other remaining setting has real effect.
+- **Ollama streaming-flag encoding fixed.** `stream = false` was silently dropped from the request
+  body because `kotlinx.serialization`'s `encodeDefaults` is `false` by default; the field is now
+  pinned to always encode.
+- **Documentation reconciled against measured counts.** "Eleven deterministic analyzers" and
+  "five deterministic fixers" undercounted the registries (12 and 8) in README, `plugin.xml`'s
+  own `<description>` (both the inline copy and `build.gradle.kts`'s authoritative one, which
+  `patchPluginXml` actually writes into the shipped plugin), and the project landing page. A test
+  now pins every documented count to the registry it describes, so the two cannot drift apart
+  again. New:
+  `docs/IMPLEMENTATION_STATUS.md` (what's live, what's gated and why, what's implemented with no
+  consumer yet) and `docs/audit-2026-09-final-release.md` (the full audit this release closes out),
+  replacing `docs/audit-2026-06-post-v2.md`.
+
+### Also first shipping here (previously unreleased "2.0.0" / "3.0.0-dev" work, below)
+
+The two sections below were written as if 2.0.0 would tag and ship on its own; it never did.
+Their content is real and tested, but several of the capabilities they describe are gated per
+this entry — most of "V2 — Dynamic Validation" ships disabled, and within "V3," fix application
+(the AI-Supervised Fix Engine bullet), rule packs (V3.2), and the external SDK (V3.4) ship
+disabled under the capability gate. V3.3's Fix-Preview UX classes (`FixDiffGenerator`,
+`BatchFixPreview`, `FixPreviewDialog`) are a different status, not the same one: nothing gates
+them, they simply have no caller — "implemented, no consumer" in `docs/IMPLEMENTATION_STATUS.md`,
+not a capability this release turned off. Custom rule authoring (V3.1) is the one V3 item that is
+neither: it runs unconditionally, ungated, as one of the 12 registered analyzers. Read
+`docs/IMPLEMENTATION_STATUS.md` before assuming a bullet below is live in this release.
 
 ### V2 — Dynamic Validation & IDE-Native Integration
 
@@ -21,15 +84,15 @@ All notable changes to Aegis Debug are documented here.
 - **AI-Supervised Fix Engine.** Fix application routes through `FixEngine.fixSupervised`: AI plans/supervises deterministic `FixOperation`s, verified by Tier-1 & Tier-2 verifiers (`FixPlanApplicator`).
 - **V3.1 Custom Rule Authoring.** Repo-specific declarative YAML rules (`.aegis/rules/*.yml`) with `CustomRuleService`, `CustomRuleAnalyzer`, `RuleMatcher`, and `IssueSource.CUSTOM`.
 - **V3.2 Rule Packs.** Curated, togglable rule bundles (React strict, Kotlin coroutines, Node security) + project packs (`.aegis/packs/*.yml`) via `RulePackService`.
-- **V3.3 Fix-Preview UX.** Line-by-line & side-by-side diff previews (`FixDiffGenerator`), batch fix diff preview (`BatchFixPreview`), and interactive Swing preview dialog (`FixPreviewDialog`).
+- **V3.3 Fix-Preview UX.** Line-by-line unified diff generation (`FixDiffGenerator`), batch fix diff preview (`BatchFixPreview`), and a Swing preview dialog (`FixPreviewDialog`) — a single scrollable, color-coded unified-diff view (`+`/`-`/space-prefixed lines in one `JTextPane`), not a side-by-side dual-pane view.
 - **V3.4 External Analyzer SDK.** Dynamic loading of third-party `.jar` analyzers (`.aegis/analyzers/*.jar`) using `ExternalAnalyzerLoader` with isolated `URLClassLoader`, PCE rethrow protection, and `IssueSource.EXTERNAL_SDK` provenance tagging.
 - **No-Regression & Quality Gates.** `SingleFileStaticReanalysis` + Kover coverage measurement (`0.9.1`).
 
 ### Plugin Actions (Batch 1)
 
-- **Re-analyze Current File** (`Ctrl+Alt+A` / editor popup) via `ReanalyzeFileAction`.
-- **Apply All Fixes in File** (batch-apply deterministic fixes with skip-on-fail) via `ApplyAllFixesAction`.
-- **Next / Previous Finding Navigation** (`F2` / `Shift+F2`) via `NavigateFindingAction`.
+- **Re-analyze Current File** (editor popup; no keyboard shortcut is registered) via `ReanalyzeFileAction`.
+- **Apply All Deterministic Fixes** via `ApplyAllFixesAction` — gated in 3.0.0 under `FIX_APPLICATION`; its original body was an unconditional no-op regardless, since it filtered on `Issue.suggestedFix`, which nothing ever assigns.
+- **Next / Previous Finding Navigation** via `NextFindingAction` / `PrevFindingAction` (no keyboard shortcuts are registered).
 - **Suppress Finding** via `SuppressFindingAction`.
 - **Renamed AI Provider configuration label** in settings/menus (`Configure AI Provider`).
 
@@ -55,11 +118,6 @@ All notable changes to Aegis Debug are documented here.
 
 - `Issue.fingerprint()` memoization (perf, no observed pain) — carries forward to V1.6+.
 - `InMemoryGraph.toProjectGraph` incremental rebuild — separate design.
-
-### Contributors / spec / plan
-
-- Spec: `docs/superpowers/specs/2026-05-10-aegis-v1.5-refactor-design.md`
-- Plan: `docs/superpowers/plans/2026-05-10-aegis-v1.5-refactor.md`
 
 ## 1.4.1 — Audit-driven correctness, safety, and observability fixes
 
@@ -99,11 +157,6 @@ All notable changes to Aegis Debug are documented here.
 - `Issue.fingerprint()` recomputed in `mergeIssues` — perf without observed pain.
 - `InMemoryGraph.toProjectGraph` re-walks whole graph on every analysis — separate design.
 
-### Contributors / spec / plan
-
-- Spec: `docs/superpowers/specs/2026-05-10-aegis-v1.4.1-audit-fixes-design.md`
-- Plan: `docs/superpowers/plans/2026-05-10-aegis-v1.4.1-audit-fixes.md`
-
 ## 1.4.0 — Cleanup, report-export rewrite, smart-cast walker
 
 **Date:** 2026-05-09
@@ -127,11 +180,6 @@ All notable changes to Aegis Debug are documented here.
 - `displayPath = filePath.replace("/", "/")` no-op typo in `ReportGenerator`.
 - Missing 1.2.0 entry in plugin.xml `<change-notes>`.
 
-### Contributors / spec / plan
-
-- Spec: `docs/superpowers/specs/2026-05-06-aegis-v1.4-cleanup-design.md`
-- Plan: `docs/superpowers/plans/2026-05-06-aegis-v1.4-cleanup.md`
-
 ## 1.3.0 — Kotlin K2 + Analysis API
 
 **Date:** 2026-04-29
@@ -150,11 +198,6 @@ All notable changes to Aegis Debug are documented here.
 ### Breaking
 
 - Minimum IDE: **IntelliJ 2024.3 (build 243.0)**. Older IDEs will refuse the install.
-
-### Contributors / spec / plan
-
-- Spec: `docs/superpowers/specs/2026-04-27-aegis-v1.3-k2-migration-design.md`
-- Plan: `docs/superpowers/plans/2026-04-27-aegis-v1.3-k2-migration.md`
 
 ## [1.2.0] — 2026-04-25 — Hardening release: PSI-backed parsers, resilient AI parsing, dependent cascade
 

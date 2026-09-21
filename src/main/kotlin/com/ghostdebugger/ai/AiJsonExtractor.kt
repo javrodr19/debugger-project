@@ -3,7 +3,6 @@ package com.ghostdebugger.ai
 import com.intellij.openapi.diagnostic.logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import java.util.concurrent.atomic.AtomicLong
 
 object AiJsonExtractor {
 
@@ -16,25 +15,15 @@ object AiJsonExtractor {
 
     private val log = logger<AiJsonExtractor>()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-    private val counters: Map<Strategy, AtomicLong> =
-        Strategy.entries.associateWith { AtomicLong(0) }
 
     fun extract(raw: String): Result {
         if (raw.isBlank()) return Result.Empty
 
-        tryDirect(raw)?.let { return record(it, Strategy.DIRECT) }
-        tryFenced(raw)?.let { return record(it, Strategy.FENCED) }
-        tryBalanced(raw)?.let { return record(it, Strategy.BALANCED) }
+        tryDirect(raw)?.let { return Result.Ok(it, Strategy.DIRECT) }
+        tryFenced(raw)?.let { return Result.Ok(it, Strategy.FENCED) }
+        tryBalanced(raw)?.let { return Result.Ok(it, Strategy.BALANCED) }
 
         return Result.Empty
-    }
-
-    fun telemetrySnapshot(): Map<Strategy, Long> =
-        counters.mapValues { it.value.get() }
-
-    private fun record(element: JsonElement, strategy: Strategy): Result.Ok {
-        counters[strategy]?.incrementAndGet()
-        return Result.Ok(element, strategy)
     }
 
     private fun tryDirect(raw: String): JsonElement? = runCatching {

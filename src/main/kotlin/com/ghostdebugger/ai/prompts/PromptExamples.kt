@@ -1,7 +1,7 @@
 package com.ghostdebugger.ai.prompts
 
 /**
- * Worked examples for the two JSON-producing prompts.
+ * Worked examples for the `detectIssues` JSON-producing prompt.
  *
  * Each example has a matching "OUTPUT_JSON" constant so tests can assert
  * the example bodies are valid JSON — accidental edits break loudly.
@@ -79,54 +79,5 @@ $EXAMPLE_CLEAN_FILE_OUTPUT_JSON
         EXAMPLE_NULL_SAFETY_BLOCK,
         EXAMPLE_CIRCULAR_DEP_BLOCK,
         EXAMPLE_CLEAN_FILE_BLOCK
-    ).joinToString("\n\n")
-
-    // ---- jointFix examples ----------------------------------------------------
-
-    val EXAMPLE_JOINT_FIX_SINGLE_FILE_OUTPUT_JSON: String = """
-{
-  "explanation": "Guard the null access on user with optional chaining.",
-  "fixes": [
-    {
-      "filePath": "/src/UserProfile.tsx",
-      "fixedCode": "export function UserProfile({ user }) {\n  return <div>{user?.id ?? 'guest'}</div>;\n}"
-    }
-  ]
-}
-""".trim()
-
-    val EXAMPLE_JOINT_FIX_SINGLE_FILE: String = """
-Example 1 — single-file fix:
-
-Output:
-$EXAMPLE_JOINT_FIX_SINGLE_FILE_OUTPUT_JSON
-""".trim()
-
-    val EXAMPLE_JOINT_FIX_TWO_FILES_OUTPUT_JSON: String = """
-{
-  "explanation": "The service signature changed to take an options object; update the caller to pass it.",
-  "fixes": [
-    {
-      "filePath": "/src/userService.ts",
-      "fixedCode": "export function getUser(opts: { id: string }): User { return db.find(opts); }"
-    },
-    {
-      "filePath": "/src/caller.ts",
-      "fixedCode": "import { getUser } from './userService';\nconst u = getUser({ id: '42' });"
-    }
-  ]
-}
-""".trim()
-
-    val EXAMPLE_JOINT_FIX_TWO_FILES: String = """
-Example 2 — two-file signature change:
-
-Output:
-$EXAMPLE_JOINT_FIX_TWO_FILES_OUTPUT_JSON
-""".trim()
-
-    val JOINT_FIX_EXAMPLES: String = listOf(
-        EXAMPLE_JOINT_FIX_SINGLE_FILE,
-        EXAMPLE_JOINT_FIX_TWO_FILES
     ).joinToString("\n\n")
 }

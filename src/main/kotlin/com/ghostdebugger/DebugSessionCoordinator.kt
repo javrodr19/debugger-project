@@ -151,6 +151,7 @@ internal class DebugSessionCoordinator(private val project: Project) : Disposabl
     }
 
     internal fun performDebugSessionCrossCheck(session: XDebugSession, filePath: String, line: Int) {
+        if (AegisCapabilityGate.skipIfGated(AegisCapability.DEBUGGER_CROSS_CHECK)) return
         val frame = session.currentStackFrame ?: return
         val evaluator = frame.evaluator ?: return
         val service = GhostDebuggerService.getInstance(project)

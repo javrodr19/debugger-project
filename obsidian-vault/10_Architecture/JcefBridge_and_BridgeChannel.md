@@ -1,7 +1,6 @@
 ---
 title: "JcefBridge and BridgeChannel"
 type: "architecture"
-status: "active"
 related_components:
   - "[[UIEventRouter]]"
   - "[[NeuroMap_Webview]]"

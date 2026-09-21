@@ -1,12 +1,14 @@
 ---
 title: "Custom Rule Authoring (V3.1)"
 type: "feature"
-status: "active"
 related_components:
-  - "[[CustomRuleService]]"
-  - "[[RuleMatcher]]"
-  - "[[CustomRuleAnalyzer]]"
-  - "[[RuleAnchorResolver]]"
+  - "[[Static_Analyzers]]"
+  - "[[Rule_Packs]]"
+source_files:
+  - "src/main/kotlin/com/ghostdebugger/rules/CustomRuleService.kt"
+  - "src/main/kotlin/com/ghostdebugger/rules/RuleMatcher.kt"
+  - "src/main/kotlin/com/ghostdebugger/analysis/analyzers/CustomRuleAnalyzer.kt"
+  - "src/main/kotlin/com/ghostdebugger/fix/engine/RuleAnchorResolver.kt"
 tags:
   - feature
   - custom-rules

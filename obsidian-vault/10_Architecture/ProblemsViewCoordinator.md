@@ -1,7 +1,6 @@
 ---
 title: "ProblemsViewCoordinator"
 type: "architecture"
-status: "active"
 related_components:
   - "[[GhostDebuggerService]]"
   - "[[Roadmap]]"

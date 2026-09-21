@@ -1,7 +1,6 @@
 ---
 title: "FileChangeWatcher"
 type: "architecture"
-status: "active"
 related_components:
   - "[[GhostDebuggerService]]"
   - "[[AnalysisOrchestrator]]"

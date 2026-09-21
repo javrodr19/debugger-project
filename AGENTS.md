@@ -21,7 +21,9 @@ understand the conventions**. Skim, in order:
 2. `CLAUDE.md` — build prerequisites and code conventions with their reasoning.
 3. `docs/superpowers/specs/` — most recent spec for context on the current release line.
 4. `docs/superpowers/plans/` — the matching plan, if one exists.
-5. `docs/aegis_v1_history.md` — V1 phases and why decisions were made as they were.
+5. `CHANGELOG.md`'s `1.0.0` through `1.5.0` entries — V1's phases and why decisions were
+   made as they were. There is no separate history document; a reference to
+   `docs/aegis_v1_history.md` here was itself stale and has been removed.
 
 Three to ten minutes of reading prevents most of the mistakes documented below.
 
@@ -63,15 +65,22 @@ src/main/kotlin/com/ghostdebugger/
     UIEventRouter.kt                   # UIEvent dispatch + AI service caching
     FileChangeWatcher.kt               # VFS auto-refresh
     DebugSessionCoordinator.kt         # XDebugger plumbing + cross-check
+    ProblemsViewCoordinator.kt         # native Problems-view emit (gated)
+    ReportExporter.kt                  # HTML report export + notification
+    AegisCapability.kt                 # the 8 gated capabilities — label + why
+    AegisCapabilityGate.kt             # single chokepoint deciding what's enabled
     intentions/                        # IntentionAction quick-fix entries
     inspections/                       # LocalInspectionTool entries (V2 beta.1+)
-    parser/                            # PSI-backed symbol extraction
+    parser/                            # PSI-backed / regex symbol extraction
     analysis/analyzers/                # one class per rule ID
-    fix/                               # deterministic fixers + applicator
+    analysis/sdk/                      # external third-party analyzer loader (gated)
+    fix/                               # deterministic fixers
+    fix/engine/                        # AI-supervised fix engine, apply/verify gates
     graph/                             # in-memory graph + cycle detection
-    ai/                                # BaseAIService + Ollama / OpenAI
+    ai/                                # BaseAIService + Ollama / OpenAI + factory
     bridge/                            # JCEF bridge to webview
-    annotator/                         # ExternalAnnotator for editor markup
+    rules/                             # custom-rule YAML engine + rule packs (gated)
+    store/                             # runtime evidence, suppression memory, test/debug observers
     toolwindow/                        # tool-window factory + JCEF panel
     actions/                           # menu/keymap actions
     settings/                          # PasswordSafe + Configurable
@@ -81,13 +90,18 @@ src/main/resources/META-INF/plugin.xml # registers services, intentions, actions
 webview/                               # React + JCEF detail panel and NeuroMap
 docs/
     aegis_debug_roadmap_v2_to_v5.md    # the north star
-    aegis_v1_history.md                # V1 phase summary
+    IMPLEMENTATION_STATUS.md           # what works, what's gated, what has no consumer
+    audit-2026-09-final-release.md     # the 16-surface release audit and its dispositions
     superpowers/specs/                 # YYYY-MM-DD-<topic>-design.md
     superpowers/plans/                 # YYYY-MM-DD-<topic>.md
 site/                                  # landing-page source (gh-pages)
 CLAUDE.md                              # Claude-specific conventions
 AGENTS.md                              # this file
 ```
+
+Note: the `annotator/` package (a legacy `ExternalAnnotator`) was fully replaced by native
+`LocalInspectionTool`s in V2.0.0-alpha.3 and no longer exists — if you see it mentioned in older
+prose or commit history, that is what it refers to.
 
 Two seams that are easy to misuse:
 
@@ -272,9 +286,11 @@ exceptions, both `internal var` fields you may assign to from a collaborator, ar
 - `service.lastInMemoryGraph`
 
 Anything else: route through the facade. If you find yourself wanting a new state
-field on a collaborator, add it to the facade instead — the V2 collaborators that
-will land later (test-runner cross-check, Problems-view emit) read the same state,
-and divergent per-collaborator copies cause UI inconsistencies.
+field on a collaborator, add it to the facade instead — collaborators added since
+(`TestRunObserver` for test-runner cross-check, which runs unconditionally;
+`ProblemsViewCoordinator` for Problems-view emit, gated under `PROBLEMS_VIEW_EMIT`
+— see `docs/IMPLEMENTATION_STATUS.md`) read the same state, and divergent
+per-collaborator copies cause UI inconsistencies.
 
 ### 5.3 New collaborators
 
@@ -300,19 +316,21 @@ the test-recording stub installed via `setBridgeForTest`).
 ### 5.5 Fixers
 
 - One file per fixer. Inherit from the `Fixer` interface.
-- `derive(...)` must return `null` if the fix can't be guaranteed PSI-valid. The
-  orchestrator falls back to the AI path automatically.
+- Implement `generateFix(...)` (or the PSI-driven `generateFixFromPsi(...)` /
+  op-emitting `generatePlan(...)`) and return `null` if the fix can't be guaranteed
+  PSI-valid. `FixDeriver.derive`/`derivePlan` — the caller, not something a `Fixer`
+  overrides — tries yours and falls back to the AI path on a `null`.
 - Fixers run inside a `WriteCommandAction` via `FixApplicator`; do not start your
   own write action.
 - PSI-driven, not regex-on-source. The V1.4.1 audit found a fixer that rewrote
   variable names inside string literals because it used a regex — don't repeat
   that.
-- **Fix engine (V3, in progress):** fix *application* now flows through `FixEngine`
-  (`fix/engine/`) — a `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by
-  `FixPlanApplicator` (same PSI-validity gate). Phase 1 (the deterministic seam) is merged and
-  behavior-preserving. Phase 2 turns the AI into a *planner/supervisor* that composes deterministic
-  engine operations and verifies them — it no longer authors raw fix code. Spec:
-  `docs/superpowers/specs/2026-05-31-ai-supervised-fix-engine-design.md`.
+- **Fix engine (V3, shipped):** fix *application* flows through `FixEngine` (`fix/engine/`) — a
+  `Fixer`'s `CodeFix` is adapted to a single-op `FixPlan` and applied by `FixPlanApplicator` behind
+  a Tier-1 PSI-validity gate and a Tier-2 re-analysis gate. Both phases are merged: the AI
+  planner/supervisor is live in `FixEngine.fixSupervised`, wired at `AnalysisOrchestrator.kt:497`.
+  The AI proposes a `FixPlan` and never authors raw fix code; acceptance is decided by the
+  deterministic gate. Preserve both properties. See `obsidian-vault/10_Architecture/FixEngine.md`.
 
 ### 5.6 Tests
 
@@ -406,7 +424,8 @@ Before opening a PR or saying "done":
 1. `./gradlew compileKotlin` — exit 0.
 2. `./gradlew test --tests <new test classes>` — green.
 3. `./gradlew verifyPlugin` if your change touches plugin metadata, extension
-   points, or IDE APIs — three Compatible verdicts (IU 2024.3.2.2 / 2025.1 / 2026.1).
+   points, or IDE APIs — four Compatible verdicts (IU 2024.3.2.2 / 2025.1 / 2026.1 /
+   2026.2, per `build.gradle.kts`'s `pluginVerification.ides` block).
 4. Manual smoke test in the IDE if the change is UI-visible. Type checking is not
    feature checking.
 
@@ -437,8 +456,8 @@ A non-exhaustive list of mistakes prior agents have made:
   local tool state — `.gitignore` excludes them and the V1.5 cleanup explicitly
   un-tracked the ones that had leaked in.
 - **Don't** introduce backwards-compat shims for code you wrote yesterday. The
-  facade's public API (the six methods listed in `GhostDebuggerService.kt`) needs
-  compatibility; everything else is `internal` and you can change it.
+  facade's public API listed in `GhostDebuggerService.kt` needs compatibility;
+  everything else is `internal` and you can change it.
 - **Don't** mark anything `@ApiStatus.Experimental` or expose a plugin extension point
   unless the spec explicitly designs it as third-party-facing. Public API is a
   long-term commitment.

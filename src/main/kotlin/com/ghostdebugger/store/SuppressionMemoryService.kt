@@ -26,6 +26,17 @@ class SuppressionMemoryService(private val project: Project) :
         dismissCounts[fingerprint] = current + 1
     }
 
+    /**
+     * Suppress [fingerprint] immediately, as an explicit user command rather than an accumulated
+     * dismissal. [recordDismissal] increments by one and is the right call for the implicit
+     * "dismissed again" signal; an explicit "Suppress Finding" must not require the user to
+     * invoke it `suppressionThreshold` times before anything happens.
+     */
+    fun suppressNow(fingerprint: String) = synchronized(lock) {
+        val threshold = GhostDebuggerSettings.getInstance().snapshot().suppressionThreshold
+        dismissCounts[fingerprint] = maxOf(dismissCounts.getOrDefault(fingerprint, 0), threshold)
+    }
+
     fun shouldAutoHide(fingerprint: String): Boolean = synchronized(lock) {
         val threshold = GhostDebuggerSettings.getInstance().snapshot().suppressionThreshold
         val count = dismissCounts.getOrDefault(fingerprint, 0)

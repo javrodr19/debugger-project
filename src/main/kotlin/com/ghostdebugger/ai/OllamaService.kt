@@ -28,7 +28,8 @@ internal class OllamaService(
                 messages = listOf(
                     ChatMessage(role = "system", content = systemPrompt.trimIndent()),
                     ChatMessage(role = "user", content = userPrompt)
-                )
+                ),
+                stream = false,
             )
         ).toRequestBody("application/json".toMediaType())
 

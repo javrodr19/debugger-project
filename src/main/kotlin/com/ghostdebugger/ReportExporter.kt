@@ -33,9 +33,12 @@ internal class ReportExporter(private val project: Project) {
     fun export(graph: ProjectGraph?) {
         val service = GhostDebuggerService.getInstance(project)
         if (graph == null) {
-            scope.launch(Dispatchers.Swing) {
-                service.jcefBridge()?.sendError("No analysis data available. Run 'Analyze Project' first.")
-            }
+            val message = "No analysis data available. Run 'Analyze Project' first."
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("GhostDebugger")
+                .createNotification("Aegis Debug", message, NotificationType.INFORMATION)
+                .notify(project)
+            scope.launch(Dispatchers.Swing) { service.jcefBridge()?.sendError(message) }
             return
         }
 

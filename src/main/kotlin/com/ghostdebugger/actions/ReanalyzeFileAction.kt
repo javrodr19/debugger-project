@@ -1,5 +1,6 @@
 package com.ghostdebugger.actions
 
+import com.ghostdebugger.AnalysisOrchestrator
 import com.ghostdebugger.GhostDebuggerService
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -9,11 +10,8 @@ class ReanalyzeFileAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-        val service = GhostDebuggerService.getInstance(project)
-
-        if (service.isAnalyzing) return
-
-        service.analyzeProject()
+        if (GhostDebuggerService.getInstance(project).isAnalyzing) return
+        AnalysisOrchestrator.getInstance(project).reanalyzeFile(virtualFile.path)
     }
 
     override fun update(e: AnActionEvent) {

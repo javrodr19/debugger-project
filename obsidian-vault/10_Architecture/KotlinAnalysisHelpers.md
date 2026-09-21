@@ -1,7 +1,6 @@
 ---
 title: "KotlinAnalysisHelpers"
 type: "architecture"
-status: "active"
 related_components:
   - "[[Static_Analyzers]]"
   - "[[Claude_Conventions]]"

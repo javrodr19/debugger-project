@@ -109,6 +109,14 @@ data class ParsedFile(
     var content: String,
     val functions: List<FunctionSymbol> = emptyList(),
     val imports: List<ImportSymbol> = emptyList(),
+    /**
+     * Populated by [com.ghostdebugger.parser.JavaPsiSymbolExtractor],
+     * [com.ghostdebugger.parser.KotlinPsiSymbolExtractor], and
+     * [com.ghostdebugger.parser.TsJsRegexSymbolExtractor] — all three extract it correctly and it
+     * is covered by their tests — but no analyzer consumes it yet. Implemented, no consumer;
+     * kept for a future unused-export analyzer rather than discarded. Do not delete without
+     * re-checking for a new consumer first.
+     */
     val exports: List<ExportSymbol> = emptyList(),
     val variables: List<VariableSymbol> = emptyList()
 ) {

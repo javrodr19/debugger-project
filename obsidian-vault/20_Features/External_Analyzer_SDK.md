@@ -1,7 +1,6 @@
 ---
 title: "External Analyzer SDK (V3.4)"
 type: "feature"
-status: "active"
 related_components:
   - "[[Static_Analyzers]]"
   - "[[GhostDebuggerService]]"

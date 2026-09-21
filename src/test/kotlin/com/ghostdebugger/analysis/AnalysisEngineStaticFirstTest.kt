@@ -1,5 +1,7 @@
 package com.ghostdebugger.analysis
 
+import com.ghostdebugger.AegisCapability
+import com.ghostdebugger.AegisCapabilityGate
 import com.ghostdebugger.model.AnalysisContext
 import com.ghostdebugger.model.EngineProvider
 import com.ghostdebugger.model.EngineStatus
@@ -11,11 +13,31 @@ import com.ghostdebugger.settings.AIProvider
 import com.ghostdebugger.settings.GhostDebuggerSettings
 import com.ghostdebugger.testutil.FixtureFactory
 import kotlinx.coroutines.test.runTest
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * AI_ANALYSIS is gated in 3.0.0 (Task 5's `AnalysisEngine.runAiPass` guard). Two tests below
+ * configure a live OPENAI provider and expect the AI pass to actually run (ONLINE, or
+ * FALLBACK_TO_STATIC on failure) alongside the static analyzers — both are unreachable once the
+ * gate short-circuits `runAiPass` first. Lifting AI_ANALYSIS here restores that reachability
+ * without touching what actually ships; [AegisCapabilityGate.resetForTest] undoes it after every
+ * test.
+ */
 class AnalysisEngineStaticFirstTest {
+
+    @BeforeTest
+    fun enableAiAnalysisForTest() {
+        AegisCapabilityGate.setEnabledForTest(setOf(AegisCapability.AI_ANALYSIS))
+    }
+
+    @AfterTest
+    fun resetGate() {
+        AegisCapabilityGate.resetForTest()
+    }
 
     private fun settings(
         aiProvider: AIProvider = AIProvider.NONE,
