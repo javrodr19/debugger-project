@@ -1,24 +1,27 @@
 # Aegis Debug — Data Handling
 
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-21
 **Product version:** 3.0.0
 
-**No AI provider is reachable in this release.** `AI_ANALYSIS` and `AI_EXPLANATION` are both
-gated off in 3.0.0 (see `docs/IMPLEMENTATION_STATUS.md`), so none of the Ollama/OpenAI rows below
-can currently be triggered from a running instance of the plugin — this is the strongest form of
-the privacy claim this document can make: not "off by default," but unreachable. The table
-documents the mechanism as implemented and tested, including the cloud-upload consent check fixed
-in this release (`AIServiceFactory.create`, the single chokepoint every AI-service resolver goes
-through), for when AI augmentation is re-enabled in a future release.
+**No AI provider is reachable in this release.** `AI_ANALYSIS`, `AI_EXPLANATION`, and
+`FIX_APPLICATION` are all gated off in 3.0.0 (see `docs/IMPLEMENTATION_STATUS.md`), so none of the
+Ollama/OpenAI rows below can currently be triggered from a running instance of the plugin — this is
+the strongest form of the privacy claim this document can make: not "off by default," but
+unreachable. The table documents the mechanism as implemented and tested, including the
+cloud-upload consent check fixed in this release (`AIServiceFactory.create`, the single chokepoint
+every AI-service resolver goes through), for when AI augmentation is re-enabled in a future
+release. Each row below also names the specific capability gate that currently blocks it.
 
 ## What data leaves your machine
 
 | Event | Data sent | Destination | Triggered by |
 |-------|-----------|-------------|--------------|
 | Static analysis | Nothing | — | Always local |
-| Ollama AI pass | File path + file contents (up to 2000 lines) | Your configured Ollama endpoint (default: http://localhost:11434) | `aiProvider = OLLAMA` |
-| OpenAI AI pass | File path + file contents (up to 2000 lines) | api.openai.com/v1 | `aiProvider = OPENAI` **AND** `allowCloudUpload = true` |
-| OpenAI explain / fix / system | Issue metadata + code snippet (up to 800 chars) | api.openai.com/v1 | Same as above |
+| Ollama AI pass | File path + file contents (files under 2000 lines; larger files are skipped entirely, not truncated) | Your configured Ollama endpoint (default: http://localhost:11434) | `aiProvider = OLLAMA`, gated by `AI_ANALYSIS` |
+| OpenAI AI pass | File path + file contents (files under 2000 lines; larger files are skipped entirely, not truncated) | api.openai.com/v1 | `aiProvider = OPENAI` **AND** `allowCloudUpload = true`, gated by `AI_ANALYSIS` |
+| OpenAI issue explanation | Issue metadata + code snippet, truncated to 500 chars | api.openai.com/v1 | Same trigger as above, gated by `AI_EXPLANATION` |
+| OpenAI system explanation | Up to 15 project-graph node names/types/statuses — no code snippet | api.openai.com/v1 | Same trigger as above, gated by `AI_EXPLANATION` |
+| OpenAI fix planning | Entire file content, untruncated | api.openai.com/v1 | Same trigger as above, gated by `FIX_APPLICATION` |
 | Telemetry | None | — | Never |
 
 ## What is NOT sent

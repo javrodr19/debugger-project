@@ -103,9 +103,12 @@ without a test failing. Every claim above also cites `file:line`.
 `CHANGELOG.md` and `DATA_HANDLING.md` were reviewed against source for this release — every claim
 in them was checked, not carried forward — but neither is opened by `DocumentationCountsTest` or
 any other test. Their counts (capabilities gated, actions repaired, settings removed, the 2000-line
-and 800-char AI payload caps, the cache TTL) are accurate as of this writing and can drift
-silently if the underlying numbers change later, the same way the retired "eleven analyzers"
-claim did. Treat them as reviewed-once, not continuously guarded.
+AI-pass cap, the 500-char issue-explanation snippet cap, the cache TTL) are accurate as of this
+writing and can drift silently if the underlying numbers change later, the same way the retired
+"eleven analyzers" claim did — and the same way `DATA_HANDLING.md`'s own "800-char" AI-payload claim
+did until this release, which corrected it to the real, per-path figures (500-char explanation
+snippet, untruncated fix-planning payload, node-summary system explanation). Treat them as
+reviewed-once, not continuously guarded.
 
 **`obsidian-vault/` is not.** It is developer working notes (32 files), not reconciled as part of
 this release. Two stale instances turned up incidentally while writing this document — not from a
