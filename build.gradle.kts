@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
@@ -141,6 +142,33 @@ val npmCmd = if (isWindows) listOf("cmd", "/c", "npm") else listOf("npm")
 tasks {
     test {
         useJUnitPlatform()
+
+        // DocumentationCountsTest, NoDeadSettingsTest, ReportGeneratorXssTest, and
+        // DemoSampleFindingsTest all read these paths at runtime via java.io.File(...).readText()
+        // rather than through the compiled classpath, so Gradle's normal task-input tracking
+        // (source files -> compileKotlin -> classes -> test classpath) never sees them. Without
+        // declaring them explicitly, the build cache can restore a cached PASS for `:test` after
+        // one of these files changes underneath it - including a plain `./gradlew test`, not just
+        // `cleanTest` or an incremental run - which is the exact defect this task exists to
+        // eliminate, reproduced inside its own guard. Discovered during Task 11's fix rounds; see
+        // docs/IMPLEMENTATION_STATUS.md. Keep this list in sync with grep -rn 'File("' src/test.
+        inputs.files(
+            "README.md",
+            "docs/IMPLEMENTATION_STATUS.md",
+            "site/index.html",
+            "src/main/resources/META-INF/plugin.xml",
+            "src/main/kotlin/com/ghostdebugger/settings/GhostDebuggerSettings.kt",
+            "src/main/kotlin/com/ghostdebugger/settings/GhostDebuggerConfigurable.kt",
+            "src/main/kotlin/com/ghostdebugger/ReportGenerator.kt",
+        )
+            .withPropertyName("runtimeFileReadDocsAndSourceInputs")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+
+        // DemoSampleFindingsTest reads every file under here by name (File(sampleSrcDir, name)),
+        // not a fixed list this task could enumerate, so it's declared as a directory input.
+        inputs.dir("samples/aegis-demo/src")
+            .withPropertyName("demoSampleSourceInputs")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
     }
 
     register<Exec>("npmInstallWebview") {

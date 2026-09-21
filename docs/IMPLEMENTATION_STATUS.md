@@ -1,7 +1,11 @@
 # Implementation Status — Aegis Debug 3.0.0
 
-**Last verified:** 2026-09-20, against a clean `./gradlew cleanTest test` run (546 passing, 0
-failures, 0 errors, 0 skipped, 163 test classes) on branch `feat/final-release-gate`.
+**Last verified:** 2026-09-21, against a plain `./gradlew test` run (547 passing, 0 failures, 0
+errors, 0 skipped, 163 test classes) on branch `feat/final-release-gate`. Plain `test` is the
+trustworthy command as of this measurement: the counts this file, `README.md`, `plugin.xml`, and
+`site/index.html` state are declared as `:test` task inputs in `build.gradle.kts`, so a change to
+any of them forces genuine re-execution instead of a cached replay — verified by breaking and
+restoring a count and watching a plain `./gradlew test` catch it both times.
 
 This document is the single reference for what in Aegis Debug actually works, what is implemented
 but disabled, and what is implemented with no path to the user yet. The **Gated** table below is
