@@ -1,8 +1,7 @@
 # Implementation Status — Aegis Debug 3.0.0
 
 **Last verified:** 2026-09-20, against a clean `./gradlew cleanTest test` run (546 passing, 0
-failures, 0 errors, 0 skipped, 163 test classes — 541/161 before this document's own
-`DocumentationCountsTest` was added) on branch `feat/final-release-gate`.
+failures, 0 errors, 0 skipped, 163 test classes) on branch `feat/final-release-gate`.
 
 This document is the single reference for what in Aegis Debug actually works, what is implemented
 but disabled, and what is implemented with no path to the user yet. The **Gated** table below is
@@ -40,10 +39,10 @@ the same thing for every language Aegis Debug touches:
 
 ## Registered analyzers and fixers
 
-`AnalysisEngine` registers **12 analyzers** (`analysis/AnalysisEngine.kt:40-53`): 11 built-in
-rules plus `CustomRuleAnalyzer`, a dispatcher for user-authored YAML rules rather than a built-in
-rule of its own. `FixerRegistry` registers **8 deterministic fixers** (`fix/FixerRegistry.kt`).
-`plugin.xml` registers **11 local inspections** and **13 actions**.
+`AnalysisEngine` registers **12 analyzers** (`analysis/AnalysisEngine.kt:40-53`): 11 built-in rules
+plus `CustomRuleAnalyzer`, a dispatcher for user-authored YAML rules rather than a built-in rule of
+its own. `FixerRegistry` registers **8 deterministic fixers** (`fix/FixerRegistry.kt`). `plugin.xml`
+registers **11 local inspections** and **13 actions**.
 
 ## Works
 

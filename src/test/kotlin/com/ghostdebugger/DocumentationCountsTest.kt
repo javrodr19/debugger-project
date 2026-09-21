@@ -22,8 +22,9 @@ class DocumentationCountsTest {
     private val readme = File("README.md").readText()
     private val pluginXml = File("src/main/resources/META-INF/plugin.xml").readText()
     private val siteHtml = File("site/index.html").readText()
-    // Lazy: only the inspection-count test reads it, so the other tests fail on their own
-    // assertion rather than all failing on a shared FileNotFoundException before this file exists.
+    // Lazy: a test that doesn't read it (e.g. the stale-claim sweep, which doesn't check this
+    // file) fails on its own assertion rather than on a shared FileNotFoundException if this
+    // file ever went missing.
     private val implementationStatus by lazy { File("docs/IMPLEMENTATION_STATUS.md").readText() }
 
     @Test
@@ -33,6 +34,7 @@ class DocumentationCountsTest {
         assertContains(readme, claim, message = "README.md does not state '$claim'")
         assertContains(pluginXml, claim, message = "plugin.xml <description> does not state '$claim'")
         assertContains(siteHtml, claim, message = "site/index.html does not state '$claim'")
+        assertContains(implementationStatus, claim, message = "docs/IMPLEMENTATION_STATUS.md does not state '$claim'")
     }
 
     @Test
@@ -51,13 +53,29 @@ class DocumentationCountsTest {
     }
 
     @Test
+    fun `action count in plugin xml matches the documented count`() {
+        val registered = Regex("<action id=").findAll(pluginXml).count()
+        assertEquals(
+            13,
+            registered,
+            "plugin.xml's <action id= count changed; update docs/IMPLEMENTATION_STATUS.md and this test together"
+        )
+        assertContains(
+            implementationStatus,
+            "$registered actions",
+            message = "docs/IMPLEMENTATION_STATUS.md does not state the action count $registered"
+        )
+    }
+
+    @Test
     fun `analyzer count is stated as twelve analyzers over eleven built-in rules everywhere`() {
         // "Eleven deterministic analyzers" undercounted the registry (12 entries: 11 built-in rule
         // IDs + CustomRuleAnalyzer, a dispatcher for user-authored YAML rules rather than a built-in
         // rule of its own). "Twelve analyzers" alone would overcount the rule-id total. Both numbers
-        // must appear together on every marketing surface so a reader counting either number in the
-        // code agrees with the doc.
-        listOf(readme, pluginXml, siteHtml).forEach { text ->
+        // must appear together everywhere — including docs/IMPLEMENTATION_STATUS.md itself, the
+        // document that exists to be the truth reference — so a reader counting either number in
+        // the code agrees with the doc.
+        listOf(readme, pluginXml, siteHtml, implementationStatus).forEach { text ->
             assertContains(text, "12 analyzers")
             assertContains(text, "11 built-in rules")
         }
