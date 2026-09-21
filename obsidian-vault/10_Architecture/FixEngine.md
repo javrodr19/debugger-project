@@ -49,9 +49,11 @@ Rejection reverts.
 | `fixVerified(...)` | Derive + apply behind Tier-1 **and** Tier-2 |
 | `fixSupervised(...)` | The AI-supervised loop — see below |
 
-## AI-supervised fixing — shipped
+## AI-supervised fixing — shipped, gated
 
-`fixSupervised` (`FixEngine.kt:77`) is wired into production at `AnalysisOrchestrator.kt:497`.
+`fixSupervised` (`FixEngine.kt:77`) is wired into production at `AnalysisOrchestrator.kt:497` — the default `fixVerified` argument inside `applyVerifiedFix`. That method's only production callers are the two native editor fix paths: the Alt+Enter quick-fix intention (`intentions/AegisQuickFixIntentionAction.kt:51`) and the local-inspection quick-fix (`inspections/AegisLocalInspection.kt:31`, `AegisLocalQuickFix.applyFix`). In 3.0.0 that whole path is gated: `applyVerifiedFix` blocks first, before deriving or applying anything (`AnalysisOrchestrator.kt:499`, `AegisCapabilityGate.blockIfGated` on `AegisCapability.FIX_APPLICATION`, which ships disabled). A user who triggers either quick-fix sees the roadmap dialog, not a fix — the engine is fully implemented and tested, just not reachable from the shipped UI yet.
+
+The loop itself:
 
 1. Try the deterministic plan first, through the Tier-2 gate.
 2. If there is no deterministic plan, or the gate rejects it, ask the AI for a `FixPlan` via
@@ -68,10 +70,16 @@ Two properties worth stating plainly, because they are what make this safe:
   `aiService == null` the function reduces to exactly the deterministic verified path, so the feature
   is AI-optional.
 
+**The NeuroMap webview's own "Apply Fix" button is a *separate* path and does not go through
+`fixSupervised`.** `UIEvent.ApplyFixRequested` → `UIEventRouter.handleApplyFixRequested` calls
+`FixEngine.fixVerified` directly (Tier-1 + Tier-2, no AI supervision, no fallback to the AI planner).
+It is independently gated at dispatch — `UIEventRouter.handle` blocks `FixRequested`/`ApplyFixRequested`
+before either handler runs (`UIEventRouter.kt:57-58`, via `gatedCapabilityFor`) — see [[UIEventRouter]].
+
 ## Key types
 
 - `FixPlan.kt:7` — `data class FixPlan(issueId: String, operations: List<FixOperation>)`
-- `FixOperation.kt:19` — sealed class with 16 subclasses (`ReplaceRange`, `InsertImport`,
+- `FixOperation.kt:19` — sealed class with 17 subclasses (`ReplaceRange`, `InsertImport`,
   `ConvertToSafeCast`, `AddElvisDefault`, `WrapInSafeCall`, `SurroundWithNullCheck`, `AddAwait`,
   `AddPromiseCatch`, `AddExplicitConversion`, `SurroundWithTryCatch`, `RemoveRange`,
   `ReplaceExpression`, `InsertStatementBefore`, `InsertStatementAfter`, `CollapseBooleanReturn`,

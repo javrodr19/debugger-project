@@ -22,3 +22,7 @@ tags:
 
 ## Symbol Parsing
 - Uses language-specific PSI parsers (`KotlinPsiSymbolExtractor`, `JavaPsiSymbolExtractor`) for JVM languages, and a hardened regex scanner for TS/JS files.
+
+## Dependency Resolution (edges the graph actually gets)
+- `DependencyResolver.resolve` only turns an import into an internal graph edge when `isRelativeImport` (`DependencyResolver.kt:56-58`) is true — the source starts with `./` or `../`. Everything else (including every fully-qualified Kotlin/Java import) becomes an `ext:`-prefixed external node with no edge back into the project graph.
+- Practical effect: internal edges resolve for TypeScript/JavaScript only. A Kotlin- or Java-only project produces a graph with nodes but zero internal edges, so `findCycles`/`calculateImpact` above have nothing to walk for those languages. This is why `JVM_DEPENDENCY_GRAPH` ships gated in 3.0.0 — the graph and cycle-detection code themselves are correct and unchanged; only their reach for JVM languages is limited.

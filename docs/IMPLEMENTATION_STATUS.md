@@ -53,7 +53,7 @@ registers **11 local inspections** and **13 actions**.
 | Surface | How a reviewer sees it | Evidence |
 |---|---|---|
 | Deterministic static analysis (12 analyzers, unconditional) | Tools ▸ Aegis Debug ▸ Analyze Project | `analysis/AnalysisEngine.kt:40-53` |
-| Custom rule authoring (`.aegis/rules/*.yml`) | Drop a rule file in `.aegis/rules/`, re-analyze | `rules/CustomRuleService.kt`, `rules/CustomRuleAnalyzer` registered at `AnalysisEngine.kt:52` |
+| Custom rule authoring (`.aegis/rules/*.yml`) — **loading and dispatch only**, see the two schema gaps below | Drop a rule file in `.aegis/rules/`, re-analyze | `rules/CustomRuleService.kt`, `rules/CustomRuleAnalyzer` registered at `AnalysisEngine.kt:52` |
 | NeuroMap project graph (nodes, hotspots, per-file issue overlay) | Open the Aegis Debug tool window | `toolwindow/NeuroMapPanel.kt`; deterministic JAR/content selection at `isPluginWebJar`, `:209-217` |
 | Export Analysis Report | Tools ▸ Aegis Debug ▸ Export Analysis Report, pick a path | `ReportExporter.kt:33-72`; success notification at `notifyReportExported`, `:74` (repaired this release — see Task 7 in the [audit record](audit-2026-09-final-release.md)) |
 | Plugin navigation actions (Next/Prev Finding, Reanalyze File, Show in NeuroMap, Suppress Finding, Copy Finding for AI, Configure AI Provider) | Tools ▸ Aegis Debug menu, or the editor popup | `plugin.xml:333-399` |
@@ -93,6 +93,17 @@ future contributor as "why does this exist."
 | The three bundled rule packs | `src/main/resources/rules/packs/{kotlin-coroutines,node-security,react-strict}.yml` | Loaded by `RulePackService.availablePacks()`, but `packRules()` — the only path that would feed them into analysis — is gated by `RULE_PACKS` above. |
 | `showUnreached` (setting) | `bridge/JcefBridge.kt:133,146`; `webview/src/stores/appStore.ts:28,81,94,248` | Plumbed end to end — read from settings into the webview payload, stored in the webview's state — but no leaf component renders differently based on it. Different defect from having no read site at all, which is why it was kept rather than deleted alongside the five settings fields that had none. |
 
+### Parsed but inert — custom rule schema
+
+Surfaced by the vault audit, verified against source. These are a worse failure mode than an
+unimplemented feature, because an unimplemented feature reports an error and these do not: the YAML
+loader accepts the field, and nothing ever reads it. A rule author gets no signal.
+
+| Item | Evidence | Note |
+|---|---|---|
+| Four of the eight `match:` predicates | `rules/RuleMatcher.kt`, `matches()` | `matches()` evaluates `element`, `name-matches`, `text-matches`/`contains-text`, `parameter-type`, plus the `unless` recursion — and nothing else. `inside`, `receiver-type`, `argument-type` and `annotated-with` are declared on `RuleMatch` (`rules/CustomRule.kt:28-37`), parse without error, and are never evaluated. A rule using one of them still matches, on whatever predicates remain — a silent widening rather than a visible failure. |
+| Custom-rule `fix:` templates | `rules/CustomRule.kt:47` | `CustomRule.fix: FixPlan?` is never read in production; the only occurrence of the symbol outside its own declaration is the `FixPlan` import at `CustomRule.kt:5`. `RuleAnchorResolver`, which would resolve a custom rule's fix anchor, exists in exactly two files: its own declaration and `src/test/kotlin/.../CustomFixApplyTest.kt`. This is independent of the `FIX_APPLICATION` gate — enabling that capability would not make a custom rule's `fix:` block do anything. |
+
 ## Documentation scope
 
 This document, `README.md`, `plugin.xml`, and `site/index.html` are held to the tightest
@@ -110,15 +121,40 @@ did until this release, which corrected it to the real, per-path figures (500-ch
 snippet, untruncated fix-planning payload, node-summary system explanation). Treat them as
 reviewed-once, not continuously guarded.
 
-**`obsidian-vault/` is not.** It is developer working notes (32 files), not reconciled as part of
-this release. Two stale instances turned up incidentally while writing this document — not from a
-full audit of the vault, which is separate work — and are recorded here so a reader who opens the
-vault is warned rather than misled: `20_Features/Plugin_Actions.md` lists `ReanalyzeFileAction
-(Ctrl+Alt+A)` and `NavigateFindingAction (F2/Shift+F2)`, neither of which is registered (verified
-against `plugin.xml`); `20_Features/Fix_Preview_UX.md` describes `FixDiffGenerator` and
-`FixPreviewDialog` as producing "side-by-side" diff views with `Enter`/`Alt+A`/`Esc` keyboard
-navigation, none of which exists in the current implementation (see the `FixPreviewDialog` row
-above). Treat any other claim in the vault as unverified until it is audited.
+**`obsidian-vault/` has now been audited too**, in four parallel passes over its 32 tracked notes
+— architecture (12), features (8), meta and template (8), guides (4). 28 notes required correction;
+4 were verified accurate and left untouched. Every correction was checked against source before
+being written, and each is recorded with its `file:line` in the four reports under
+`.superpowers/sdd/2026-09-14-final-release-gate/vault-audit-*.md`.
+
+What the audit found, in descending order of how badly it would have misled a reader:
+
+- **`40_Guides/Creating_New_Analyzers_Guide.md` shipped a code example that does not compile.** Its
+  `analyze(file: ParsedFile)` overrides nothing; the real signature is
+  `analyze(context: AnalysisContext)` (`analysis/Analyzer.kt:20`), and two other required members
+  were missing. A guide is instructions someone follows literally, so this is the worst class of
+  defect the vault contained.
+- **`40_Guides/Creating_New_Fixers_Guide.md` repeated the same nonexistent `Fixer.derive(...)`
+  method** that this release had already corrected once in `AGENTS.md`. The real methods are
+  `generateFix`, `generateFixFromPsi` and `generatePlan` (`fix/Fixer.kt`); `derive` belongs to
+  `FixDeriver` as the caller. The same guide also stated fixers are "PSI-driven, not regex", which
+  is false as written — `FixDeriver`'s own doc comment calls `generateFix` "line-text-based", and 4
+  of the 8 registered fixers use `Regex` over file content. `CLAUDE.md` requires PSI-*valid output*,
+  which is a different and weaker claim than PSI-*driven implementation*.
+- **`00_Meta/Changelog.md` documented a release that never existed** — a standalone `2.0.0-beta.1`
+  entry. The repository's own `CHANGELOG.md` has no such heading; that work ships for the first time
+  inside 3.0.0. Its 3.0.0 entry also described the wrong release, listing V3.1–V3.4 feature bullets
+  instead of the capability gate and seven repairs this version is actually about.
+- **`20_Features/` needed a gating statement in all eight notes**, which is expected: they describe
+  precisely the features this release gated.
+- The two instances previously recorded here — `Plugin_Actions.md`'s unregistered `Ctrl+Alt+A` and
+  `F2`/`Shift+F2` shortcuts, and `Fix_Preview_UX.md`'s "side-by-side" diff claim — are fixed.
+- `00_Meta/Vault_Index.md`'s 30 wikilinks were all verified to resolve. No dead links.
+
+**The vault remains a lower-assurance tier, and that has not changed.** Unlike this document,
+`README.md`, `plugin.xml` and `site/index.html`, no test opens the vault, so nothing prevents it
+drifting again. It now sits in the same category as `CHANGELOG.md` and `DATA_HANDLING.md`:
+reviewed against source once, at a known date, not continuously guarded.
 
 ## See also
 

@@ -14,6 +14,16 @@ tags:
 
 Rule Packs are curated, togglable rule bundles that allow users to enable or disable groups of rules for specific frameworks, libraries, or security domains per project.
 
+> **Gating status (3.0.0):** gated by `AegisCapability.RULE_PACKS`. `RulePackService.packRules()`
+> — the only method that feeds pack rules into analysis — opens with
+> `AegisCapabilityGate.skipIfGated(AegisCapability.RULE_PACKS)` and returns an empty list while gated
+> (`RulePackService.kt:68`). The loading, discovery, and precedence mechanics below are real code,
+> covered by `RulePackServiceTest`, and reachable through `CustomRuleService.loadRules()` (which calls
+> `packRules()` and merges the result) — but with the gate on, `packRules()` never gets past its first
+> line, so in 3.0.0 no pack rule ever reaches `CustomRuleAnalyzer`, regardless of which packs are
+> toggled on via `ToggleRuleAction`. Verbatim from `AegisCapability.kt`: "The three bundled packs
+> cannot currently match real code, so enabling them would add controls that never produce a finding."
+
 ## Bundled Packs
 Aegis Debug ships with three bundled rule packs stored as YAML resources:
 1. **React Strict Practices** (`react-strict.yml`) — Enforces clean React lifecycle, hook discipline, and prevents direct state mutation or `eval`.

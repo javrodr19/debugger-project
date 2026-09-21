@@ -36,7 +36,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - `./gradlew compileKotlin` — Compiles Kotlin source code.
 - `./gradlew test` — Runs the complete test suite.
 - `./gradlew test --tests "com.ghostdebugger.*"` — Runs specific test classes.
-- `./gradlew verifyPlugin` — Runs the IntelliJ Plugin Verifier against target IDE versions (e.g., 2024.3, 2025.1).
+- `./gradlew verifyPlugin` — Runs the IntelliJ Plugin Verifier against target IDE versions (2024.3.2.2, 2025.1, 2026.1, 2026.2 — see `pluginVerification` in `build.gradle.kts`).
 - `./gradlew buildPlugin` — Packages the plugin zip file to `build/distributions/ghostdebugger-<version>.zip`.
 
 ## 3. Writing Tests

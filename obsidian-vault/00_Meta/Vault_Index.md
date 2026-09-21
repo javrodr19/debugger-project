@@ -20,18 +20,18 @@ Welcome to the Aegis Debug knowledge vault. Aegis Debug is a high-performance In
 
 ## Features
 - [[Static_Analyzers]] — 12 deterministic static analyzers.
-- [[Deterministic_Fixers]] — One-click PSI-valid fixes.
+- [[Deterministic_Fixers]] — PSI-valid fix engine; fix *application* is gated in 3.0.0 (read-only release — see [[Roadmap]]).
 - [[V2_Dynamic_Validation]] — Runtime confirmation, debug & test runner cross-checks.
 - [[Custom_Rule_Authoring]] — Declarative YAML rules in `.aegis/rules/` (V3.1).
 - [[Rule_Packs]] — Curated and project-level rule packs (V3.2).
 - [[Fix_Preview_UX]] — Line/hunk diff previews for fixes (V3.3).
 - [[External_Analyzer_SDK]] — Dynamic JAR analyzer plugins (V3.4).
-- [[Plugin_Actions]] — Editor popup & keymap action suite (Batches 1–3).
+- [[Plugin_Actions]] — Editor popup and Tools-menu action suite; only `Analyze` has a registered keyboard shortcut (`Ctrl+Alt+G`).
 
 ## Meta & History
 - [[Roadmap]] — High-level roadmap from V2 to V5.
 - [[Changelog]] — Release history and highlights.
-- [[CI_and_Release_Automation]] — GitHub Actions CI & release packaging.
+- [[CI_and_Release_Automation]] — GitHub Actions CI, release packaging, and site deploy.
 
 ## Architecture
 - [[GhostDebuggerService]] — Facade & single source of truth for project state.

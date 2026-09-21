@@ -27,7 +27,8 @@ Agents must strictly follow the [[Project_Principles]].
 - **Tags**: `v.<version>` (e.g., `v.1.5.0`).
 
 ## 4. Documenting Changes
-Every non-trivial change needs a **Spec** and a **Plan** (see `30_Specs_and_Plans/`).
+Every non-trivial change needs a **Spec** and a **Plan**. These live in the repository, not the
+vault (there is no vault folder for them):
 - Specs live in `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
 - Plans live in `docs/superpowers/plans/YYYY-MM-DD-<topic>.md`.
 - Changes must be documented in `plugin.xml`'s `<change-notes>` section.
